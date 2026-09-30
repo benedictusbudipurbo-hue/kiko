@@ -101,6 +101,26 @@
   label.saklar input { width: 18px; height: 18px; accent-color: var(--mata); }
   .petunjuk { font-size: 12px; color: var(--redup); line-height: 1.6; margin: 0; }
 
+  /* ---------- Ngobrol: tombol mikrofon & teks ---------- */
+  #tombolBicara {
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: 64px; height: 64px; margin-left: -32px; border-radius: 50%;
+    border: 1px solid var(--garis); background: rgba(10,17,19,.72); color: var(--teks);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  #tombolBicara.dengar { background: #d8433a; color: #fff; border-color: #d8433a; animation: denyutMik 1s ease-in-out infinite; }
+  #tombolBicara.pikir { opacity: .5; }
+  @keyframes denyutMik { 50% { transform: scale(1.08); } }
+  #teksBicara {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    max-width: min(80vw, 640px); margin: 0; padding: 8px 14px; border-radius: 12px;
+    background: rgba(0,0,0,.6); color: #fff; font-size: 15px; line-height: 1.4; text-align: center;
+    pointer-events: none;
+  }
+  .isian { font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--garis); background: transparent; color: var(--teks); width: 100%; box-sizing: border-box; }
+  .isian:focus-visible { outline: 2px solid var(--mata); outline-offset: 2px; }
+
   /* ---------- Pratinjau kamera (uji pelacakan wajah) ---------- */
   #pratinjauKamera {
     position: fixed; left: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
@@ -146,6 +166,11 @@
 
 <canvas id="pratinjauKamera" width="160" height="120" hidden aria-label="Pratinjau kamera depan untuk uji pelacakan wajah"></canvas>
 
+<p id="teksBicara" hidden></p>
+<button id="tombolBicara" type="button" hidden aria-label="Bicara dengan KiKo">
+  <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+</button>
+
 <div id="setir" hidden>
   <div id="setirPad" role="application" aria-label="Joystick setir KiKo: geser ke atas untuk maju, ke samping untuk berbelok"><div id="setirKenop"></div></div>
   <span id="setirInfo">Base belum terhubung</span>
@@ -182,6 +207,15 @@
     <label class="saklar"><input type="checkbox" id="cekKamera"> Tampilkan gambar kamera (untuk uji)</label>
     <p class="petunjuk" id="statusWajah" role="status">Mati.</p>
     <p class="petunjuk">Gambar kamera diproses di HP saja dan tidak dikirim ke mana pun. Hanya jalan di versi GitHub Pages, tidak di link artifact.</p>
+  </div>
+
+  <div class="bagian">
+    <h2>Ngobrol (AI)</h2>
+    <label for="inputWorker" class="petunjuk">Alamat Cloudflare Worker KiKo</label>
+    <input class="isian" id="inputWorker" type="url" inputmode="url" placeholder="https://kiko.akun-anda.workers.dev" autocomplete="off" spellcheck="false">
+    <label class="saklar"><input type="checkbox" id="cekSuara" checked> Ucapkan jawaban dengan suara</label>
+    <p class="petunjuk" id="statusAi" role="status">Isi alamat Worker untuk memunculkan tombol mikrofon.</p>
+    <p class="petunjuk">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
   </div>
 
   <div class="bagian">
@@ -763,6 +797,7 @@
     if (fase === 'pasang') dyTambah = gaya === 'realistis' ? -0.16 : -0.3;
     if (sentuh.elus && !kurangGerak) dyTambah += 0.025 * Math.sin(now / 70); // bergoyang geli saat dielus
     if (mood === 'tidur' && !kurangGerak) dyTambah += 0.012 * Math.sin(now / 900); // napas
+    if (ai.bicara && !kurangGerak) dyTambah += 0.008 * Math.sin(now / 55);          // bergetar kecil saat bicara
 
     const kedipan = nilaiKedip(now, mood);
     if (gaya === 'realistis') {
@@ -809,6 +844,7 @@
     // Pelacakan wajah yang dinyalakan di sesi sebelumnya langsung jalan lagi
     // (izin kamera yang sudah diberikan diingat Chrome per situs).
     if (cekWajah.checked) mulaiWajah();
+    perbaruiTombolBicara();
     tombolAtur.hidden = false;
     samarkanTombolAtur();
   }
@@ -979,6 +1015,9 @@
       fase = 'pasang';
       tutupPanel();
       tombolAtur.hidden = true;
+      perbaruiTombolBicara();
+      tampilTeks('');
+      if (window.speechSynthesis) speechSynthesis.cancel();
       lepasSetir();
       elSetir.hidden = true;
       document.getElementById('tombolSetir').textContent = 'Tampilkan setir';
@@ -1344,6 +1383,142 @@
     pratinjau.hidden = !(cekKamera.checked && wajah.aktif);
   });
 
+  // =====================================================================
+  //  NGOBROL (langkah 5): dengar -> Worker -> Claude -> ucapkan + ekspresi
+  //  - Dengar : Web Speech API (webkitSpeechRecognition) bahasa id-ID.
+  //  - Pikir  : POST {pesan, riwayat} ke Cloudflare Worker milik pengguna
+  //             (KiKo/server/kiko_worker.js, Workers AI gratis). Kunci/akses
+  //             AI hanya ada di Worker, TIDAK di file ini (repo GitHub publik).
+  //  - Jawab  : speechSynthesis id-ID + ekspresi dari jawaban. Ekspresi
+  //             lewat mood biasa, jadi leher base ikut bergerak (perintah E).
+  // =====================================================================
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const MAKS_RIWAYAT_AI = 10;
+  const ai = { url: '', riwayat: [], tahap: 'diam', bicara: false, timerTeks: 0 };   // tahap: diam | dengar | pikir
+  const tombolBicara = document.getElementById('tombolBicara');
+  const elTeksBicara = document.getElementById('teksBicara');
+  const inputWorker = document.getElementById('inputWorker');
+  const cekSuara = document.getElementById('cekSuara');
+  const elStatusAi = document.getElementById('statusAi');
+  const statusAi = t => { elStatusAi.textContent = t; };
+
+  function tampilTeks(teks, lamaMs) {
+    clearTimeout(ai.timerTeks);
+    elTeksBicara.textContent = teks;
+    elTeksBicara.hidden = !teks;
+    if (teks && lamaMs) ai.timerTeks = setTimeout(() => { elTeksBicara.hidden = true; }, lamaMs);
+  }
+
+  function perbaruiTombolBicara() {
+    tombolBicara.hidden = !(fase === 'hidup' && ai.url);
+    tombolBicara.classList.toggle('dengar', ai.tahap === 'dengar');
+    tombolBicara.classList.toggle('pikir', ai.tahap === 'pikir');
+  }
+
+  function aturTahap(t) { ai.tahap = t; perbaruiTombolBicara(); }
+
+  function mulaiDengar() {
+    if (!ai.url || fase !== 'hidup') return;
+    if (!SR) { statusAi('Pengenal suara tidak tersedia. Pakai Chrome Android.'); tampilTeks('Pengenal suara tidak tersedia di browser ini.', 4000); return; }
+    if (ai.tahap !== 'diam') return;
+    if (window.speechSynthesis) speechSynthesis.cancel();      // memotong KiKo yang sedang bicara
+    interaksi();
+
+    const r = new SR();
+    r.lang = 'id-ID';
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    let dapat = false;
+    r.onresult = e => {
+      dapat = true;
+      const teks = (e.results[0] && e.results[0][0] && e.results[0][0].transcript || '').trim();
+      if (teks) tanyaKiKo(teks); else aturTahap('diam');
+    };
+    r.onerror = e => {
+      const pesan = e.error === 'not-allowed' ? 'Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.' :
+                    e.error === 'no-speech' ? 'Tidak terdengar suara. Coba lagi.' :
+                    e.error === 'network' ? 'Pengenal suara butuh internet.' :
+                    'Pengenal suara gagal: ' + e.error;
+      tampilTeks(pesan, 3500);
+      statusAi(pesan);
+    };
+    r.onend = () => { if (!dapat) aturTahap('diam'); };
+    aturTahap('dengar');
+    tampilTeks('Mendengarkan…');
+    ekspresiSingkat('normal', 100);
+    try { r.start(); } catch (_) { aturTahap('diam'); }
+  }
+
+  async function tanyaKiKo(teks) {
+    aturTahap('pikir');
+    tampilTeks('Kamu: ' + teks);
+    // Wajah "berpikir" sampai jawaban datang; mata melirik ke atas.
+    ekspresiSingkat('curiga', 30000);
+    if (!wajah.ada) { pandang.tgt.x = 0.5; pandang.tgt.y = -0.6; berikutLirik = performance.now() + 3000; }
+    try {
+      const res = await fetch(ai.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pesan: teks, riwayat: ai.riwayat }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
+      ai.riwayat.push({ role: 'user', content: teks }, { role: 'assistant', content: data.teks });
+      ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
+      statusAi('Tersambung. Jawaban terakhir: ' + (data.ekspresi || 'normal'));
+      ucapkan(data.teks, data.ekspresi);
+    } catch (err) {
+      const pesan = String(err && err.message || err);
+      statusAi('Gagal: ' + pesan);
+      tampilTeks('Maaf, aku tidak bisa berpikir sekarang. (' + pesan + ')', 5000);
+      ekspresiSingkat('sedih', 2000);
+    } finally {
+      aturTahap('diam');
+    }
+  }
+
+  let suaraId = null;
+  function pilihSuara() {
+    if (!window.speechSynthesis) return;
+    const semua = speechSynthesis.getVoices();
+    suaraId = semua.find(v => /^id([-_]|$)/i.test(v.lang)) || null;
+  }
+  if (window.speechSynthesis) { pilihSuara(); speechSynthesis.onvoiceschanged = pilihSuara; }
+
+  function ucapkan(teks, ekspresi) {
+    const nama = EKSPRESI[ekspresi] ? ekspresi : 'normal';
+    const perkiraan = 1500 + teks.length * 75;                 // kira-kira lama bicara (ms)
+    tampilTeks(teks, perkiraan + 2500);
+    ekspresiSingkat(nama, perkiraan);
+    if (!cekSuara.checked || !window.speechSynthesis) return;
+
+    const u = new SpeechSynthesisUtterance(teks);
+    u.lang = 'id-ID';
+    if (suaraId) u.voice = suaraId;
+    u.rate = 1.05;
+    u.pitch = 1.35;                                            // sedikit lebih tinggi: terdengar seperti robot kecil
+    u.onstart = () => { ai.bicara = true; ekspresiSingkat(nama, 60000); };
+    u.onend = u.onerror = () => { ai.bicara = false; ekspresiSingkat(nama, 700); };
+    speechSynthesis.speak(u);
+  }
+
+  try { ai.url = localStorage.getItem('kiko.worker') || ''; } catch (_) {}
+  try { cekSuara.checked = localStorage.getItem('kiko.suara') !== '0'; } catch (_) {}
+  inputWorker.value = ai.url;
+  inputWorker.addEventListener('change', () => {
+    const nilai = inputWorker.value.trim().replace(/\/+$/, '');
+    if (nilai && !/^https:\/\//i.test(nilai)) { statusAi('Alamat harus diawali https://'); return; }
+    ai.url = nilai;
+    try { localStorage.setItem('kiko.worker', nilai); } catch (_) {}
+    statusAi(nilai ? 'Tersimpan. Tombol mikrofon muncul di bawah wajah.' : 'Isi alamat Worker untuk memunculkan tombol mikrofon.');
+    perbaruiTombolBicara();
+  });
+  cekSuara.addEventListener('change', () => {
+    try { localStorage.setItem('kiko.suara', cekSuara.checked ? '1' : '0'); } catch (_) {}
+    if (!cekSuara.checked && window.speechSynthesis) speechSynthesis.cancel();
+  });
+  tombolBicara.addEventListener('click', mulaiDengar);
+
   // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
   // berguna saat base baru berisi servo pan/tilt tanpa motor (uji leher).
   let modeSetir = 'roda';
@@ -1433,6 +1608,7 @@
     else if (k === ' ') { e.preventDefault(); interaksi(); kedipSekarang(); }
     else if (k === 'f') layarPenuh();
     else if (k === 'a') panelTerbuka ? tutupPanel() : bukaPanel();
+    else if (k === 'm') mulaiDengar();
     else if (k === 'escape') tutupPanel();
   });
 
