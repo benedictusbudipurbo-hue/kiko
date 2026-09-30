@@ -101,6 +101,13 @@
   label.saklar input { width: 18px; height: 18px; accent-color: var(--mata); }
   .petunjuk { font-size: 12px; color: var(--redup); line-height: 1.6; margin: 0; }
 
+  /* ---------- Pratinjau kamera (uji pelacakan wajah) ---------- */
+  #pratinjauKamera {
+    position: fixed; left: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
+    width: 160px; height: 120px; border-radius: 8px; border: 1px solid var(--garis);
+    background: #000; pointer-events: none;
+  }
+
   /* ---------- Joystick setir ---------- */
   #setir {
     position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -137,6 +144,8 @@
 
 <button id="bukaAtur" type="button" hidden>ATUR</button>
 
+<canvas id="pratinjauKamera" width="160" height="120" hidden aria-label="Pratinjau kamera depan untuk uji pelacakan wajah"></canvas>
+
 <div id="setir" hidden>
   <div id="setirPad" role="application" aria-label="Joystick setir KiKo: geser ke atas untuk maju, ke samping untuk berbelok"><div id="setirKenop"></div></div>
   <span id="setirInfo">Base belum terhubung</span>
@@ -165,6 +174,14 @@
     <h2>Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> Kepala ikut lirikan mata (butuh firmware base Ver 3)</label>
+  </div>
+
+  <div class="bagian">
+    <h2>Pelacakan wajah</h2>
+    <label class="saklar"><input type="checkbox" id="cekWajah"> Ikuti wajah orang (kamera depan)</label>
+    <label class="saklar"><input type="checkbox" id="cekKamera"> Tampilkan gambar kamera (untuk uji)</label>
+    <p class="petunjuk" id="statusWajah" role="status">Mati.</p>
+    <p class="petunjuk">Gambar kamera diproses di HP saja dan tidak dikirim ke mana pun. Hanya jalan di versi GitHub Pages, tidak di link artifact.</p>
   </div>
 
   <div class="bagian">
@@ -716,8 +733,14 @@
       berikutSpontan = now + acak(9000, 18000);
     }
 
-    // Lirikan: ikut jari saat disentuh, selain itu melirik acak.
-    if (!sentuh.aktif && !setir.aktif && now > berikutLirik) {
+    // Lirikan: ikut jari saat disentuh, ikut wajah orang kalau terlihat kamera,
+    // selain itu melirik acak.
+    if (wajah.ada && !sentuh.aktif && !setir.aktif) {
+      // Dihaluskan per frame supaya mata tidak ikut "bergetar" oleh derau deteksi.
+      pandang.tgt.x += (wajah.x - pandang.tgt.x) * 0.25;
+      pandang.tgt.y += (wajah.y - pandang.tgt.y) * 0.25;
+      berikutLirik = now + 800;   // setelah wajah hilang, tunggu sebentar sebelum melirik acak lagi
+    } else if (!sentuh.aktif && !setir.aktif && now > berikutLirik) {
       if (mood === 'tidur') { pandang.tgt.x = 0; pandang.tgt.y = 0.2; }
       else if (Math.random() < 0.6) { pandang.tgt.x = acak(-0.25, 0.25); pandang.tgt.y = acak(-0.2, 0.2); }
       else { pandang.tgt.x = acak(-1, 1); pandang.tgt.y = acak(-0.7, 0.7); }
@@ -783,6 +806,9 @@
     terakhirInteraksi = performance.now();
     berikutSpontan = terakhirInteraksi + acak(9000, 16000);
     setTimeout(() => kedipSekarang(), 700);
+    // Pelacakan wajah yang dinyalakan di sesi sebelumnya langsung jalan lagi
+    // (izin kamera yang sudah diberikan diingat Chrome per situs).
+    if (cekWajah.checked) mulaiWajah();
     tombolAtur.hidden = false;
     samarkanTombolAtur();
   }
@@ -1139,6 +1165,180 @@
       kirim(`L,${pan},${tilt}`);
     }
   }
+
+  // =====================================================================
+  //  PELACAKAN WAJAH (langkah 4)
+  //  MediaPipe Face Detector (BlazeFace short range) membaca kamera depan
+  //  +-10x per detik. Posisi wajah terbesar menjadi arah pandang mata;
+  //  kepala otomatis ikut lewat kirimLirikan() (perintah L).
+  //  Gambar kamera diproses di HP saja. Dari internet hanya diunduh library
+  //  (jsDelivr) dan model (+-230 KB, Google Storage), sekali lalu di-cache browser.
+  //  Di link artifact claude.ai kamera dan unduhan model diblokir; fitur ini
+  //  hanya jalan di versi GitHub Pages.
+  // =====================================================================
+  const MP_VERSI = '1.0.1';
+  const MP_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSI}`;
+  const MODEL_WAJAH = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+  const INTERVAL_DETEKSI = 100;      // ms; lebih sering tidak membuat gerakan lebih halus, hanya boros baterai
+  // Kamera depan lebih sempit dari jangkauan lirikan mata, jadi posisi wajah
+  // diperbesar: orang di tepi gambar = mata melirik penuh ke tepi.
+  const PENGUAT_X = 1.4, PENGUAT_Y = 1.2;
+  const WAJAH_DEKAT = 0.55;          // lebar wajah > 55% lebar gambar = terlalu dekat -> kaget
+
+  const wajah = {
+    aktif: false, memuat: false, detektor: null, stream: null, video: null, timer: 0,
+    ada: false, x: 0, y: 0, lebar: 0, terakhirLihat: 0, terakhirKaget: 0, waktuVideo: -1,
+  };
+  const cekWajah = document.getElementById('cekWajah');
+  const cekKamera = document.getElementById('cekKamera');
+  const elStatusWajah = document.getElementById('statusWajah');
+  const pratinjau = document.getElementById('pratinjauKamera');
+  const pctx = pratinjau.getContext('2d');
+  const statusWajah = t => { elStatusWajah.textContent = t; };
+
+  async function mulaiWajah() {
+    if (wajah.aktif || wajah.memuat) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      statusWajah('Kamera tidak tersedia di browser ini.');
+      cekWajah.checked = false;
+      return;
+    }
+    wajah.memuat = true;
+    try {
+      statusWajah('Meminta izin kamera…');
+      wajah.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: false,
+      });
+      if (!wajah.video) {
+        wajah.video = document.createElement('video');
+        wajah.video.muted = true;
+        wajah.video.playsInline = true;
+        wajah.video.setAttribute('playsinline', '');
+      }
+      wajah.video.srcObject = wajah.stream;
+      await wajah.video.play();
+
+      if (!wajah.detektor) {
+        statusWajah('Memuat model deteksi wajah…');
+        const { FaceDetector, FilesetResolver } = await import(`${MP_URL}/vision_bundle.mjs`);
+        const fileset = await FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
+        const opsi = delegate => ({
+          baseOptions: { modelAssetPath: MODEL_WAJAH, delegate },
+          runningMode: 'VIDEO',
+          minDetectionConfidence: 0.5,
+        });
+        // GPU jauh lebih hemat di HP; beberapa HP tidak mendukung -> jatuh ke CPU.
+        try { wajah.detektor = await FaceDetector.createFromOptions(fileset, opsi('GPU')); }
+        catch (_) { wajah.detektor = await FaceDetector.createFromOptions(fileset, opsi('CPU')); }
+      }
+      if (!cekWajah.checked) { hentikanWajah(); statusWajah('Mati.'); return; }   // dimatikan saat masih memuat
+
+      wajah.aktif = true;
+      statusWajah('Aktif. Mencari wajah…');
+      clearInterval(wajah.timer);
+      wajah.timer = setInterval(deteksiWajah, INTERVAL_DETEKSI);
+      pratinjau.hidden = !cekKamera.checked;
+    } catch (err) {
+      const nama = err && err.name;
+      hentikanWajah();
+      cekWajah.checked = false;
+      try { localStorage.setItem('kiko.wajah', '0'); } catch (_) {}
+      statusWajah(
+        nama === 'NotAllowedError' ? 'Izin kamera ditolak. Izinkan kamera untuk situs ini di pengaturan Chrome, lalu nyalakan lagi.' :
+        nama === 'NotFoundError' ? 'Kamera depan tidak ditemukan.' :
+        'Gagal memulai: ' + (err && err.message ? err.message : err) + ' (di link artifact claude.ai kamera memang diblokir; pakai versi GitHub Pages).'
+      );
+    } finally {
+      wajah.memuat = false;
+    }
+  }
+
+  function hentikanWajah() {
+    clearInterval(wajah.timer);
+    wajah.aktif = false;
+    wajah.ada = false;
+    if (wajah.stream) { wajah.stream.getTracks().forEach(t => t.stop()); wajah.stream = null; }
+    pratinjau.hidden = true;
+  }
+
+  function deteksiWajah() {
+    const v = wajah.video;
+    if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
+    if (v.currentTime === wajah.waktuVideo) return;          // belum ada frame baru
+    wajah.waktuVideo = v.currentTime;
+    const now = performance.now();
+
+    let hasil;
+    try { hasil = wajah.detektor.detectForVideo(v, now); } catch (_) { return; }
+    // Kalau ada beberapa orang, ikuti wajah terbesar (paling dekat).
+    let terbaik = null;
+    for (const d of (hasil && hasil.detections) || []) {
+      if (!terbaik || d.boundingBox.width > terbaik.boundingBox.width) terbaik = d;
+    }
+
+    if (terbaik) {
+      const b = terbaik.boundingBox, vw = v.videoWidth, vh = v.videoHeight;
+      const cx = (b.originX + b.width / 2) / vw;
+      const cy = (b.originY + b.height * 0.4) / vh;           // 0.4: kira-kira setinggi mata
+      // Gambar kamera depan TIDAK dicermin: orang di sisi kanan layar (dilihat
+      // dari depan HP) muncul di sisi kiri gambar. Mata harus melirik ke kanan layar.
+      wajah.x = batas((0.5 - cx) * 2 * PENGUAT_X, -1, 1);
+      wajah.y = batas((cy - 0.5) * 2 * PENGUAT_Y, -1, 1);
+      wajah.lebar = b.width / vw;
+
+      const baruMuncul = !wajah.ada && now - wajah.terakhirLihat > 3000;
+      wajah.ada = true;
+      wajah.terakhirLihat = now;
+      if (fase === 'hidup') {
+        if (baruMuncul) {
+          // Menyapa orang yang baru datang. Kalau sedang tidur, interaksi()
+          // sudah membangunkan dengan kaget, jadi tidak ditimpa senang.
+          const sedangTidur = moodSaatIni(now) === 'tidur';
+          interaksi();
+          if (!sedangTidur) ekspresiSingkat('senang', 1300);
+        } else {
+          terakhirInteraksi = now;                             // ada orang: jangan mengantuk/tidur
+        }
+        if (wajah.lebar > WAJAH_DEKAT && now - wajah.terakhirKaget > 6000) {
+          wajah.terakhirKaget = now;
+          kedipSekarang();
+          ekspresiSingkat('kaget', 900);
+        }
+      }
+      statusWajah('Aktif. Wajah terdeteksi.');
+    } else if (wajah.ada && now - wajah.terakhirLihat > 700) {
+      wajah.ada = false;                                       // hilang sebentar dimaafkan (kedip, menoleh)
+      statusWajah('Aktif. Mencari wajah…');
+    }
+
+    if (!pratinjau.hidden) gambarPratinjau(v, terbaik);
+  }
+
+  // Pratinjau kecil untuk uji: gambar dicermin supaya terasa seperti kaca.
+  function gambarPratinjau(v, deteksi) {
+    const w = pratinjau.width, h = pratinjau.height;
+    pctx.save();
+    pctx.translate(w, 0); pctx.scale(-1, 1);
+    pctx.drawImage(v, 0, 0, w, h);
+    pctx.restore();
+    if (deteksi) {
+      const b = deteksi.boundingBox, sx = w / v.videoWidth, sy = h / v.videoHeight;
+      pctx.strokeStyle = '#7dff9a';
+      pctx.lineWidth = 2;
+      pctx.strokeRect(w - (b.originX + b.width) * sx, b.originY * sy, b.width * sx, b.height * sy);
+    }
+  }
+
+  try { cekWajah.checked = localStorage.getItem('kiko.wajah') === '1'; } catch (_) {}
+  try { cekKamera.checked = localStorage.getItem('kiko.kamera') === '1'; } catch (_) {}
+  cekWajah.addEventListener('change', () => {
+    try { localStorage.setItem('kiko.wajah', cekWajah.checked ? '1' : '0'); } catch (_) {}
+    if (cekWajah.checked) mulaiWajah(); else { hentikanWajah(); statusWajah('Mati.'); }
+  });
+  cekKamera.addEventListener('change', () => {
+    try { localStorage.setItem('kiko.kamera', cekKamera.checked ? '1' : '0'); } catch (_) {}
+    pratinjau.hidden = !(cekKamera.checked && wajah.aktif);
+  });
 
   // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
   // berguna saat base baru berisi servo pan/tilt tanpa motor (uji leher).
