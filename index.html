@@ -214,6 +214,7 @@
     <label for="inputWorker" class="petunjuk">Alamat Cloudflare Worker KiKo</label>
     <input class="isian" id="inputWorker" type="url" inputmode="url" placeholder="https://kiko.akun-anda.workers.dev" autocomplete="off" spellcheck="false">
     <label class="saklar"><input type="checkbox" id="cekSuara" checked> Ucapkan jawaban dengan suara</label>
+    <label class="saklar"><input type="checkbox" id="cekDengarOtomatis" checked> Dengar otomatis saat ada wajah menatap KiKo (butuh Pelacakan wajah)</label>
     <p class="petunjuk" id="statusAi" role="status">Isi alamat Worker untuk memunculkan tombol mikrofon.</p>
     <p class="petunjuk">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
   </div>
@@ -1417,12 +1418,16 @@
 
   function aturTahap(t) { ai.tahap = t; perbaruiTombolBicara(); }
 
-  function mulaiDengar() {
+  // otomatis = dimulai sendiri karena ada wajah (mode "Lihat KiKo = bicara"),
+  // bukan dari tombol. Bedanya: galat "tidak ada suara" tidak ditampilkan,
+  // dan KiKo tidak memotong dirinya sendiri yang sedang bicara.
+  function mulaiDengar(otomatis = false) {
     if (!ai.url || fase !== 'hidup') return;
     if (!SR) { statusAi('Pengenal suara tidak tersedia. Pakai Chrome Android.'); tampilTeks('Pengenal suara tidak tersedia di browser ini.', 4000); return; }
     if (ai.tahap !== 'diam') return;
-    if (window.speechSynthesis) speechSynthesis.cancel();      // memotong KiKo yang sedang bicara
-    interaksi();
+    if (otomatis && ai.bicara) return;
+    if (window.speechSynthesis) speechSynthesis.cancel();      // tombol: memotong KiKo yang sedang bicara
+    if (!otomatis) interaksi();
 
     const r = new SR();
     r.lang = 'id-ID';
@@ -1430,24 +1435,64 @@
     r.maxAlternatives = 1;
     let dapat = false;
     r.onresult = e => {
-      dapat = true;
       const teks = (e.results[0] && e.results[0][0] && e.results[0][0].transcript || '').trim();
-      if (teks) tanyaKiKo(teks); else aturTahap('diam');
+      if (teks.length >= 2) {
+        dapat = true;
+        ai.jedaDengar = JEDA_DENGAR_MIN;                        // ada orang bicara: siap mendengar cepat lagi
+        tanyaKiKo(teks);
+      }
     };
     r.onerror = e => {
+      if (otomatis && (e.error === 'no-speech' || e.error === 'aborted')) return;   // sunyi itu normal
       const pesan = e.error === 'not-allowed' ? 'Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.' :
                     e.error === 'no-speech' ? 'Tidak terdengar suara. Coba lagi.' :
                     e.error === 'network' ? 'Pengenal suara butuh internet.' :
                     'Pengenal suara gagal: ' + e.error;
+      if (e.error === 'not-allowed' && cekDengarOtomatis.checked) {
+        cekDengarOtomatis.checked = false;                      // jangan mencoba terus tanpa izin
+        simpanDengarOtomatis();
+      }
       tampilTeks(pesan, 3500);
       statusAi(pesan);
     };
-    r.onend = () => { if (!dapat) aturTahap('diam'); };
+    r.onend = () => {
+      if (dapat) return;                                        // tanyaKiKo yang melanjutkan
+      aturTahap('diam');
+      if (otomatis) {
+        // Sesi sunyi: tunggu makin lama sebelum mendengar lagi, supaya Chrome
+        // tidak berbunyi "bip" mulai-dengar terus-menerus saat tidak ada yang bicara.
+        ai.dengarBerikut = performance.now() + ai.jedaDengar;
+        ai.jedaDengar = Math.min(JEDA_DENGAR_MAKS, ai.jedaDengar * 2);
+        tampilTeks('');
+      }
+    };
     aturTahap('dengar');
-    tampilTeks('Mendengarkan…');
-    ekspresiSingkat('normal', 100);
+    tampilTeks(otomatis ? 'Aku mendengarkan…' : 'Mendengarkan…');
+    if (!otomatis) ekspresiSingkat('normal', 100);
     try { r.start(); } catch (_) { aturTahap('diam'); }
   }
+
+  // ---------- Mode "Lihat KiKo = bicara" ----------
+  // Selama pelacakan wajah melihat seseorang, KiKo mendengar sendiri. Jeda
+  // antar-sesi dengar mulai 1,5 detik dan berlipat sampai 12 detik kalau tidak
+  // ada yang bicara; kembali cepat begitu ada suara atau orang baru datang.
+  const JEDA_DENGAR_MIN = 1500, JEDA_DENGAR_MAKS = 12000;
+  ai.jedaDengar = JEDA_DENGAR_MIN;
+  ai.dengarBerikut = 0;
+  const cekDengarOtomatis = document.getElementById('cekDengarOtomatis');
+  function simpanDengarOtomatis() {
+    try { localStorage.setItem('kiko.dengarOtomatis', cekDengarOtomatis.checked ? '1' : '0'); } catch (_) {}
+  }
+  let wajahTadi = false;
+  setInterval(() => {
+    const now = performance.now();
+    const adaWajah = wajah.ada;
+    if (adaWajah && !wajahTadi) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = now + 800; }   // orang baru datang
+    wajahTadi = adaWajah;
+    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden) return;
+    if (!adaWajah || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
+    mulaiDengar(true);
+  }, 300);
 
   async function tanyaKiKo(teks) {
     aturTahap('pikir');
@@ -1490,7 +1535,10 @@
     const perkiraan = 1500 + teks.length * 75;                 // kira-kira lama bicara (ms)
     tampilTeks(teks, perkiraan + 2500);
     ekspresiSingkat(nama, perkiraan);
-    if (!cekSuara.checked || !window.speechSynthesis) return;
+    if (!cekSuara.checked || !window.speechSynthesis) {
+      ai.dengarBerikut = performance.now() + Math.min(perkiraan, 4000);   // beri waktu membaca teks
+      return;
+    }
 
     const u = new SpeechSynthesisUtterance(teks);
     u.lang = 'id-ID';
@@ -1498,8 +1546,19 @@
     u.rate = 1.05;
     u.pitch = 1.35;                                            // sedikit lebih tinggi: terdengar seperti robot kecil
     u.onstart = () => { ai.bicara = true; ekspresiSingkat(nama, 60000); };
-    u.onend = u.onerror = () => { ai.bicara = false; ekspresiSingkat(nama, 700); };
+    u.onend = u.onerror = () => {
+      ai.bicara = false;
+      ekspresiSingkat(nama, 700);
+      // Mode otomatis: beri jeda sebentar supaya KiKo tidak mendengar ekor suaranya sendiri.
+      ai.dengarBerikut = performance.now() + 600;
+    };
+    ai.bicara = true;                                          // dianggap bicara sejak diantrikan, bukan sejak onstart
     speechSynthesis.speak(u);
+    // Pengaman: di sebagian HP Android onend kadang tidak pernah dipanggil.
+    // Tanpa ini ai.bicara macet true dan mode dengar otomatis berhenti selamanya.
+    setTimeout(() => {
+      if (ai.bicara && !speechSynthesis.speaking) { ai.bicara = false; ai.dengarBerikut = performance.now() + 600; }
+    }, perkiraan + 4000);
   }
 
   try { ai.url = localStorage.getItem('kiko.worker') || ''; } catch (_) {}
@@ -1517,7 +1576,13 @@
     try { localStorage.setItem('kiko.suara', cekSuara.checked ? '1' : '0'); } catch (_) {}
     if (!cekSuara.checked && window.speechSynthesis) speechSynthesis.cancel();
   });
-  tombolBicara.addEventListener('click', mulaiDengar);
+  tombolBicara.addEventListener('click', () => mulaiDengar(false));
+  try { cekDengarOtomatis.checked = localStorage.getItem('kiko.dengarOtomatis') !== '0'; } catch (_) {}
+  cekDengarOtomatis.addEventListener('change', () => {
+    simpanDengarOtomatis();
+    ai.jedaDengar = JEDA_DENGAR_MIN;
+    if (cekDengarOtomatis.checked && !cekWajah.checked) statusAi('Nyalakan juga "Ikuti wajah orang" di Pelacakan wajah; KiKo mendengar saat melihat wajah.');
+  });
 
   // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
   // berguna saat base baru berisi servo pan/tilt tanpa motor (uji leher).
