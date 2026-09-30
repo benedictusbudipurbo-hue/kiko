@@ -164,6 +164,7 @@
   <div class="bagian">
     <h2>Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
+    <label class="saklar"><input type="checkbox" id="cekLirik" checked> Kepala ikut lirikan mata (butuh firmware base Ver 3)</label>
   </div>
 
   <div class="bagian">
@@ -760,6 +761,7 @@
       ctx.shadowBlur = 0;
     }
 
+    kirimLirikan(now);
     if (mood === 'tidur') gambarZzz(now);
     requestAnimationFrame(bingkai);
   }
@@ -1108,6 +1110,36 @@
     pandang.tgt.x = dx; pandang.tgt.y = dy * 0.6;
   }
 
+  // =====================================================================
+  //  KEPALA IKUT LIRIKAN MATA (firmware Ver 3+, perintah "L,pan,tilt")
+  //  L adalah offset kecil yang ditambahkan firmware di atas pose ekspresi
+  //  dan gestur. Kalau dikirim sebagai S, angguk/geleng terpotong dan pose
+  //  sedih hilang.
+  //  Arah pan: layar HP menghadap orang, jadi mata melirik ke KANAN LAYAR =
+  //  KiKo menoleh ke KIRI-nya sendiri (pan firmware: lebih besar = kanan KiKo).
+  //  Kalau di dudukan ternyata terbalik, ubah ARAH_PAN_LIRIK ke +1.
+  // =====================================================================
+  const ARAH_PAN_LIRIK = -1;
+  const LIRIK_PAN = 25, LIRIK_TILT = 10;   // derajat pada lirikan penuh (firmware membatasi +-25 / +-12)
+  let kepalaIkutMata = true;
+  const lirik = { pan: 0, tilt: 0, waktu: 0 };
+
+  function kirimLirikan(now) {
+    if (!kepalaIkutMata || !ble.terhubung || fase !== 'hidup') return;
+    if (setir.aktif && modeSetir === 'kepala') return;   // joystick kepala sedang memegang kendali
+    // Pakai target lirikan (bukan posisi pegas): berubah per lirikan saja,
+    // jadi jumlah pesan BLE sedikit; kehalusan gerak diurus firmware.
+    const pan = Math.round(ARAH_PAN_LIRIK * pandang.tgt.x * LIRIK_PAN);
+    const tilt = Math.round(-pandang.tgt.y * LIRIK_TILT);   // mata ke atas = mendongak
+    const berubah = Math.abs(pan - lirik.pan) >= 2 || Math.abs(tilt - lirik.tilt) >= 2;
+    // Kirim saat berubah (maks 10x/detik), atau tiap 800 ms sebagai "detak"
+    // supaya firmware tidak mengembalikan lirikan ke 0 (timeout 2 detik).
+    if ((berubah && now - lirik.waktu > 100) || now - lirik.waktu > 800) {
+      lirik.pan = pan; lirik.tilt = tilt; lirik.waktu = now;
+      kirim(`L,${pan},${tilt}`);
+    }
+  }
+
   // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
   // berguna saat base baru berisi servo pan/tilt tanpa motor (uji leher).
   let modeSetir = 'roda';
@@ -1163,6 +1195,16 @@
   }
   document.querySelectorAll('#pilihSetir .pilih').forEach(b => b.addEventListener('click', () => setModeSetir(b.dataset.mode)));
   try { setModeSetir(localStorage.getItem('kiko.setir') || 'roda'); } catch (_) { setModeSetir('roda'); }
+
+  const cekLirik = document.getElementById('cekLirik');
+  try { kepalaIkutMata = localStorage.getItem('kiko.lirik') !== '0'; } catch (_) {}
+  cekLirik.checked = kepalaIkutMata;
+  cekLirik.addEventListener('change', () => {
+    kepalaIkutMata = cekLirik.checked;
+    if (!kepalaIkutMata) kirim('L,0,0');   // kembalikan kepala ke pose ekspresi
+    lirik.pan = lirik.tilt = 0;
+    try { localStorage.setItem('kiko.lirik', kepalaIkutMata ? '1' : '0'); } catch (_) {}
+  });
 
   document.getElementById('tombolSetir').addEventListener('click', ev => {
     elSetir.hidden = !elSetir.hidden;
