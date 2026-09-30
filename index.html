@@ -1143,9 +1143,13 @@
   //  sedih hilang.
   //  Arah pan: layar HP menghadap orang, jadi mata melirik ke KANAN LAYAR =
   //  KiKo menoleh ke KIRI-nya sendiri (pan firmware: lebih besar = kanan KiKo).
-  //  Kalau di dudukan ternyata terbalik, ubah ARAH_PAN_LIRIK ke +1.
+  //  Riwayat: awalnya -1 (hasil hitungan di atas). Saat uji pelacakan wajah
+  //  (2026-09-30) leher menoleh berlawanan dengan arah orang, jadi dibalik ke
+  //  +1. Kemungkinan orientasi servo pan di dudukan kebalikan dari asumsi
+  //  "pan besar = kanan KiKo". Kalau nanti terbalik lagi setelah dudukan
+  //  diubah, cukup ganti tanda ini.
   // =====================================================================
-  const ARAH_PAN_LIRIK = -1;
+  const ARAH_PAN_LIRIK = 1;
   const LIRIK_PAN = 25, LIRIK_TILT = 10;   // derajat pada lirikan penuh (firmware membatasi +-25 / +-12)
   let kepalaIkutMata = true;
   const lirik = { pan: 0, tilt: 0, waktu: 0 };
