@@ -1,0 +1,1197 @@
+<title>Wajah KiKo</title>
+<meta name="theme-color" content="#000000">
+<!-- Viewport sendiri supaya tampilan benar juga saat file ini di-hosting langsung (GitHub Pages), bukan hanya sebagai artifact. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap">
+<style>
+  /* Wajah KiKo sengaja satu tampilan gelap saja: layar HP adalah "wajah" robot,
+     jadi latar selalu hitam pekat (hemat baterai di layar OLED) apa pun tema viewer. */
+  :root {
+    color-scheme: dark;
+    --latar: #000000;
+    --mata: #9ef6ff;
+    --teks: #d3ecef;
+    --redup: #6f8b8f;
+    --panel: #0a1113;
+    --garis: #1d2e31;
+    --peringatan: #ffb08a;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; background: var(--latar); color: var(--teks); overflow: hidden; }
+  body {
+    margin: 0;
+    font-family: "Chakra Petch", ui-monospace, "Segoe UI", system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #wajah { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ---------- Layar "pasang HP" ---------- */
+  #pasang {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 14px;
+    padding: 24px 16px calc(7vh + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.55) 38%, rgba(0,0,0,0) 62%);
+    text-align: center;
+  }
+  #pasang h1 {
+    margin: 0; font-weight: 600; font-size: clamp(18px, 4.2vmin, 30px);
+    letter-spacing: .28em; color: var(--mata); text-wrap: balance;
+    animation: denyut 2.4s ease-in-out infinite;
+  }
+  #pasang p { margin: 0; max-width: 46ch; color: var(--redup); font-size: 14px; line-height: 1.45; }
+  #statusPasang { min-height: 1.45em; color: var(--peringatan); }
+  @keyframes denyut { 50% { opacity: .45; } }
+
+  .baris { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .tombol {
+    font: inherit; font-size: 14px; letter-spacing: .06em;
+    padding: 10px 18px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--garis); background: transparent; color: var(--teks);
+  }
+  .tombol.utama { background: var(--mata); border-color: var(--mata); color: #001114; font-weight: 600; }
+  .tombol:disabled { opacity: .4; cursor: not-allowed; }
+  .tombol:focus-visible, .pilih:focus-visible, .warna:focus-visible, #bukaAtur:focus-visible {
+    outline: 2px solid var(--mata); outline-offset: 3px;
+  }
+
+  /* ---------- Tombol "Atur" di pojok ---------- */
+  #bukaAtur {
+    position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    font: inherit; font-size: 13px; letter-spacing: .12em;
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--garis); background: rgba(10,17,19,.7); color: var(--redup);
+    transition: opacity .6s;
+  }
+  #bukaAtur.samar { opacity: .12; }
+
+  /* ---------- Panel pengaturan ---------- */
+  #atur {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    max-height: 78%; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--panel); border-top: 1px solid var(--garis);
+    padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    display: grid; gap: 16px;
+    transform: translateY(105%); transition: transform .28s ease;
+  }
+  #atur.terbuka { transform: none; }
+  #atur h2 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .2em; color: var(--redup); text-transform: uppercase; }
+  .kepala { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .nama { font-size: 18px; font-weight: 600; letter-spacing: .2em; color: var(--mata); }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--garis); color: var(--redup); font-variant-numeric: tabular-nums; }
+  .chip.aktif { color: #001114; background: var(--mata); border-color: var(--mata); }
+  .bagian { display: grid; gap: 8px; }
+  .grid-ekspresi { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .pilih {
+    font: inherit; font-size: 13px; padding: 9px 6px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--garis); background: transparent; color: var(--teks);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
+  }
+  .pilih kbd { font-family: inherit; font-size: 11px; color: var(--redup); }
+  .pilih[aria-pressed="true"] { border-color: var(--mata); color: var(--mata); }
+  .grid-warna { display: flex; gap: 10px; flex-wrap: wrap; }
+  .warna { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+  #pilihGaya .pilih, #pilihSetir .pilih { min-width: 110px; justify-content: center; }
+  .warna[aria-pressed="true"] { border-color: var(--teks); }
+  label.saklar { display: flex; gap: 10px; align-items: center; font-size: 14px; cursor: pointer; }
+  label.saklar input { width: 18px; height: 18px; accent-color: var(--mata); }
+  .petunjuk { font-size: 12px; color: var(--redup); line-height: 1.6; margin: 0; }
+
+  /* ---------- Joystick setir ---------- */
+  #setir {
+    position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    display: grid; gap: 6px; justify-items: center;
+  }
+  #setirPad {
+    position: relative; width: 136px; height: 136px; border-radius: 50%;
+    border: 1px solid var(--garis); background: rgba(10,17,19,.55);
+    touch-action: none; cursor: grab;
+  }
+  #setirKenop {
+    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+    border-radius: 50%; background: var(--mata); opacity: .8; pointer-events: none;
+  }
+  #setirInfo { font-size: 11px; letter-spacing: .08em; color: var(--redup); }
+
+  @media (prefers-reduced-motion: reduce) {
+    #pasang h1 { animation: none; }
+    #atur { transition: none; }
+  }
+</style>
+
+<canvas id="wajah" aria-label="Wajah KiKo: dua mata animasi. Ketuk, ketuk dua kali, atau tahan untuk berinteraksi."></canvas>
+
+<div id="pasang">
+  <h1>PASANG HP KE KIKO</h1>
+  <p>Tempelkan HP ke dudukan magnet, lalu hubungkan ke base lewat Bluetooth. Belum punya base? Coba wajahnya dulu.</p>
+  <div class="baris">
+    <button class="tombol utama" id="tombolHubung" type="button">Hubungkan base</button>
+    <button class="tombol" id="tombolDemo" type="button">Coba tanpa base</button>
+  </div>
+  <p id="statusPasang" role="status"></p>
+</div>
+
+<button id="bukaAtur" type="button" hidden>ATUR</button>
+
+<div id="setir" hidden>
+  <div id="setirPad" role="application" aria-label="Joystick setir KiKo: geser ke atas untuk maju, ke samping untuk berbelok"><div id="setirKenop"></div></div>
+  <span id="setirInfo">Base belum terhubung</span>
+</div>
+
+<section id="atur" aria-label="Pengaturan KiKo" aria-hidden="true">
+  <div class="kepala">
+    <span class="nama">KIKO</span>
+    <span class="chip" id="chipBase">Base: tidak terhubung</span>
+  </div>
+
+  <div class="bagian">
+    <h2>Ekspresi</h2>
+    <div class="grid-ekspresi" id="gridEkspresi"></div>
+  </div>
+
+  <div class="bagian">
+    <h2>Joystick setir</h2>
+    <div class="baris" style="justify-content:flex-start" id="pilihSetir">
+      <button class="pilih" type="button" id="setir-roda" data-mode="roda" aria-pressed="true">Roda</button>
+      <button class="pilih" type="button" id="setir-kepala" data-mode="kepala" aria-pressed="false">Kepala</button>
+    </div>
+  </div>
+
+  <div class="bagian">
+    <h2>Perilaku</h2>
+    <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
+  </div>
+
+  <div class="bagian">
+    <h2>Gaya mata</h2>
+    <div class="baris" style="justify-content:flex-start" id="pilihGaya">
+      <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis">Realistis</button>
+      <button class="pilih" type="button" id="gaya-robot" data-gaya="robot">Robot</button>
+    </div>
+  </div>
+
+  <div class="bagian khusus-realistis">
+    <h2>Warna iris</h2>
+    <div class="grid-warna" id="gridIris"></div>
+  </div>
+
+  <div class="bagian khusus-realistis">
+    <h2>Warna wajah</h2>
+    <div class="grid-warna" id="gridKulit"></div>
+    <label class="saklar"><input type="checkbox" id="cekAlis" checked> Tampilkan alis</label>
+  </div>
+
+  <div class="bagian khusus-robot">
+    <h2>Warna cahaya</h2>
+    <div class="grid-warna" id="gridWarna"></div>
+  </div>
+
+  <div class="baris" style="justify-content:flex-start">
+    <button class="tombol" id="tombolSetir" type="button">Tampilkan setir</button>
+    <button class="tombol" id="tombolLayarPenuh" type="button">Layar penuh</button>
+    <button class="tombol" id="tombolBasePanel" type="button">Hubungkan base</button>
+    <button class="tombol utama" id="tutupAtur" type="button">Tutup</button>
+  </div>
+
+  <p class="petunjuk">Ketuk wajah: kaget. Ketuk dua kali: senang. Tahan: dielus. Goyang HP: kaget.
+    Didiamkan 45 detik: ngantuk, 90 detik: tidur. Keyboard: 1–9 ekspresi, spasi kedip, F layar penuh, A panel.
+    Setir: geser joystick ke atas untuk maju, ke samping untuk berbelok. Lepas = berhenti.</p>
+</section>
+
+<script>
+(() => {
+  'use strict';
+
+  // =====================================================================
+  //  KANVAS
+  //  Mata digambar dulu ke kanvas "lapis" (tanpa glow), kelopak dipotong
+  //  pakai destination-out, baru hasilnya ditempel ke kanvas utama dengan
+  //  shadowBlur. Kalau glow langsung digambar lalu ditutup kotak hitam,
+  //  cahaya glow di sekitar kelopak akan tetap kelihatan "bocor".
+  // =====================================================================
+  const kanvas = document.getElementById('wajah');
+  const ctx = kanvas.getContext('2d');
+  const lapis = document.createElement('canvas');
+  const lctx = lapis.getContext('2d');
+  const kurangGerak = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let W = 0, H = 0, DPR = 1, U = 0;
+  function ukur() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);   // batasi 2x supaya HP murah tetap 60 fps
+    W = window.innerWidth; H = window.innerHeight;
+    for (const c of [kanvas, lapis]) { c.width = Math.round(W * DPR); c.height = Math.round(H * DPR); }
+    U = Math.min(W / 2.3, H);                          // satuan ukuran wajah, cocok untuk landscape & portrait
+  }
+  window.addEventListener('resize', ukur);
+  ukur();
+
+  const acak = (a, b) => a + Math.random() * (b - a);
+  const batas = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // =====================================================================
+  //  EKSPRESI
+  //  Semua ekspresi = parameter dari satu bentuk mata (kotak membulat).
+  //  w/h/r   : skala lebar, tinggi, lengkung sudut
+  //  lidTop  : kelopak atas menutup sekian bagian (0..1)
+  //  tilt    : kemiringan kelopak atas; + = sisi dalam turun (marah), - = sisi dalam naik (sedih)
+  //  lidBot  : pipi bawah melengkung (0..1) -> mata "senyum" ^ ^
+  //  heart   : 0 = kotak, 1 = hati (gaya realistis: pupil berbentuk hati)
+  //  dy      : geser vertikal (satuan U)
+  //  pupil   : jari-jari pupil relatif terhadap iris (gaya realistis). Kaget/marah
+  //            menyempit, sayang/sedih melebar, seperti pupil manusia.
+  //  pipi    : rona merah di pipi 0..1 (gaya realistis)
+  //  alis    : naik (+) / turun (-) alis; kemiringan alis ikut tilt (gaya realistis)
+  //  kiri/kanan: nilai khusus per mata (untuk ekspresi asimetris)
+  // =====================================================================
+  const DASAR = { w: 1, h: 1, r: 1, lidTop: 0, tilt: 0, lidBot: 0, heart: 0, dy: 0, pupil: 0.42, pipi: 0, alis: 0 };
+  const EKSPRESI = {
+    normal:  { label: 'Normal' },
+    senang:  { label: 'Senang',  w: 1.06, h: 0.96, lidBot: 0.62, dy: -0.04, pupil: 0.46, pipi: 0.7, alis: 0.25 },
+    kaget:   { label: 'Kaget',   w: 1.16, h: 1.18, r: 1.9, dy: -0.03, pupil: 0.26, alis: 1 },
+    ngantuk: { label: 'Ngantuk', w: 1.04, lidTop: 0.56, tilt: -0.14, lidBot: 0.06, dy: 0.06, pupil: 0.5, alis: -0.15 },
+    sedih:   { label: 'Sedih',   w: 0.96, h: 0.92, lidTop: 0.36, tilt: -0.55, dy: 0.08, pupil: 0.5, alis: 0.35 },
+    marah:   { label: 'Marah',   w: 1.04, h: 0.96, r: 0.8, lidTop: 0.4, tilt: 0.6, lidBot: 0.08, dy: 0.02, pupil: 0.3, pipi: 0.3, alis: -0.55 },
+    curiga:  { label: 'Curiga',  pupil: 0.36, kiri: { lidTop: 0.5, tilt: 0.12, lidBot: 0.22, alis: -0.6 }, kanan: { lidTop: 0.14, tilt: -0.1, h: 1.05, alis: 0.45 } },
+    sayang:  { label: 'Sayang',  heart: 1, w: 1.12, pupil: 0.6, pipi: 1, alis: 0.3 },
+    tidur:   { label: 'Tidur',   w: 1.06, lidTop: 0.9, dy: 0.08, alis: -0.1 },
+  };
+  const URUTAN = Object.keys(EKSPRESI);
+  const KUNCI = Object.keys(DASAR);
+
+  function targetUntuk(nama, sisi) {
+    const e = EKSPRESI[nama] || EKSPRESI.normal;
+    const t = { ...DASAR };
+    for (const k of KUNCI) {
+      if (e[k] !== undefined) t[k] = e[k];
+      if (e[sisi] && e[sisi][k] !== undefined) t[k] = e[sisi][k];
+    }
+    return t;
+  }
+
+  function buatMata() {
+    const vel = {};
+    KUNCI.forEach(k => vel[k] = 0);
+    return { cur: { ...DASAR }, vel };
+  }
+  const mata = { kiri: buatMata(), kanan: buatMata() };
+
+  // Pegas sedikit kurang teredam (zeta < 1) supaya perubahan ekspresi "memantul"
+  // seperti karet. Dengan prefers-reduced-motion, zeta = 1 (tanpa pantulan).
+  const PEGAS_K = 210, PEGAS_Z = kurangGerak ? 1 : 0.62;
+  function langkahPegas(cur, vel, tgt, k, z, dt) {
+    const c = 2 * Math.sqrt(k) * z;
+    for (const key in tgt) {
+      const a = k * (tgt[key] - cur[key]) - c * vel[key];
+      vel[key] += a * dt;
+      cur[key] += vel[key] * dt;
+    }
+  }
+
+  // Arah pandang (-1..1). Pegasnya lebih kaku = lirikan cepat seperti saccade mata.
+  const pandang = { cur: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, tgt: { x: 0, y: 0 } };
+
+  // =====================================================================
+  //  STATUS / MOOD
+  // =====================================================================
+  let fase = 'pasang';          // 'pasang' -> 'memuat' -> 'hidup'
+  let mulaiMuat = 0;
+  let moodManual = null;        // dipilih dari panel, bertahan sampai diganti
+  let sementara = null;         // { nama, sampai } ekspresi singkat hasil interaksi
+  let otomatis = true;
+  let terakhirInteraksi = performance.now();
+  let berikutSpontan = performance.now() + acak(9000, 16000);
+  let berikutLirik = 0;
+  let moodTerkirim = '';
+  const IDLE_NGANTUK = 45000, IDLE_TIDUR = 90000;
+
+  function moodSaatIni(now) {
+    if (fase === 'pasang') return 'tidur';
+    if (sementara && now < sementara.sampai) return sementara.nama;
+    sementara = null;
+    if (moodManual) return moodManual;
+    if (otomatis) {
+      const diam = now - terakhirInteraksi;
+      if (diam > IDLE_TIDUR) return 'tidur';
+      if (diam > IDLE_NGANTUK) return 'ngantuk';
+    }
+    return 'normal';
+  }
+
+  function ekspresiSingkat(nama, ms) {
+    sementara = { nama, sampai: performance.now() + ms };
+  }
+
+  function interaksi() {
+    const now = performance.now();
+    const tadinyaTidur = fase === 'hidup' && moodSaatIni(now) === 'tidur';
+    terakhirInteraksi = now;
+    if (tadinyaTidur) { ekspresiSingkat('kaget', 900); kedipSekarang(); }
+  }
+
+  // =====================================================================
+  //  KEDIP
+  // =====================================================================
+  const kedip = { mulai: -1, durasi: 150, berikut: performance.now() + 1500, ganda: false };
+  function kedipSekarang(durasi = 150) {
+    kedip.mulai = performance.now(); kedip.durasi = durasi; kedip.ganda = false;
+  }
+  function nilaiKedip(now, mood) {
+    if (kedip.mulai < 0 && mood !== 'tidur' && now > kedip.berikut) {
+      kedip.mulai = now;
+      kedip.durasi = mood === 'ngantuk' ? 340 : 150;
+      kedip.ganda = mood !== 'ngantuk' && Math.random() < 0.2;
+      kedip.berikut = now + acak(2200, 6000);
+    }
+    if (kedip.mulai < 0 || now < kedip.mulai) return 0;
+    const p = (now - kedip.mulai) / kedip.durasi;
+    if (p >= 1) {
+      if (kedip.ganda) { kedip.ganda = false; kedip.mulai = now + 90; } else kedip.mulai = -1;
+      return 0;
+    }
+    return Math.sin(Math.PI * p);
+  }
+
+  // =====================================================================
+  //  MENGGAMBAR
+  // =====================================================================
+  let warnaMata = '#9ef6ff';
+
+  function jalurKotakBulat(c, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  function jalurHati(c, cx, cy, w, h) {
+    c.beginPath();
+    c.moveTo(cx, cy + 0.45 * h);
+    c.bezierCurveTo(cx - 0.10 * w, cy + 0.30 * h, cx - 0.50 * w, cy + 0.10 * h, cx - 0.50 * w, cy - 0.15 * h);
+    c.bezierCurveTo(cx - 0.50 * w, cy - 0.45 * h, cx - 0.10 * w, cy - 0.50 * h, cx, cy - 0.22 * h);
+    c.bezierCurveTo(cx + 0.10 * w, cy - 0.50 * h, cx + 0.50 * w, cy - 0.45 * h, cx + 0.50 * w, cy - 0.15 * h);
+    c.bezierCurveTo(cx + 0.50 * w, cy + 0.10 * h, cx + 0.10 * w, cy + 0.30 * h, cx, cy + 0.45 * h);
+    c.closePath();
+  }
+
+  function gambarMata(sisi, p, kedipan, now, dyTambah) {
+    const arah = sisi === 'kiri' ? -1 : 1;
+    const gx = pandang.cur.x, gy = pandang.cur.y;
+    // Mata di sisi arah lirikan sedikit membesar: kesan kepala ikut menoleh.
+    const skala = 1 + 0.07 * gx * arah;
+    const w = 0.36 * U * Math.max(0.05, p.w) * skala;
+    const h = 0.52 * U * Math.max(0.05, p.h) * skala * (1 - 0.92 * kedipan);
+    const r = 0.13 * U * Math.max(0, p.r) * skala;
+    const cx = W / 2 + arah * 0.44 * U + gx * 0.2 * U;
+    const cy = H / 2 + (p.dy + dyTambah) * U + gy * 0.13 * U;
+
+    const hati = batas(p.heart, 0, 1);
+    lctx.globalCompositeOperation = 'source-over';
+    if (hati < 0.99) {
+      lctx.globalAlpha = 1 - hati;
+      jalurKotakBulat(lctx, cx - w / 2, cy - h / 2, w, h, r);
+      lctx.fill();
+    }
+    if (hati > 0.01) {
+      const denyut = kurangGerak ? 1 : 1 + 0.08 * Math.pow(Math.max(0, Math.sin(now / 170)), 6);
+      lctx.globalAlpha = hati;
+      jalurHati(lctx, cx, cy, w * 1.3 * denyut, h * 1.05 * denyut);
+      lctx.fill();
+    }
+    lctx.globalAlpha = 1;
+
+    lctx.globalCompositeOperation = 'destination-out';
+    // Kelopak atas: garis potong miring. "dalam" = sisi yang menghadap tengah wajah.
+    if (p.lidTop > 0.005) {
+      const atas = cy - h / 2;
+      const potong = atas + p.lidTop * h;
+      const dalam = sisi === 'kiri' ? 1 : -1;
+      const yPada = x => potong + p.tilt * h * 0.5 * ((x - cx) / (w / 2)) * dalam;
+      lctx.beginPath();
+      lctx.moveTo(cx - w, atas - h);
+      lctx.lineTo(cx + w, atas - h);
+      lctx.lineTo(cx + w, yPada(cx + w));
+      lctx.lineTo(cx - w, yPada(cx - w));
+      lctx.closePath();
+      lctx.fill();
+    }
+    // Pipi bawah: elips yang naik menutup bagian bawah -> bentuk ^ saat senang.
+    if (p.lidBot > 0.005) {
+      lctx.beginPath();
+      lctx.ellipse(cx, cy + h * (1.15 - p.lidBot), w * 0.78, h * 0.62, 0, 0, Math.PI * 2);
+      lctx.fill();
+    }
+    lctx.globalCompositeOperation = 'source-over';
+  }
+
+  function gambarZzz(now) {
+    ctx.save();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = warnaAksen();
+    ctx.textAlign = 'center';
+    for (let i = 0; i < 3; i++) {
+      const t = ((now / 2600) + i / 3) % 1;
+      const ukuran = 0.06 * U + 0.07 * U * t;
+      ctx.globalAlpha = Math.sin(Math.PI * t) * 0.8;
+      ctx.font = `600 ${ukuran}px "Chakra Petch", sans-serif`;
+      ctx.fillText('z', W / 2 + 0.78 * U + t * 0.16 * U, H / 2 - 0.1 * U - t * 0.42 * U + (fase === 'pasang' ? -0.3 * U : 0));
+    }
+    ctx.restore();
+  }
+
+  function gambarMemuat(p) {
+    ctx.save();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const lebar = 0.8 * U, tinggi = 0.035 * U;
+    const x = W / 2 - lebar / 2, y = H / 2 - tinggi / 2;
+    const warna = warnaAksen();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = warna;
+    jalurKotakBulat(ctx, x, y, lebar, tinggi, tinggi / 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (gaya === 'robot') { ctx.shadowColor = warna; ctx.shadowBlur = 0.05 * U * DPR; }
+    const isi = lebar * (1 - Math.pow(1 - p, 3));
+    jalurKotakBulat(ctx, x, y, Math.max(tinggi, isi), tinggi, tinggi / 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // =====================================================================
+  //  GAYA REALISTIS
+  //  Mata almond dengan sklera, iris bertekstur, pupil, pantulan cahaya,
+  //  kelopak berwarna kulit, alis dan pipi merona. Parameter ekspresi yang
+  //  sama (lidTop, tilt, lidBot, ...) dipakai ulang, jadi semua ekspresi,
+  //  kedip dan pegas berlaku untuk kedua gaya.
+  //  Digambar langsung ke kanvas utama (tanpa kanvas "lapis"), karena gaya
+  //  ini tidak memakai glow.
+  // =====================================================================
+  let gaya = 'realistis';          // 'realistis' | 'robot'
+  let warnaIris = '#6b4428';
+  let pakaiAlis = true;
+
+  const IRIS = [
+    ['#6b4428', 'Cokelat'], ['#8d6b32', 'Hazel'], ['#3a78b8', 'Biru'], ['#4b8b52', 'Hijau'],
+    ['#7d8b97', 'Abu-abu'], ['#7b52b3', 'Ungu'], ['#20b8c9', 'Toska'],
+  ];
+  // Tiap warna wajah punya pasangan kelopak/lipatan/alis/bulu mata sendiri,
+  // supaya kontrasnya tetap enak di wajah terang maupun gelap.
+  const KULIT = [
+    { id: 'langsat', nama: 'Langsat',     latar: '#f2cfae', kelopak: '#e9bf9a', lipatan: '#c9967a', alis: '#3b2a20', bulu: '#2a1a14' },
+    { id: 'sawo',    nama: 'Sawo matang', latar: '#c98c5f', kelopak: '#bc7f54', lipatan: '#9a623f', alis: '#2a1c14', bulu: '#1c110c' },
+    { id: 'putih',   nama: 'Putih robot', latar: '#e9edf0', kelopak: '#dce2e7', lipatan: '#b4bec7', alis: '#4b5560', bulu: '#2c333a' },
+    { id: 'biru',    nama: 'Biru robot',  latar: '#a7d7ea', kelopak: '#96cadf', lipatan: '#6fa6bf', alis: '#2d5061', bulu: '#1d3643' },
+    { id: 'pink',    nama: 'Merah muda',  latar: '#f7c9d4', kelopak: '#efb8c6', lipatan: '#d492a5', alis: '#6b3445', bulu: '#4a2230' },
+    { id: 'hitam',   nama: 'Hitam',       latar: '#0d0d0f', kelopak: '#1b1b1f', lipatan: '#34343b', alis: '#5b606a', bulu: '#000000' },
+  ];
+  let kulit = KULIT[0];
+
+  // Warna untuk zzz dan bar memuat: warna cahaya di gaya robot, warna bulu mata di gaya realistis.
+  const warnaAksen = () => gaya === 'robot' ? warnaMata : (kulit.id === 'hitam' ? '#d9d9de' : kulit.bulu);
+
+  function hexKeRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function campur(a, b, t) {
+    const A = hexKeRgb(a), B = hexKeRgb(b);
+    return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
+  }
+
+  // Tekstur iris digambar sekali per warna/ukuran lalu di-cache: ratusan garis
+  // serat terlalu berat kalau digambar ulang tiap frame di HP murah.
+  const cacheIris = new Map();
+  function teksturIris(warna, r) {
+    const px = Math.max(8, Math.round(r * DPR));
+    const kunci = warna + '|' + px;
+    let c = cacheIris.get(kunci);
+    if (c) return c;
+    if (cacheIris.size > 12) cacheIris.clear();
+    c = document.createElement('canvas');
+    c.width = c.height = px * 2;
+    const g = c.getContext('2d');
+    g.translate(px, px);
+    g.beginPath(); g.arc(0, 0, px, 0, Math.PI * 2); g.clip();
+
+    const dasar = g.createRadialGradient(0, 0, px * 0.2, 0, 0, px);
+    dasar.addColorStop(0, campur(warna, '#f2d98a', 0.45));   // kuning keemasan di dekat pupil
+    dasar.addColorStop(0.45, warna);
+    dasar.addColorStop(0.85, campur(warna, '#000000', 0.35));
+    dasar.addColorStop(1, campur(warna, '#000000', 0.7));
+    g.fillStyle = dasar;
+    g.fillRect(-px, -px, px * 2, px * 2);
+
+    // Serat radial terang/gelap. Pakai acak ber-benih tetap supaya pola iris
+    // tidak berubah-ubah tiap kali cache dibuat ulang.
+    let benih = 7;
+    const acakTetap = () => (benih = (benih * 16807) % 2147483647) / 2147483647;
+    g.lineCap = 'round';
+    for (let i = 0; i < 140; i++) {
+      const a = acakTetap() * Math.PI * 2;
+      const r0 = px * (0.28 + acakTetap() * 0.15), r1 = px * (0.7 + acakTetap() * 0.28);
+      const a1 = a + (acakTetap() - 0.5) * 0.2;
+      g.strokeStyle = acakTetap() < 0.5 ? 'rgba(255,255,235,0.16)' : 'rgba(0,0,0,0.18)';
+      g.lineWidth = px * (0.015 + acakTetap() * 0.025);
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+      g.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
+      g.stroke();
+    }
+    // Cincin limbal: tepi iris yang gelap, membuat mata terlihat "hidup".
+    g.strokeStyle = 'rgba(0,0,0,0.55)';
+    g.lineWidth = px * 0.1;
+    g.beginPath(); g.arc(0, 0, px * 0.96, 0, Math.PI * 2); g.stroke();
+
+    cacheIris.set(kunci, c);
+    return c;
+  }
+
+  function garisTitik(xs, ys, dari = 0, sampai = xs.length - 1) {
+    ctx.beginPath();
+    ctx.moveTo(xs[dari], ys[dari]);
+    for (let i = dari + 1; i <= sampai; i++) ctx.lineTo(xs[i], ys[i]);
+  }
+
+  function gambarMataRealistis(sisi, p, kedipan, now, dyTambah) {
+    const arah = sisi === 'kiri' ? -1 : 1;
+    const dalam = -arah;                                   // arah ke tengah wajah
+    const gx = pandang.cur.x, gy = pandang.cur.y;
+    const skala = 1 + 0.05 * gx * arah;
+    const w = 0.46 * U * (1 + (p.w - 1) * 0.5) * skala;    // lebar dibuat kurang peka: mata manusia jarang melebar
+    const ry = 0.17 * U * Math.max(0.3, p.h) * skala;
+    const cx = W / 2 + arah * 0.47 * U + gx * 0.04 * U;
+    const cy = H / 2 + (p.dy + dyTambah) * U + gy * 0.025 * U;
+
+    // Bentuk almond: kurva atas & bawah dari (1-u²)^0.72. Pangkat < 1 membuat
+    // sudut mata lebih lancip dibanding elips biasa.
+    const N = 28, xs = [], atas = [], bawah = [], us = [];
+    for (let i = 0; i <= N; i++) {
+      const u = -1 + 2 * i / N, f = Math.pow(Math.max(0, 1 - u * u), 0.72);
+      us.push(u); xs.push(cx + u * w / 2); atas.push(cy - ry * f); bawah.push(cy + ry * 0.82 * f);
+    }
+
+    // Tutupan kelopak atas. Minimal 7% karena kelopak manusia selalu menutup
+    // sedikit bagian atas iris. lidTop 0.9 (tidur) dipetakan ke 1 = terpejam penuh.
+    let tutup = p.lidTop < 0.5 ? p.lidTop : p.lidTop + (p.lidTop - 0.5) * 0.25;
+    tutup = Math.max(0.07, tutup);
+    tutup += (1 - tutup) * kedipan;
+    const naikBawah = p.lidBot + 0.12 * kedipan;
+    // Tepi kelopak mengikuti bentuk mata (bukan garis lurus), dimiringkan oleh tilt.
+    const tepiAtas = us.map((u, i) => atas[i] + batas(tutup + p.tilt * 0.5 * u * dalam, 0, 1) * (bawah[i] - atas[i]));
+    const tepiBawah = us.map((u, i) => bawah[i] - naikBawah * (bawah[i] - atas[i]) * (0.7 + 0.3 * (1 - u * u)));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(xs[0], atas[0]);
+    for (let i = 1; i <= N; i++) ctx.lineTo(xs[i], atas[i]);
+    for (let i = N; i >= 0; i--) ctx.lineTo(xs[i], bawah[i]);
+    ctx.closePath();
+    ctx.clip();
+
+    // Sklera: putih hangat, lebih gelap ke sudut supaya terlihat bulat.
+    const gs = ctx.createRadialGradient(cx, cy, ry * 0.2, cx, cy, w * 0.55);
+    gs.addColorStop(0, '#fdfcf9'); gs.addColorStop(0.7, '#eee7e1'); gs.addColorStop(1, '#cdbfb8');
+    ctx.fillStyle = gs;
+    ctx.fillRect(cx - w, cy - ry * 2, w * 2, ry * 4);
+
+    // Iris + pupil bergerak di dalam mata mengikuti arah pandang.
+    const rI = 0.15 * U * skala;
+    const ix = cx + gx * (w / 2 - rI * 1.1), iy = cy + ry * 0.05 + gy * ry * 0.5;
+    ctx.drawImage(teksturIris(warnaIris, rI), ix - rI, iy - rI, rI * 2, rI * 2);
+    const rP = rI * p.pupil * (kurangGerak ? 1 : 1 + 0.03 * Math.sin(now / 1300));
+    ctx.fillStyle = '#080606';
+    if (p.heart > 0.5) { jalurHati(ctx, ix, iy, rP * 2.6, rP * 2.4); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(ix, iy, rP, 0, Math.PI * 2); ctx.fill(); }
+
+    // Pantulan cahaya (catchlight): besar di kiri atas, kecil di kanan bawah.
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath(); ctx.ellipse(ix - rI * 0.36, iy - rI * 0.38, rI * 0.2, rI * 0.16, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(ix + rI * 0.32, iy + rI * 0.3, rI * 0.07, 0, Math.PI * 2); ctx.fill();
+
+    // Kelopak atas & bawah warna kulit. shadowBlur memberi bayangan lembut yang
+    // otomatis mengikuti tepi kelopak (offset bayangan dalam piksel perangkat).
+    ctx.fillStyle = kulit.kelopak;
+    ctx.shadowColor = 'rgba(40,20,10,0.4)';
+    ctx.shadowBlur = 0.035 * U * DPR;
+    ctx.shadowOffsetY = 0.012 * U * DPR;
+    ctx.beginPath();
+    ctx.moveTo(cx - w, cy - ry * 3); ctx.lineTo(cx + w, cy - ry * 3); ctx.lineTo(cx + w, tepiAtas[N]);
+    for (let i = N; i >= 0; i--) ctx.lineTo(xs[i], tepiAtas[i]);
+    ctx.lineTo(cx - w, tepiAtas[0]);
+    ctx.closePath(); ctx.fill();
+    if (naikBawah > 0.005) {
+      ctx.shadowOffsetY = -0.008 * U * DPR;
+      ctx.beginPath();
+      ctx.moveTo(cx - w, cy + ry * 3); ctx.lineTo(cx + w, cy + ry * 3); ctx.lineTo(cx + w, tepiBawah[N]);
+      for (let i = N; i >= 0; i--) ctx.lineTo(xs[i], tepiBawah[i]);
+      ctx.lineTo(cx - w, tepiBawah[0]);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();   // melepas clip dan bayangan
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // Lipatan kelopak di atas mata.
+    ctx.strokeStyle = kulit.lipatan;
+    ctx.lineWidth = 0.008 * U;
+    ctx.globalAlpha = 0.75;
+    garisTitik(xs, atas.map(y => y - ry * 0.3), 4, N - 4);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // Garis bawah mata (tipis).
+    ctx.lineWidth = 0.006 * U;
+    garisTitik(xs, naikBawah > 0.005 ? tepiBawah : bawah);
+    ctx.stroke();
+    // Garis bulu mata atas mengikuti tepi kelopak (saat terpejam jadi lengkung ‿).
+    ctx.strokeStyle = kulit.bulu;
+    ctx.lineWidth = 0.014 * U;
+    garisTitik(xs, tepiAtas);
+    ctx.stroke();
+    // Tiga helai bulu mata kecil di sudut luar.
+    ctx.lineWidth = 0.008 * U;
+    for (let k = 0; k < 3; k++) {
+      const i = arah > 0 ? N - 2 - k * 2 : 2 + k * 2;
+      const panjang = 0.035 * U * (1 - k * 0.2);
+      ctx.beginPath();
+      ctx.moveTo(xs[i], tepiAtas[i]);
+      ctx.lineTo(xs[i] + arah * panjang * 0.8, tepiAtas[i] - panjang * 0.6);
+      ctx.stroke();
+    }
+
+    // Alis: naik/turun lewat p.alis, miring lewat p.tilt (marah = sisi dalam turun).
+    if (pakaiAlis) {
+      ctx.strokeStyle = kulit.alis;
+      ctx.lineWidth = 0.034 * U * skala;
+      const yAlis = cy - ry - 0.11 * U - p.alis * 0.05 * U;
+      ctx.beginPath();
+      for (let i = 0; i <= 10; i++) {
+        const u = -0.85 + 1.7 * i / 10;
+        const x = cx + u * w * 0.52 + dalam * 0.02 * U;
+        const y = yAlis - 0.03 * U * (1 - u * u) + p.tilt * 0.13 * U * u * dalam;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Pipi merona.
+    if (p.pipi > 0.02) {
+      const px = cx + arah * 0.06 * U, py = cy + ry + 0.1 * U;
+      const gp = ctx.createRadialGradient(px, py, 0, px, py, 0.13 * U);
+      gp.addColorStop(0, `rgba(255,105,125,${(0.45 * Math.min(1, p.pipi)).toFixed(3)})`);
+      gp.addColorStop(1, 'rgba(255,105,125,0)');
+      ctx.fillStyle = gp;
+      ctx.beginPath(); ctx.ellipse(px, py, 0.13 * U, 0.07 * U, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // =====================================================================
+  //  LOOP UTAMA
+  // =====================================================================
+  let waktuLalu = performance.now();
+  function bingkai(now) {
+    const dt = Math.min(0.05, (now - waktuLalu) / 1000);
+    waktuLalu = now;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = gaya === 'realistis' ? kulit.latar : '#000';
+    ctx.fillRect(0, 0, kanvas.width, kanvas.height);
+
+    if (fase === 'memuat') {
+      const p = (now - mulaiMuat) / 1500;
+      if (p >= 1) mulaiHidup(); else { gambarMemuat(p); requestAnimationFrame(bingkai); return; }
+    }
+
+    const mood = moodSaatIni(now);
+    if (mood !== moodTerkirim) {
+      moodTerkirim = mood;
+      kirim('E,' + mood);          // base bisa ikut bereaksi (mis. servo mengangguk saat senang)
+      tandaiEkspresi();
+    }
+    if (fase === 'hidup' && otomatis && !moodManual && mood === 'normal' && now > berikutSpontan) {
+      const pilihan = ['senang', 'curiga', 'kaget', 'senang'];
+      ekspresiSingkat(pilihan[Math.floor(Math.random() * pilihan.length)], acak(1100, 2000));
+      berikutSpontan = now + acak(9000, 18000);
+    }
+
+    // Lirikan: ikut jari saat disentuh, selain itu melirik acak.
+    if (!sentuh.aktif && !setir.aktif && now > berikutLirik) {
+      if (mood === 'tidur') { pandang.tgt.x = 0; pandang.tgt.y = 0.2; }
+      else if (Math.random() < 0.6) { pandang.tgt.x = acak(-0.25, 0.25); pandang.tgt.y = acak(-0.2, 0.2); }
+      else { pandang.tgt.x = acak(-1, 1); pandang.tgt.y = acak(-0.7, 0.7); }
+      berikutLirik = now + acak(1200, 4200) * (mood === 'ngantuk' ? 1.8 : 1);
+    }
+
+    // Integrasi pegas dengan sub-langkah kecil supaya stabil walau fps turun.
+    const langkah = Math.max(1, Math.ceil(dt / (1 / 120)));
+    const h = dt / langkah;
+    const tKiri = targetUntuk(mood, 'kiri'), tKanan = targetUntuk(mood, 'kanan');
+    for (let i = 0; i < langkah; i++) {
+      langkahPegas(mata.kiri.cur, mata.kiri.vel, tKiri, PEGAS_K, PEGAS_Z, h);
+      langkahPegas(mata.kanan.cur, mata.kanan.vel, tKanan, PEGAS_K, PEGAS_Z, h);
+      langkahPegas(pandang.cur, pandang.vel, pandang.tgt, 320, kurangGerak ? 1 : 0.78, h);
+    }
+
+    let dyTambah = 0;
+    // Beri ruang untuk teks di bawah. Gaya realistis punya alis di atas mata,
+    // jadi digeser lebih sedikit supaya alis tidak keluar layar.
+    if (fase === 'pasang') dyTambah = gaya === 'realistis' ? -0.16 : -0.3;
+    if (sentuh.elus && !kurangGerak) dyTambah += 0.025 * Math.sin(now / 70); // bergoyang geli saat dielus
+    if (mood === 'tidur' && !kurangGerak) dyTambah += 0.012 * Math.sin(now / 900); // napas
+
+    const kedipan = nilaiKedip(now, mood);
+    if (gaya === 'realistis') {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      gambarMataRealistis('kiri', mata.kiri.cur, kedipan, now, dyTambah);
+      gambarMataRealistis('kanan', mata.kanan.cur, kedipan, now, dyTambah);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    } else {
+      lctx.setTransform(1, 0, 0, 1, 0, 0);
+      lctx.clearRect(0, 0, lapis.width, lapis.height);
+      lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      lctx.fillStyle = warnaMata;
+      gambarMata('kiri', mata.kiri.cur, kedipan, now, dyTambah);
+      gambarMata('kanan', mata.kanan.cur, kedipan, now, dyTambah);
+
+      ctx.shadowColor = warnaMata;
+      ctx.shadowBlur = 0.07 * U * DPR;
+      ctx.drawImage(lapis, 0, 0);
+      ctx.shadowBlur = 0;
+    }
+
+    if (mood === 'tidur') gambarZzz(now);
+    requestAnimationFrame(bingkai);
+  }
+
+  function mulaiMemuat() {
+    document.getElementById('pasang').hidden = true;
+    fase = 'memuat';
+    mulaiMuat = performance.now();
+    mintaWakeLock();
+  }
+
+  function mulaiHidup() {
+    fase = 'hidup';
+    // Mata mulai dari garis tipis lebar lalu "terbuka" memantul.
+    for (const m of [mata.kiri, mata.kanan]) {
+      Object.assign(m.cur, DASAR, { h: 0.04, w: 1.3 });
+      KUNCI.forEach(k => m.vel[k] = 0);
+    }
+    terakhirInteraksi = performance.now();
+    berikutSpontan = terakhirInteraksi + acak(9000, 16000);
+    setTimeout(() => kedipSekarang(), 700);
+    tombolAtur.hidden = false;
+    samarkanTombolAtur();
+  }
+
+  // =====================================================================
+  //  SENTUHAN
+  // =====================================================================
+  const sentuh = { aktif: false, id: null, elus: false, timer: 0 };
+  let jumlahKetuk = 0, timerKetuk = 0;
+
+  function arahkanPandang(e) {
+    pandang.tgt.x = batas((e.clientX - W / 2) / (W / 2) * 1.2, -1, 1);
+    pandang.tgt.y = batas((e.clientY - H / 2) / (H / 2) * 1.2, -1, 1);
+  }
+
+  kanvas.addEventListener('pointerdown', e => {
+    if (fase !== 'hidup') return;
+    if (panelTerbuka) { tutupPanel(); return; }
+    interaksi();
+    sentuh.aktif = true; sentuh.id = e.pointerId; sentuh.elus = false;
+    arahkanPandang(e);
+    clearTimeout(sentuh.timer);
+    sentuh.timer = setTimeout(() => { if (sentuh.aktif) sentuh.elus = true; }, 550);
+    try { kanvas.setPointerCapture(e.pointerId); } catch (_) {}
+    tampilkanTombolAtur();
+  });
+  kanvas.addEventListener('pointermove', e => {
+    if (sentuh.aktif && e.pointerId === sentuh.id) arahkanPandang(e);
+  });
+  function lepas(e) {
+    if (!sentuh.aktif || e.pointerId !== sentuh.id) return;
+    sentuh.aktif = false;
+    clearTimeout(sentuh.timer);
+    berikutLirik = performance.now() + 700;
+    if (sentuh.elus) {
+      sentuh.elus = false;
+      ekspresiSingkat('senang', 1400);
+      return;
+    }
+    jumlahKetuk++;
+    clearTimeout(timerKetuk);
+    timerKetuk = setTimeout(() => {
+      if (jumlahKetuk >= 2) ekspresiSingkat('senang', 1500);
+      else { kedipSekarang(); ekspresiSingkat('kaget', 700); }
+      jumlahKetuk = 0;
+    }, 280);
+  }
+  kanvas.addEventListener('pointerup', lepas);
+  kanvas.addEventListener('pointercancel', lepas);
+
+  // Selama dielus, "senang" terus diperpanjang sampai jari dilepas.
+  setInterval(() => { if (sentuh.elus) ekspresiSingkat('senang', 400); }, 150);
+
+  // Goyangan HP (akselerometer). Di beberapa bingkai/iframe sensor ini diblokir,
+  // jadi fitur ini opsional dan diam saja kalau tidak ada data.
+  let terakhirGoyang = 0;
+  window.addEventListener('devicemotion', e => {
+    const a = e.accelerationIncludingGravity;
+    if (fase !== 'hidup' || !a || a.x == null) return;
+    const besar = Math.hypot(a.x, a.y, a.z);
+    const now = performance.now();
+    if (Math.abs(besar - 9.81) > 11 && now - terakhirGoyang > 1500) {
+      terakhirGoyang = now;
+      interaksi();
+      kedipSekarang();
+      ekspresiSingkat('kaget', 1200);
+    }
+  });
+
+  // =====================================================================
+  //  LAYAR PENUH & WAKE LOCK
+  // =====================================================================
+  async function layarPenuh() {
+    try {
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+    } catch (_) { /* tidak semua browser/bingkai mengizinkan; wajah tetap jalan */ }
+  }
+
+  let wakeLock = null;
+  async function mintaWakeLock() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && fase !== 'pasang') mintaWakeLock();
+  });
+
+  // =====================================================================
+  //  BLUETOOTH (Web Bluetooth, Nordic UART Service)
+  //  Base ESP32 (langkah 2) mengiklankan nama berawalan "KiKo" dan layanan NUS.
+  //  HP -> base : baris teks, mis. "M,150,-150", "S,30", "E,senang"
+  //  Base -> HP : "T" disentuh, "C" hampir jatuh dari meja, "B,7.84" tegangan baterai
+  //  Catatan: Web Bluetooth hanya jalan di Chrome Android pada halaman HTTPS
+  //  (atau localhost), dan sering diblokir kalau halaman dibuka di dalam iframe.
+  // =====================================================================
+  const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // HP menulis ke sini
+  const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // base mengirim notify dari sini
+  const ble = { device: null, rx: null, terhubung: false, baterai: null, sisa: '' };
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  let antrianTulis = Promise.resolve();
+
+  const bleAda = !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+  const statusPasang = document.getElementById('statusPasang');
+  const tombolHubung = document.getElementById('tombolHubung');
+  const tombolBasePanel = document.getElementById('tombolBasePanel');
+  if (!bleAda) {
+    tombolHubung.disabled = true;
+    tombolBasePanel.disabled = true;
+    statusPasang.textContent = 'Bluetooth tidak tersedia di sini. Butuh Chrome Android di halaman HTTPS; dipakai mulai langkah 2.';
+  }
+
+  function kirim(baris) {
+    if (!ble.rx) return;
+    const data = enc.encode(baris + '\n');
+    // Web Bluetooth menolak dua tulisan GATT bersamaan, jadi diantrikan.
+    antrianTulis = antrianTulis
+      .then(() => ble.rx.writeValueWithoutResponse ? ble.rx.writeValueWithoutResponse(data) : ble.rx.writeValue(data))
+      .catch(() => {});
+  }
+
+  function terimaBaris(baris) {
+    const [kode, nilai] = baris.trim().split(',');
+    if (kode === 'T') { interaksi(); ekspresiSingkat('senang', 1500); }
+    else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
+    else if (kode === 'B' && nilai) { ble.baterai = parseFloat(nilai); perbaruiChip(); }
+  }
+
+  async function hubungkanBle() {
+    try {
+      statusPasang.textContent = 'Mencari base KiKo…';
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'KiKo' }], optionalServices: [NUS],
+      });
+      device.addEventListener('gattserverdisconnected', saatTerputus);
+      const server = await device.gatt.connect();
+      const layanan = await server.getPrimaryService(NUS);
+      ble.rx = await layanan.getCharacteristic(NUS_RX);
+      const tx = await layanan.getCharacteristic(NUS_TX);
+      await tx.startNotifications();
+      tx.addEventListener('characteristicvaluechanged', ev => {
+        ble.sisa += dec.decode(ev.target.value);
+        let i;
+        while ((i = ble.sisa.indexOf('\n')) >= 0) {
+          terimaBaris(ble.sisa.slice(0, i));
+          ble.sisa = ble.sisa.slice(i + 1);
+        }
+      });
+      ble.device = device; ble.terhubung = true;
+      statusPasang.textContent = '';
+      perbaruiChip();
+      moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
+      if (fase === 'pasang') mulaiMemuat();
+    } catch (err) {
+      const pesan = String(err && err.name);
+      statusPasang.textContent =
+        pesan === 'NotFoundError' ? 'Tidak ada base yang dipilih.' :
+        pesan === 'SecurityError' ? 'Halaman ini tidak diizinkan memakai Bluetooth. Buka lewat HTTPS di Chrome Android.' :
+        'Gagal terhubung: ' + (err && err.message ? err.message : err);
+    }
+  }
+
+  function saatTerputus() {
+    ble.terhubung = false; ble.rx = null; ble.baterai = null;
+    perbaruiChip();
+    if (fase === 'hidup') {
+      // Seperti Looi: HP dilepas dari base -> kembali ke layar "pasang HP".
+      fase = 'pasang';
+      tutupPanel();
+      tombolAtur.hidden = true;
+      lepasSetir();
+      elSetir.hidden = true;
+      document.getElementById('tombolSetir').textContent = 'Tampilkan setir';
+      document.getElementById('pasang').hidden = false;
+      statusPasang.textContent = 'Base terputus.';
+    }
+  }
+
+  function putuskanBle() {
+    if (ble.device && ble.device.gatt.connected) ble.device.gatt.disconnect();
+  }
+
+  // =====================================================================
+  //  PANEL
+  // =====================================================================
+  const panel = document.getElementById('atur');
+  const tombolAtur = document.getElementById('bukaAtur');
+  let panelTerbuka = false, timerSamar = 0;
+
+  function bukaPanel() {
+    panelTerbuka = true; panel.classList.add('terbuka'); panel.setAttribute('aria-hidden', 'false');
+    tombolAtur.hidden = true;
+  }
+  function tutupPanel() {
+    panelTerbuka = false; panel.classList.remove('terbuka'); panel.setAttribute('aria-hidden', 'true');
+    if (fase === 'hidup') { tombolAtur.hidden = false; tampilkanTombolAtur(); }
+  }
+  function tampilkanTombolAtur() { tombolAtur.classList.remove('samar'); samarkanTombolAtur(); }
+  function samarkanTombolAtur() {
+    clearTimeout(timerSamar);
+    timerSamar = setTimeout(() => tombolAtur.classList.add('samar'), 3000);
+  }
+
+  const gridEkspresi = document.getElementById('gridEkspresi');
+  URUTAN.forEach((nama, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pilih'; b.dataset.nama = nama; b.id = 'ekspresi-' + nama;
+    b.innerHTML = `<span>${EKSPRESI[nama].label}</span><kbd>${i + 1}</kbd>`;
+    b.addEventListener('click', () => pilihEkspresi(nama));
+    gridEkspresi.appendChild(b);
+  });
+  function pilihEkspresi(nama) {
+    sementara = null;
+    moodManual = nama === 'normal' ? null : nama;
+    terakhirInteraksi = performance.now();
+    if (nama !== 'tidur') kedipSekarang();
+    tandaiEkspresi();
+  }
+  function tandaiEkspresi() {
+    const aktif = moodManual || 'normal';
+    gridEkspresi.querySelectorAll('.pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.nama === aktif)));
+  }
+
+  const WARNA = [['#9ef6ff', 'Es'], ['#a6ffd0', 'Mint'], ['#ffd37a', 'Kuning'], ['#ffa3cf', 'Merah muda'], ['#ffffff', 'Putih']];
+  const gridWarna = document.getElementById('gridWarna');
+  try { const simpan = localStorage.getItem('kiko.warna'); if (simpan) warnaMata = simpan; } catch (_) {}
+  WARNA.forEach(([hex, nama]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'warna'; b.style.background = hex; b.id = 'warna-' + hex.slice(1);
+    b.setAttribute('aria-label', 'Warna mata ' + nama);
+    b.addEventListener('click', () => setWarna(hex));
+    gridWarna.appendChild(b);
+  });
+  function setWarna(hex) {
+    warnaMata = hex;
+    document.documentElement.style.setProperty('--mata', hex);
+    gridWarna.querySelectorAll('.warna').forEach(b => b.setAttribute('aria-pressed', String(b.id === 'warna-' + hex.slice(1))));
+    try { localStorage.setItem('kiko.warna', hex); } catch (_) {}
+  }
+  setWarna(warnaMata);
+
+  // ---------- Gaya realistis: iris, warna wajah, alis ----------
+  const simpan = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+  const muat = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+
+  function buatSwatch(grid, id, warna, label, klik) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'warna'; b.id = id; b.title = label;
+    b.style.background = warna;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', klik);
+    grid.appendChild(b);
+  }
+  const tandaiSwatch = (grid, id) => grid.querySelectorAll('.warna').forEach(b => b.setAttribute('aria-pressed', String(b.id === id)));
+
+  const gridIris = document.getElementById('gridIris');
+  IRIS.forEach(([hex, nama]) => buatSwatch(gridIris, 'iris-' + hex.slice(1), hex, 'Iris ' + nama, () => setIris(hex)));
+  function setIris(hex) {
+    warnaIris = hex;
+    tandaiSwatch(gridIris, 'iris-' + hex.slice(1));
+    simpan('kiko.iris', hex);
+  }
+
+  const gridKulit = document.getElementById('gridKulit');
+  KULIT.forEach(k => buatSwatch(gridKulit, 'kulit-' + k.id, k.latar, 'Wajah ' + k.nama, () => setKulit(k.id)));
+  function setKulit(id) {
+    kulit = KULIT.find(k => k.id === id) || KULIT[0];
+    tandaiSwatch(gridKulit, 'kulit-' + kulit.id);
+    simpan('kiko.kulit', kulit.id);
+  }
+
+  const cekAlis = document.getElementById('cekAlis');
+  cekAlis.addEventListener('change', () => { pakaiAlis = cekAlis.checked; simpan('kiko.alis', pakaiAlis ? '1' : '0'); });
+
+  function setGaya(g) {
+    gaya = g === 'robot' ? 'robot' : 'realistis';
+    document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gaya === gaya)));
+    document.querySelectorAll('.khusus-realistis').forEach(el => el.hidden = gaya !== 'realistis');
+    document.querySelectorAll('.khusus-robot').forEach(el => el.hidden = gaya !== 'robot');
+    simpan('kiko.gaya', gaya);
+  }
+  document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.addEventListener('click', () => setGaya(b.dataset.gaya)));
+
+  setIris(muat('kiko.iris') || warnaIris);
+  setKulit(muat('kiko.kulit') || 'langsat');
+  pakaiAlis = muat('kiko.alis') !== '0';
+  cekAlis.checked = pakaiAlis;
+  setGaya(muat('kiko.gaya') || 'realistis');
+
+  document.getElementById('cekOtomatis').addEventListener('change', e => {
+    otomatis = e.target.checked; terakhirInteraksi = performance.now();
+  });
+
+  function perbaruiChip() {
+    const chip = document.getElementById('chipBase');
+    chip.classList.toggle('aktif', ble.terhubung);
+    chip.textContent = ble.terhubung
+      ? 'Base terhubung' + (ble.baterai ? ' · ' + ble.baterai.toFixed(2) + ' V' : '')
+      : 'Base: tidak terhubung';
+    tombolBasePanel.textContent = ble.terhubung ? 'Putuskan base' : 'Hubungkan base';
+    document.getElementById('setirInfo').textContent = ble.terhubung ? 'Setir aktif' : 'Base belum terhubung';
+  }
+
+  // =====================================================================
+  //  JOYSTICK SETIR
+  //  Mengirim "M,kiri,kanan" 10x per detik selama joystick ditahan. Firmware
+  //  base punya failsafe 600 ms, jadi kalau HP terlepas atau halaman macet,
+  //  motor berhenti sendiri. Dilepas -> "X" (rem langsung).
+  // =====================================================================
+  const elSetir = document.getElementById('setir');
+  const pad = document.getElementById('setirPad');
+  const kenop = document.getElementById('setirKenop');
+  const setir = { aktif: false, id: null, x: 0, y: 0, timer: 0 };
+
+  function posisiSetir(e) {
+    const r = pad.getBoundingClientRect();
+    const jari = r.width / 2 - 27;
+    let dx = (e.clientX - (r.left + r.width / 2)) / jari;
+    let dy = (e.clientY - (r.top + r.height / 2)) / jari;
+    const m = Math.hypot(dx, dy);
+    if (m > 1) { dx /= m; dy /= m; }
+    setir.x = dx; setir.y = dy;
+    kenop.style.transform = `translate(${dx * jari}px, ${dy * jari}px)`;
+    // Mata ikut melihat ke arah jalan.
+    pandang.tgt.x = dx; pandang.tgt.y = dy * 0.6;
+  }
+
+  // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
+  // berguna saat base baru berisi servo pan/tilt tanpa motor (uji leher).
+  let modeSetir = 'roda';
+  const SUDUT_PAN = 60, SUDUT_TILT = 30;   // simpangan maks dari tengah (firmware tetap membatasi lagi)
+
+  function kirimSetir() {
+    terakhirInteraksi = performance.now();   // jangan tertidur saat sedang disetir
+    if (modeSetir === 'kepala') {
+      const tilt = Math.round(90 - setir.y * SUDUT_TILT);   // joystick ke atas = mendongak
+      const pan = Math.round(90 + setir.x * SUDUT_PAN);     // joystick ke kanan = menoleh kanan
+      kirim(`S,${tilt},${pan}`);
+      return;
+    }
+    // Pencampuran diferensial: maju/mundur dari sumbu Y, belok dari sumbu X.
+    const maju = -setir.y, belok = setir.x;
+    let kiri = maju + belok, kanan = maju - belok;
+    const skala = Math.max(1, Math.abs(kiri), Math.abs(kanan));
+    kiri = Math.round(kiri / skala * 255);
+    kanan = Math.round(kanan / skala * 255);
+    kirim(`M,${kiri},${kanan}`);
+  }
+
+  function lepasSetir() {
+    if (!setir.aktif) return;
+    setir.aktif = false;
+    clearInterval(setir.timer);
+    kenop.style.transform = '';
+    setir.x = setir.y = 0;
+    kirim(modeSetir === 'kepala' ? 'S,90,90' : 'X');   // lepas: kepala kembali ke tengah / roda direm
+    berikutLirik = performance.now() + 500;
+  }
+
+  pad.addEventListener('pointerdown', e => {
+    interaksi();
+    setir.aktif = true; setir.id = e.pointerId;
+    try { pad.setPointerCapture(e.pointerId); } catch (_) {}
+    posisiSetir(e);
+    kirimSetir();
+    clearInterval(setir.timer);
+    setir.timer = setInterval(kirimSetir, 100);
+  });
+  pad.addEventListener('pointermove', e => { if (setir.aktif && e.pointerId === setir.id) posisiSetir(e); });
+  pad.addEventListener('pointerup', e => { if (e.pointerId === setir.id) lepasSetir(); });
+  pad.addEventListener('pointercancel', e => { if (e.pointerId === setir.id) lepasSetir(); });
+  // Halaman disembunyikan (layar mati, pindah aplikasi) -> berhenti.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) lepasSetir(); });
+
+  function setModeSetir(m) {
+    lepasSetir();
+    modeSetir = m === 'kepala' ? 'kepala' : 'roda';
+    document.querySelectorAll('#pilihSetir .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === modeSetir)));
+    try { localStorage.setItem('kiko.setir', modeSetir); } catch (_) {}
+  }
+  document.querySelectorAll('#pilihSetir .pilih').forEach(b => b.addEventListener('click', () => setModeSetir(b.dataset.mode)));
+  try { setModeSetir(localStorage.getItem('kiko.setir') || 'roda'); } catch (_) { setModeSetir('roda'); }
+
+  document.getElementById('tombolSetir').addEventListener('click', ev => {
+    elSetir.hidden = !elSetir.hidden;
+    if (elSetir.hidden) lepasSetir();
+    ev.target.textContent = elSetir.hidden ? 'Tampilkan setir' : 'Sembunyikan setir';
+    tutupPanel();
+  });
+
+  tombolAtur.addEventListener('click', bukaPanel);
+  document.getElementById('tutupAtur').addEventListener('click', tutupPanel);
+  document.getElementById('tombolLayarPenuh').addEventListener('click', layarPenuh);
+  tombolBasePanel.addEventListener('click', () => ble.terhubung ? putuskanBle() : hubungkanBle());
+  tombolHubung.addEventListener('click', () => { layarPenuh(); hubungkanBle(); });
+  document.getElementById('tombolDemo').addEventListener('click', () => { layarPenuh(); mulaiMemuat(); });
+
+  window.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input')) return;
+    const k = e.key.toLowerCase();
+    if (fase !== 'hidup') { if (k === 'enter') mulaiMemuat(); return; }
+    const n = parseInt(k, 10);
+    if (n >= 1 && n <= URUTAN.length) pilihEkspresi(URUTAN[n - 1]);
+    else if (k === ' ') { e.preventDefault(); interaksi(); kedipSekarang(); }
+    else if (k === 'f') layarPenuh();
+    else if (k === 'a') panelTerbuka ? tutupPanel() : bukaPanel();
+    else if (k === 'escape') tutupPanel();
+  });
+
+  tandaiEkspresi();
+  perbaruiChip();
+  requestAnimationFrame(bingkai);
+})();
+</script>
