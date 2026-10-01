@@ -1,7 +1,14 @@
+<meta charset="utf-8">
 <title>Wajah KiKo</title>
 <meta name="theme-color" content="#000000">
 <!-- Viewport sendiri supaya tampilan benar juga saat file ini di-hosting langsung (GitHub Pages), bukan hanya sebagai artifact. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- PWA: KiKo bisa dipasang sebagai aplikasi layar penuh (file manifest/ikon/sw.js ada
+     di folder yang sama di GitHub Pages; di link artifact file ini tidak ada dan diabaikan). -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="ikon-192.png">
+<link rel="apple-touch-icon" href="ikon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap">
@@ -207,6 +214,23 @@
       <input class="isian" id="jamMalamSelesai" type="number" min="0" max="23" step="1" style="width:5.5em">
     </div>
     <p class="petunjuk" id="statusMalam"></p>
+  </div>
+
+  <div class="bagian">
+    <h2>Tempel ke dudukan</h2>
+    <label class="saklar"><input type="checkbox" id="cekTempel" checked> Wajah bangun saat HP ditempel ke dudukan, tidur saat diangkat (NFC + sensor gerak)</label>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolNfc" type="button">Aktifkan NFC</button>
+    </div>
+    <p class="petunjuk" id="statusNfc" role="status">NFC belum aktif. Sensor gerak tetap bekerja.</p>
+  </div>
+
+  <div class="bagian">
+    <h2>Aplikasi</h2>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol utama" id="tombolPasangApp" type="button" hidden>Pasang aplikasi KiKo</button>
+    </div>
+    <p class="petunjuk" id="statusApp" role="status">Buka dari GitHub Pages di Chrome untuk memasang KiKo sebagai aplikasi (atau menu ⋮ → Instal aplikasi).</p>
   </div>
 
   <div class="bagian">
@@ -891,6 +915,27 @@
     perbaruiTombolBicara();
     tombolAtur.hidden = false;
     samarkanTombolAtur();
+    // Kalau bangun karena ditempel ke dudukan: senang, mengangguk, menyapa.
+    if (bangunDenganSapa) {
+      bangunDenganSapa = false;
+      setTimeout(() => {
+        ekspresiSingkat('senang', 1600);
+        kirim('G,angguk');
+        // Dibuka oleh NFC tanpa sentuhan: Chrome melarang suara (dan pemilih
+        // Bluetooth) sebelum layar disentuh. KiKo memancing satu elusan dulu;
+        // elusan itu yang menyalakan suara sapaan (lihat lepas()).
+        if (belumPernahDisentuh()) {
+          menungguElus = true;
+          tampilTeks('Elus aku dong!');
+          ekspresiSingkat('sayang', 2500);
+        } else {
+          sapaDenganSuara(true);
+        }
+      }, 900);
+    }
+    // Mulai hidup sambil sudah tegak di dudukan (mis. lewat tombol) -> anggap menempel,
+    // supaya mengangkat HP tetap terdeteksi.
+    if (gerak.adaData && gerak.tegak) gerak.tempel = true;
   }
 
   // =====================================================================
@@ -918,7 +963,26 @@
   kanvas.addEventListener('pointermove', e => {
     if (sentuh.aktif && e.pointerId === sentuh.id) arahkanPandang(e);
   });
+  // ---------- Elusan pertama setelah dibuka NFC ----------
+  // pointerup (bukan pointerdown) yang dihitung Chrome sebagai "aktivasi pengguna"
+  // untuk sentuhan, jadi suara dan pemilih Bluetooth dinyalakan di sini.
+  let menungguElus = false;
+  function belumPernahDisentuh() {
+    return !!(navigator.userActivation && !navigator.userActivation.hasBeenActive);
+  }
+  function pernahPakaiBase() { try { return localStorage.getItem('kiko.pernahBase') === '1'; } catch (_) { return false; } }
+  function elusanPertama() {
+    menungguElus = false;
+    tampilTeks('');
+    ekspresiSingkat('senang', 1500);
+    kirim('G,angguk');
+    setTimeout(() => sapaDenganSuara(true), 500);
+    if (!ble.terhubung && pernahPakaiBase() && bleAda) hubungkanBle();   // sambung ulang otomatis gagal -> pilih base
+    layarPenuh();
+  }
+
   function lepas(e) {
+    if (menungguElus) elusanPertama();
     if (!sentuh.aktif || e.pointerId !== sentuh.id) return;
     sentuh.aktif = false;
     clearTimeout(sentuh.timer);
@@ -959,9 +1023,117 @@
   });
 
   // =====================================================================
+  //  HP DITEMPEL KE DUDUKAN -> WAJAH BANGUN  (NFC + sensor gerak)
+  //  Tiga jalan masuk, semuanya berakhir di saatDitempel():
+  //   1. URL ?nfc=1  : halaman dibuka Android karena HP menyentuh stiker NFC
+  //                    di dudukan (stiker berisi alamat web KiKo + ?nfc=1).
+  //   2. Web NFC     : halaman sudah terbuka, NDEFReader membaca stiker yang sama
+  //                    (selama halaman memindai, Android tidak membuka tab baru).
+  //   3. Sensor gerak: hentakan "klik" magnet lalu HP diam tegak mendatar.
+  //  Diangkat (sensor gerak): HP tidak lagi tegak mendatar > 1,2 detik ->
+  //  wajah sedih sebentar lalu kembali ke layar "pasang" dan tertidur.
+  //  NFC tidak bisa mendeteksi HP dilepas, karena itu digabung dengan sensor gerak.
+  // =====================================================================
+  const cekTempel = document.getElementById('cekTempel');
+  const elStatusNfc = document.getElementById('statusNfc');
+  const statusNfc = t => { elStatusNfc.textContent = t; };
+  let bangunDenganSapa = false;
+
+  // Posisi di dudukan = landscape tegak: gravitasi di sumbu X perangkat (sisi pendek).
+  // Tilt servo +-30 derajat masih memberi |ax| >= 8,5, jadi tetap dianggap menempel.
+  const gerak = { halus: 0, puncakT: -1e9, tempel: false, lepasSejak: 0, tegak: false, adaData: false };
+  function saatDitempel(sumber) {
+    if (!cekTempel.checked) return;
+    gerak.tempel = true;
+    gerak.lepasSejak = 0;
+    if (fase === 'pasang') {
+      statusPasang.textContent = '';
+      bangunDenganSapa = true;
+      if (!ble.terhubung) sambungUlangOtomatis();     // tidak ditunggu: wajah langsung bangun
+      mulaiMemuat();
+    } else if (fase === 'hidup' && sumber === 'nfc') {
+      interaksi();
+      ekspresiSingkat('senang', 1200);                // sudah bangun: cukup senang disentuh dudukan
+    }
+  }
+
+  function saatDiangkat() {
+    if (!cekTempel.checked || fase === 'pasang') return;
+    // Diangkat saat animasi memuat: langsung kembali tidur.
+    if (fase === 'memuat') { keLayarPasang('Tempelkan aku lagi ke dudukan ya.'); return; }
+    ekspresiSingkat('sedih', 900);
+    kirim('G,geleng');
+    setTimeout(() => {
+      if (fase === 'hidup' && !gerak.tempel) keLayarPasang('Tempelkan aku lagi ke dudukan ya.');
+    }, 900);
+  }
+
+  window.addEventListener('devicemotion', e => {
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.x == null) return;
+    const now = performance.now();
+    const simpang = Math.abs(Math.hypot(a.x, a.y, a.z) - 9.81);
+    gerak.adaData = true;
+    gerak.halus = gerak.halus * 0.85 + simpang * 0.15;   // rata-rata guncangan
+    gerak.tegak = Math.abs(a.x) > 7 && Math.abs(a.y) < 3.5;
+    if (simpang > 4.5) gerak.puncakT = now;              // hentakan "klik" magnet
+    if (!cekTempel.checked) return;
+
+    if (!gerak.tempel) {
+      // klik lalu diam tegak dalam 0,25-1,5 detik setelahnya = baru ditempel
+      const sejakKlik = now - gerak.puncakT;
+      if (fase === 'pasang' && gerak.tegak && gerak.halus < 0.6 && sejakKlik > 250 && sejakKlik < 1500) {
+        saatDitempel('gerak');
+      }
+    } else if (!gerak.tegak) {
+      if (!gerak.lepasSejak) gerak.lepasSejak = now;
+      else if (now - gerak.lepasSejak > 1200) { gerak.tempel = false; gerak.lepasSejak = 0; saatDiangkat(); }
+    } else {
+      gerak.lepasSejak = 0;
+    }
+  });
+
+  // ---------- Web NFC ----------
+  function pesanKiko(pesan) {   // apakah stiker yang terbaca adalah stiker KiKo?
+    for (const rec of pesan.records || []) {
+      try {
+        const teks = new TextDecoder(rec.encoding || 'utf-8').decode(rec.data);
+        if ((rec.recordType === 'url' || rec.recordType === 'absolute-url') && /kiko/i.test(teks)) return true;
+        if (rec.recordType === 'text' && /kiko/i.test(teks)) return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  let nfcAktif = false;
+  async function mulaiNfc() {
+    if (nfcAktif) return;
+    if (!('NDEFReader' in window)) { statusNfc('Web NFC tidak tersedia di sini (butuh Chrome Android + HTTPS).'); return; }
+    try {
+      const pembaca = new NDEFReader();
+      await pembaca.scan();                          // pertama kali: Chrome minta izin NFC
+      nfcAktif = true;
+      statusNfc('NFC aktif: tempelkan HP ke dudukan.');
+      pembaca.onreading = ev => { if (pesanKiko(ev.message)) saatDitempel('nfc'); };
+      pembaca.onreadingerror = () => {};
+    } catch (err) {
+      statusNfc(err && err.name === 'NotAllowedError' ? 'Izin NFC ditolak. Izinkan NFC untuk situs ini di Chrome.'
+                                                      : 'NFC gagal: ' + (err && err.message ? err.message : err));
+    }
+  }
+  // Izin NFC yang sudah pernah diberikan -> langsung memindai tanpa ketukan.
+  try {
+    navigator.permissions.query({ name: 'nfc' }).then(p => { if (p.state === 'granted') mulaiNfc(); }).catch(() => {});
+  } catch (_) {}
+
+  // =====================================================================
   //  LAYAR PENUH & WAKE LOCK
   // =====================================================================
+  // Sudah jalan sebagai aplikasi terpasang (PWA layar penuh) -> tidak perlu minta layar penuh lagi.
+  const sebagaiAplikasi = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+
   async function layarPenuh() {
+    if (sebagaiAplikasi()) return;
     try {
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
       if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
@@ -1012,7 +1184,8 @@
 
   function terimaBaris(baris) {
     const [kode, nilai] = baris.trim().split(',');
-    if (kode === 'T') { interaksi(); ekspresiSingkat('senang', 1500); }
+    // T = badan mulai dielus (TTP223, firmware Ver 5); T,tahan = masih dielus (tiap 1 detik)
+    if (kode === 'T') { interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500); }
     else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
     else if (kode === 'B' && nilai) { ble.baterai = parseFloat(nilai); perbaruiChip(); }
   }
@@ -1023,6 +1196,34 @@
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'KiKo' }], optionalServices: [NUS],
       });
+      await sambungkanPerangkat(device);
+    } catch (err) {
+      const pesan = String(err && err.name);
+      statusPasang.textContent =
+        pesan === 'NotFoundError' ? 'Tidak ada base yang dipilih.' :
+        pesan === 'SecurityError' ? 'Halaman ini tidak diizinkan memakai Bluetooth. Buka lewat HTTPS di Chrome Android.' :
+        'Gagal terhubung: ' + (err && err.message ? err.message : err);
+    }
+  }
+
+  // Sambung ulang TANPA ketukan: dipakai saat HP ditempel ke dudukan (NFC /
+  // sensor gerak). navigator.bluetooth.getDevices() mengembalikan base yang
+  // pernah diizinkan sebelumnya; requestDevice() tidak bisa dipakai di sini
+  // karena butuh ketukan pengguna. Diam saja kalau browser tidak mendukung.
+  async function sambungUlangOtomatis() {
+    if (ble.terhubung || !navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
+    try {
+      const daftar = await navigator.bluetooth.getDevices();
+      const base = daftar.find(d => (d.name || '').startsWith('KiKo'));
+      if (!base) return false;
+      await sambungkanPerangkat(base);
+      return true;
+    } catch (_) { return false; }
+  }
+
+  async function sambungkanPerangkat(device) {
+    {
+      device.removeEventListener('gattserverdisconnected', saatTerputus);
       device.addEventListener('gattserverdisconnected', saatTerputus);
       const server = await device.gatt.connect();
       const layanan = await server.getPrimaryService(NUS);
@@ -1038,36 +1239,33 @@
         }
       });
       ble.device = device; ble.terhubung = true;
+      try { localStorage.setItem('kiko.pernahBase', '1'); } catch (_) {}
       statusPasang.textContent = '';
       perbaruiChip();
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
       if (fase === 'pasang') mulaiMemuat();
-    } catch (err) {
-      const pesan = String(err && err.name);
-      statusPasang.textContent =
-        pesan === 'NotFoundError' ? 'Tidak ada base yang dipilih.' :
-        pesan === 'SecurityError' ? 'Halaman ini tidak diizinkan memakai Bluetooth. Buka lewat HTTPS di Chrome Android.' :
-        'Gagal terhubung: ' + (err && err.message ? err.message : err);
     }
   }
 
   function saatTerputus() {
     ble.terhubung = false; ble.rx = null; ble.baterai = null;
     perbaruiChip();
-    if (fase === 'hidup') {
-      // Seperti Looi: HP dilepas dari base -> kembali ke layar "pasang HP".
-      fase = 'pasang';
-      tutupPanel();
-      tombolAtur.hidden = true;
-      perbaruiTombolBicara();
-      tampilTeks('');
-      if (window.speechSynthesis) speechSynthesis.cancel();
-      lepasSetir();
-      elSetir.hidden = true;
-      document.getElementById('tombolSetir').textContent = 'Tampilkan setir';
-      document.getElementById('pasang').hidden = false;
-      statusPasang.textContent = 'Base terputus.';
-    }
+    if (fase === 'hidup') keLayarPasang('Base terputus.');
+  }
+
+  // Kembali ke layar "PASANG HP KE KIKO" dengan mata tertidur (seperti Looi).
+  function keLayarPasang(pesan) {
+    fase = 'pasang';
+    tutupPanel();
+    tombolAtur.hidden = true;
+    perbaruiTombolBicara();
+    tampilTeks('');
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    lepasSetir();
+    elSetir.hidden = true;
+    document.getElementById('tombolSetir').textContent = 'Tampilkan setir';
+    document.getElementById('pasang').hidden = false;
+    statusPasang.textContent = pesan || '';
   }
 
   function putuskanBle() {
@@ -1582,10 +1780,10 @@
 
   // Sapaan dibuat di HP (tanpa AI) supaya tidak memakai kuota.
   let terakhirSapa = 0;
-  function sapaDenganSuara() {
+  function sapaDenganSuara(paksa = false) {   // paksa: abaikan jeda 5 menit (mis. baru ditempel ke dudukan)
     const now = performance.now();
     if (!ai.url || !cekSuara.checked || ai.tahap !== 'diam' || ai.bicara) return;
-    if (terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
+    if (!paksa && terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
     terakhirSapa = now;
     const s = salamWaktu(), n = ingatan.nama;
     const pilihan = n
@@ -1823,8 +2021,61 @@
   document.getElementById('tutupAtur').addEventListener('click', tutupPanel);
   document.getElementById('tombolLayarPenuh').addEventListener('click', layarPenuh);
   tombolBasePanel.addEventListener('click', () => ble.terhubung ? putuskanBle() : hubungkanBle());
-  tombolHubung.addEventListener('click', () => { layarPenuh(); hubungkanBle(); });
-  document.getElementById('tombolDemo').addEventListener('click', () => { layarPenuh(); mulaiMemuat(); });
+  // Ketukan tombol sekalian dipakai untuk minta izin NFC (Web NFC butuh ketukan pertama kali).
+  tombolHubung.addEventListener('click', () => { layarPenuh(); mulaiNfc(); hubungkanBle(); });
+  document.getElementById('tombolDemo').addEventListener('click', () => { layarPenuh(); mulaiNfc(); mulaiMemuat(); });
+  document.getElementById('tombolNfc').addEventListener('click', () => mulaiNfc());
+  try { cekTempel.checked = localStorage.getItem('kiko.tempel') !== '0'; } catch (_) {}
+  cekTempel.addEventListener('change', () => {
+    try { localStorage.setItem('kiko.tempel', cekTempel.checked ? '1' : '0'); } catch (_) {}
+  });
+
+  // =====================================================================
+  //  APLIKASI (PWA)
+  //  Di GitHub Pages: service worker didaftarkan supaya KiKo bisa dipasang
+  //  sebagai aplikasi layar penuh. Setelah terpasang, stiker NFC (alamat dalam
+  //  cakupan aplikasi) membuka aplikasi KiKo langsung, bukan tab Chrome.
+  //  Di link artifact claude.ai semua ini dilewati.
+  // =====================================================================
+  const tombolPasangApp = document.getElementById('tombolPasangApp');
+  const elStatusApp = document.getElementById('statusApp');
+  let ajakanPasang = null;
+  const bolehSW = (location.protocol === 'https:' && !/claude\.ai$/.test(location.hostname)) || location.hostname === 'localhost';
+  if ('serviceWorker' in navigator && bolehSW) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();                 // tampilkan lewat tombol kita sendiri
+    ajakanPasang = e;
+    tombolPasangApp.hidden = false;
+    elStatusApp.textContent = 'KiKo bisa dipasang sebagai aplikasi layar penuh.';
+  });
+  tombolPasangApp.addEventListener('click', async () => {
+    if (!ajakanPasang) return;
+    ajakanPasang.prompt();
+    const hasil = await ajakanPasang.userChoice.catch(() => null);
+    ajakanPasang = null;
+    tombolPasangApp.hidden = true;
+    elStatusApp.textContent = hasil && hasil.outcome === 'accepted' ? 'Terpasang. Buka KiKo dari ikon di layar utama.' : 'Batal dipasang.';
+  });
+  window.addEventListener('appinstalled', () => { elStatusApp.textContent = 'Terpasang. Buka KiKo dari ikon di layar utama.'; });
+  if (sebagaiAplikasi()) elStatusApp.textContent = 'Sedang berjalan sebagai aplikasi KiKo.';
+
+  // Aplikasi sudah terbuka lalu stiker NFC dibaca sistem lagi: Chrome memakai
+  // jendela yang sama (launch_handler focus-existing) dan mengirim URL-nya ke sini.
+  if ('launchQueue' in window) {
+    window.launchQueue.setConsumer(p => {
+      try { if (p && p.targetURL && new URL(p.targetURL).searchParams.get('nfc') === '1') saatDitempel('nfc-buka'); } catch (_) {}
+    });
+  }
+
+  // Dibuka oleh stiker NFC di dudukan (alamat berisi ?nfc=1): langsung bangun.
+  try {
+    if (new URLSearchParams(location.search).get('nfc') === '1') {
+      setTimeout(() => saatDitempel('nfc-buka'), 300);
+      history.replaceState(null, '', location.pathname);   // muat ulang tidak memicu lagi
+    }
+  } catch (_) {}
 
   window.addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input')) return;
