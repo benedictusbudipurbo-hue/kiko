@@ -220,6 +220,15 @@
   </div>
 
   <div class="bagian">
+    <h2>Ingatan KiKo</h2>
+    <p class="petunjuk" id="isiIngatan">Belum ada.</p>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolLupa" type="button">Lupakan semua</button>
+    </div>
+    <p class="petunjuk">Disimpan di HP ini saja. KiKo mengingat nama dan hal yang Anda ceritakan, lalu memakainya saat ngobrol.</p>
+  </div>
+
+  <div class="bagian">
     <h2>Gaya mata</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihGaya">
       <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis">Realistis</button>
@@ -1330,7 +1339,8 @@
       wajah.y = batas((cy - 0.5) * 2 * PENGUAT_Y, -1, 1);
       wajah.lebar = b.width / vw;
 
-      const baruMuncul = !wajah.ada && now - wajah.terakhirLihat > 3000;
+      const lamaHilang = now - wajah.terakhirLihat;            // terakhirLihat 0 = belum pernah melihat
+      const baruMuncul = !wajah.ada && lamaHilang > 3000;
       wajah.ada = true;
       wajah.terakhirLihat = now;
       if (fase === 'hidup') {
@@ -1340,6 +1350,8 @@
           const sedangTidur = moodSaatIni(now) === 'tidur';
           interaksi();
           if (!sedangTidur) ekspresiSingkat('senang', 1300);
+          // Pergi cukup lama -> sapa dengan suara ("Selamat pagi, Benny!").
+          if (lamaHilang > JEDA_SAPA_MS) sapaDenganSuara();
         } else {
           terakhirInteraksi = now;                             // ada orang: jangan mengantuk/tidur
         }
@@ -1494,6 +1506,60 @@
     mulaiDengar(true);
   }, 300);
 
+  // ---------- Ingatan & waktu ----------
+  // Nama dan fakta tentang pengguna disimpan di HP ini saja (localStorage
+  // "kiko.ingatan"), dikirim ke Worker di setiap pertanyaan, dan diisi dari
+  // field "nama"/"ingat" jawaban AI. Worker tidak menyimpan apa pun.
+  const MAKS_FAKTA = 20;
+  const JEDA_SAPA_MS = 5 * 60 * 1000;      // pergi > 5 menit lalu kembali -> disapa dengan suara
+  let ingatan = { nama: '', fakta: [] };
+  try {
+    const o = JSON.parse(localStorage.getItem('kiko.ingatan') || '{}');
+    ingatan.nama = typeof o.nama === 'string' ? o.nama : '';
+    ingatan.fakta = Array.isArray(o.fakta) ? o.fakta.filter(f => typeof f === 'string').slice(-MAKS_FAKTA) : [];
+  } catch (_) {}
+
+  function simpanIngatan() {
+    try { localStorage.setItem('kiko.ingatan', JSON.stringify(ingatan)); } catch (_) {}
+    tampilkanIngatan();
+  }
+
+  function simpanIngatanBaru(nama, fakta) {
+    let berubah = false;
+    if (nama && nama !== ingatan.nama) { ingatan.nama = nama; berubah = true; }
+    if (fakta && !ingatan.fakta.some(f => f.toLowerCase() === fakta.toLowerCase())) {
+      ingatan.fakta.push(fakta);
+      ingatan.fakta = ingatan.fakta.slice(-MAKS_FAKTA);       // yang terlama dilupakan dulu
+      berubah = true;
+    }
+    if (berubah) simpanIngatan();
+  }
+
+  function waktuSekarang() {
+    try {
+      return new Date().toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (_) { return new Date().toString(); }
+  }
+
+  function salamWaktu() {
+    const j = new Date().getHours();
+    return j >= 4 && j < 11 ? 'pagi' : j < 15 ? 'siang' : j < 18 ? 'sore' : 'malam';
+  }
+
+  // Sapaan dibuat di HP (tanpa AI) supaya tidak memakai kuota.
+  let terakhirSapa = 0;
+  function sapaDenganSuara() {
+    const now = performance.now();
+    if (!ai.url || !cekSuara.checked || ai.tahap !== 'diam' || ai.bicara) return;
+    if (terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
+    terakhirSapa = now;
+    const s = salamWaktu(), n = ingatan.nama;
+    const pilihan = n
+      ? [`Selamat ${s}, ${n}!`, `Hai ${n}, selamat ${s}!`, `Eh, ${n} datang. Selamat ${s}!`]
+      : [`Selamat ${s}!`, `Hai, selamat ${s}! Siapa namamu?`, `Halo! Selamat ${s}.`];
+    ucapkan(pilihan[Math.floor(Math.random() * pilihan.length)], 'senang');
+  }
+
   async function tanyaKiKo(teks) {
     aturTahap('pikir');
     tampilTeks('Kamu: ' + teks);
@@ -1504,13 +1570,17 @@
       const res = await fetch(ai.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pesan: teks, riwayat: ai.riwayat }),
+        body: JSON.stringify({
+          pesan: teks, riwayat: ai.riwayat,
+          waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
       ai.riwayat.push({ role: 'user', content: teks }, { role: 'assistant', content: data.teks });
       ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
       statusAi('Tersambung. Jawaban terakhir: ' + (data.ekspresi || 'normal'));
+      simpanIngatanBaru(data.nama, data.ingat);
       ucapkan(data.teks, data.ekspresi);
     } catch (err) {
       const pesan = String(err && err.message || err);
@@ -1577,6 +1647,35 @@
     if (!cekSuara.checked && window.speechSynthesis) speechSynthesis.cancel();
   });
   tombolBicara.addEventListener('click', () => mulaiDengar(false));
+
+  const elIsiIngatan = document.getElementById('isiIngatan');
+  const tombolLupa = document.getElementById('tombolLupa');
+  function tampilkanIngatan() {
+    const baris = [];
+    if (ingatan.nama) baris.push('Nama: ' + ingatan.nama);
+    ingatan.fakta.forEach(f => baris.push('• ' + f));
+    elIsiIngatan.textContent = baris.length ? baris.join('\n') : 'Belum ada.';
+    elIsiIngatan.style.whiteSpace = 'pre-line';
+  }
+  // Konfirmasi dua ketukan (dialog confirm() tidak bisa dipakai di semua tampilan).
+  let timerLupa = 0;
+  tombolLupa.addEventListener('click', () => {
+    if (tombolLupa.dataset.yakin !== '1') {
+      tombolLupa.dataset.yakin = '1';
+      tombolLupa.textContent = 'Yakin? Ketuk lagi';
+      clearTimeout(timerLupa);
+      timerLupa = setTimeout(() => { tombolLupa.dataset.yakin = ''; tombolLupa.textContent = 'Lupakan semua'; }, 4000);
+      return;
+    }
+    clearTimeout(timerLupa);
+    tombolLupa.dataset.yakin = '';
+    tombolLupa.textContent = 'Lupakan semua';
+    ingatan = { nama: '', fakta: [] };
+    ai.riwayat = [];
+    simpanIngatan();
+    statusAi('Ingatan KiKo sudah dihapus.');
+  });
+  tampilkanIngatan();
   try { cekDengarOtomatis.checked = localStorage.getItem('kiko.dengarOtomatis') !== '0'; } catch (_) {}
   cekDengarOtomatis.addEventListener('change', () => {
     simpanDengarOtomatis();
