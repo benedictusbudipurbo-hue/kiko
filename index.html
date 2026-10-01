@@ -199,6 +199,14 @@
     <h2>Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> Kepala ikut lirikan mata (butuh firmware base Ver 3)</label>
+    <label class="saklar"><input type="checkbox" id="cekMalam" checked> Mode malam: cepat tidur, tanpa mikrofon otomatis</label>
+    <div class="baris" style="justify-content:flex-start;align-items:center">
+      <label class="petunjuk" for="jamMalamMulai">Dari jam</label>
+      <input class="isian" id="jamMalamMulai" type="number" min="0" max="23" step="1" style="width:5.5em">
+      <label class="petunjuk" for="jamMalamSelesai">sampai jam</label>
+      <input class="isian" id="jamMalamSelesai" type="number" min="0" max="23" step="1" style="width:5.5em">
+    </div>
+    <p class="petunjuk" id="statusMalam"></p>
   </div>
 
   <div class="bagian">
@@ -320,6 +328,11 @@
     curiga:  { label: 'Curiga',  pupil: 0.36, kiri: { lidTop: 0.5, tilt: 0.12, lidBot: 0.22, alis: -0.6 }, kanan: { lidTop: 0.14, tilt: -0.1, h: 1.05, alis: 0.45 } },
     sayang:  { label: 'Sayang',  heart: 1, w: 1.12, pupil: 0.6, pipi: 1, alis: 0.3 },
     tidur:   { label: 'Tidur',   w: 1.06, lidTop: 0.9, dy: 0.08, alis: -0.1 },
+    // Ditambahkan di akhir supaya tombol keyboard 1-9 untuk ekspresi lama tidak bergeser.
+    // Tertawa: seperti senang tapi lebih sipit + memantul (lihat bingkai()).
+    tertawa: { label: 'Tertawa', w: 1.08, h: 0.9, lidBot: 0.74, dy: -0.05, pupil: 0.45, pipi: 1, alis: 0.4 },
+    // Bingung: asimetris, satu alis naik tinggi, mata lain sedikit menyipit.
+    bingung: { label: 'Bingung', pupil: 0.4, kiri: { alis: 1.2, h: 1.1 }, kanan: { alis: -0.4, lidTop: 0.3, tilt: 0.25 } },
   };
   const URUTAN = Object.keys(EKSPRESI);
   const KUNCI = Object.keys(DASAR);
@@ -370,6 +383,25 @@
   let moodTerkirim = '';
   const IDLE_NGANTUK = 45000, IDLE_TIDUR = 90000;
 
+  // ---------- Mode malam ----------
+  // Di jam tidur (bawaan 22:00-06:00) KiKo cepat mengantuk/tidur, tidak membuat
+  // ekspresi spontan, dan mikrofon otomatis istirahat (tidak menjawab obrolan
+  // orang di malam hari). Disentuh atau diajak bicara lewat tombol tetap bisa.
+  const MALAM_NGANTUK = 15000, MALAM_TIDUR = 40000;
+  const malam = { aktif: true, mulai: 22, selesai: 6 };
+  try { Object.assign(malam, JSON.parse(localStorage.getItem('kiko.malam') || '{}')); } catch (_) {}
+  let cacheMalam = { waktu: 0, nilai: false };
+  function modeMalamAktif() {
+    const now = performance.now();
+    if (now - cacheMalam.waktu < 1000) return cacheMalam.nilai;   // cukup dicek tiap detik, bukan tiap frame
+    const j = new Date().getHours();
+    const dalamRentang = malam.mulai <= malam.selesai
+      ? j >= malam.mulai && j < malam.selesai
+      : j >= malam.mulai || j < malam.selesai;                    // melewati tengah malam, mis. 22 -> 6
+    cacheMalam = { waktu: now, nilai: malam.aktif && malam.mulai !== malam.selesai && dalamRentang };
+    return cacheMalam.nilai;
+  }
+
   function moodSaatIni(now) {
     if (fase === 'pasang') return 'tidur';
     if (sementara && now < sementara.sampai) return sementara.nama;
@@ -377,8 +409,9 @@
     if (moodManual) return moodManual;
     if (otomatis) {
       const diam = now - terakhirInteraksi;
-      if (diam > IDLE_TIDUR) return 'tidur';
-      if (diam > IDLE_NGANTUK) return 'ngantuk';
+      const jamTidur = modeMalamAktif();
+      if (diam > (jamTidur ? MALAM_TIDUR : IDLE_TIDUR)) return 'tidur';
+      if (diam > (jamTidur ? MALAM_NGANTUK : IDLE_NGANTUK)) return 'ngantuk';
     }
     return 'normal';
   }
@@ -771,8 +804,8 @@
       kirim('E,' + mood);          // base bisa ikut bereaksi (mis. servo mengangguk saat senang)
       tandaiEkspresi();
     }
-    if (fase === 'hidup' && otomatis && !moodManual && mood === 'normal' && now > berikutSpontan) {
-      const pilihan = ['senang', 'curiga', 'kaget', 'senang'];
+    if (fase === 'hidup' && otomatis && !moodManual && mood === 'normal' && now > berikutSpontan && !modeMalamAktif()) {
+      const pilihan = ['senang', 'curiga', 'kaget', 'senang', 'bingung'];
       ekspresiSingkat(pilihan[Math.floor(Math.random() * pilihan.length)], acak(1100, 2000));
       berikutSpontan = now + acak(9000, 18000);
     }
@@ -808,6 +841,7 @@
     if (sentuh.elus && !kurangGerak) dyTambah += 0.025 * Math.sin(now / 70); // bergoyang geli saat dielus
     if (mood === 'tidur' && !kurangGerak) dyTambah += 0.012 * Math.sin(now / 900); // napas
     if (ai.bicara && !kurangGerak) dyTambah += 0.008 * Math.sin(now / 55);          // bergetar kecil saat bicara
+    if (mood === 'tertawa' && !kurangGerak) dyTambah -= 0.03 * Math.abs(Math.sin(now / 85)); // terguncang tertawa
 
     const kedipan = nilaiKedip(now, mood);
     if (gaya === 'realistis') {
@@ -1501,7 +1535,7 @@
     const adaWajah = wajah.ada;
     if (adaWajah && !wajahTadi) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = now + 800; }   // orang baru datang
     wajahTadi = adaWajah;
-    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden) return;
+    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden || modeMalamAktif()) return;
     if (!adaWajah || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
     mulaiDengar(true);
   }, 300);
@@ -1582,6 +1616,10 @@
       statusAi('Tersambung. Jawaban terakhir: ' + (data.ekspresi || 'normal'));
       simpanIngatanBaru(data.nama, data.ingat);
       ucapkan(data.teks, data.ekspresi);
+      // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
+      // setelah E dari pergantian ekspresi supaya tidak langsung ditimpa
+      // gestur ekspresi. Firmware lama membalas "?,G..." dan diabaikan.
+      if (data.gerak === 'angguk' || data.gerak === 'geleng') setTimeout(() => kirim('G,' + data.gerak), 300);
     } catch (err) {
       const pesan = String(err && err.message || err);
       statusAi('Gagal: ' + pesan);
@@ -1647,6 +1685,31 @@
     if (!cekSuara.checked && window.speechSynthesis) speechSynthesis.cancel();
   });
   tombolBicara.addEventListener('click', () => mulaiDengar(false));
+
+  // ---------- Panel mode malam ----------
+  const cekMalam = document.getElementById('cekMalam');
+  const jamMalamMulai = document.getElementById('jamMalamMulai');
+  const jamMalamSelesai = document.getElementById('jamMalamSelesai');
+  const elStatusMalam = document.getElementById('statusMalam');
+  function tampilkanMalam() {
+    cekMalam.checked = malam.aktif;
+    jamMalamMulai.value = malam.mulai;
+    jamMalamSelesai.value = malam.selesai;
+    cacheMalam.waktu = 0;                                       // paksa hitung ulang
+    elStatusMalam.textContent = !malam.aktif ? 'Mode malam mati.'
+      : modeMalamAktif() ? 'Sekarang sedang mode malam.' : 'Sekarang bukan jam malam.';
+  }
+  function simpanMalam() {
+    const jam = el => batas(Math.round(Number(el.value) || 0), 0, 23);
+    malam.aktif = cekMalam.checked;
+    malam.mulai = jam(jamMalamMulai);
+    malam.selesai = jam(jamMalamSelesai);
+    try { localStorage.setItem('kiko.malam', JSON.stringify(malam)); } catch (_) {}
+    tampilkanMalam();
+  }
+  [cekMalam, jamMalamMulai, jamMalamSelesai].forEach(el => el.addEventListener('change', simpanMalam));
+  tampilkanMalam();
+  setInterval(tampilkanMalam, 60000);                          // status ikut berganti saat jam berganti
 
   const elIsiIngatan = document.getElementById('isiIngatan');
   const tombolLupa = document.getElementById('tombolLupa');
