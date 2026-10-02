@@ -270,6 +270,11 @@
     </div>
   </div>
 
+  <div class="bagian khusus-kucing">
+    <h2>Jenis kucing</h2>
+    <div class="grid-ekspresi" id="gridJenis"></div>
+  </div>
+
   <div class="bagian khusus-realistis">
     <h2>Warna iris</h2>
     <div class="grid-warna" id="gridIris"></div>
@@ -279,7 +284,7 @@
     <h2>Warna wajah</h2>
     <div class="grid-warna" id="gridKulit"></div>
     <label class="saklar"><input type="checkbox" id="cekAlis" checked> Tampilkan alis</label>
-    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> Pola belang kucing (dahi & pipi)</label>
+    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> Tampilkan corak kucing (belang / bercak / topeng)</label>
   </div>
 
   <div class="bagian khusus-robot">
@@ -603,6 +608,7 @@
   const IRIS = [
     ['#6b4428', 'Cokelat'], ['#8d6b32', 'Hazel'], ['#3a78b8', 'Biru'], ['#4b8b52', 'Hijau'],
     ['#7d8b97', 'Abu-abu'], ['#7b52b3', 'Ungu'], ['#20b8c9', 'Toska'], ['#d6a01e', 'Kuning'],
+    ['#8cc63f', 'Hijau kucing'],
   ];
   // Tiap warna wajah punya pasangan kelopak/lipatan/alis/bulu mata sendiri,
   // supaya kontrasnya tetap enak di wajah terang maupun gelap.
@@ -615,6 +621,18 @@
     { id: 'hitam',   nama: 'Hitam',       latar: '#0d0d0f', kelopak: '#1b1b1f', lipatan: '#34343b', alis: '#5b606a', bulu: '#000000' },
     { id: 'oranye',  nama: 'Kucing oranye', latar: '#f2ad6b', kelopak: '#e79c58', lipatan: '#c47a3a', alis: '#6b3a16', bulu: '#4a250c' },
     { id: 'abu',     nama: 'Kucing abu',  latar: '#b9bcc2', kelopak: '#a9adb4', lipatan: '#868a92', alis: '#3e4148', bulu: '#2a2c31' },
+    { id: 'putihk',  nama: 'Kucing putih', latar: '#f6f3ee', kelopak: '#ece6dd', lipatan: '#c9bfb2', alis: '#55504a', bulu: '#3b3632' },
+    { id: 'krem',    nama: 'Kucing krem (siam)', latar: '#efe0c6', kelopak: '#e6d3b4', lipatan: '#b99b78', alis: '#4a3324', bulu: '#3a2618' },
+  ];
+  // Jenis kucing siap pakai: satu ketukan mengganti bulu, mata dan corak.
+  // iris2 = mata kanan berbeda (kucing putih "mata ganjil" / heterokromia).
+  const JENIS_KUCING = [
+    { id: 'oranye', nama: 'Oranye belang',     kulit: 'oranye', iris: '#d6a01e', corak: 'belang' },
+    { id: 'abu',    nama: 'Abu belang',        kulit: 'abu',    iris: '#8cc63f', corak: 'belang' },
+    { id: 'hitam',  nama: 'Hitam',             kulit: 'hitam',  iris: '#8cc63f', corak: 'polos' },
+    { id: 'calico', nama: 'Calico',            kulit: 'putihk', iris: '#d6a01e', corak: 'calico' },
+    { id: 'siam',   nama: 'Siam',              kulit: 'krem',   iris: '#3a78b8', corak: 'siam' },
+    { id: 'ganjil', nama: 'Putih mata ganjil', kulit: 'putihk', iris: '#3a78b8', iris2: '#d6a01e', corak: 'polos' },
   ];
   let kulit = KULIT[0];
 
@@ -728,7 +746,8 @@
     const kucing = gaya === 'kucing';
     const rI = (kucing ? 0.18 : 0.15) * U * skala;
     const ix = cx + gx * (w / 2 - rI * 1.1), iy = cy + ry * 0.05 + gy * ry * 0.5;
-    ctx.drawImage(teksturIris(warnaIris, rI), ix - rI, iy - rI, rI * 2, rI * 2);
+    const iris = kucing && warnaIris2 && sisi === 'kanan' ? warnaIris2 : warnaIris;   // mata ganjil
+    ctx.drawImage(teksturIris(iris, rI), ix - rI, iy - rI, rI * 2, rI * 2);
     const denyut = kurangGerak ? 1 : 1 + 0.03 * Math.sin(now / 1300);
     const rP = rI * p.pupil * denyut;
     ctx.fillStyle = '#080606';
@@ -750,7 +769,7 @@
 
     // Kelopak atas & bawah warna kulit. shadowBlur memberi bayangan lembut yang
     // otomatis mengikuti tepi kelopak (offset bayangan dalam piksel perangkat).
-    ctx.fillStyle = kulit.kelopak;
+    ctx.fillStyle = warnaKelopakMata(sisi);
     ctx.shadowColor = 'rgba(40,20,10,0.4)';
     ctx.shadowBlur = 0.035 * U * DPR;
     ctx.shadowOffsetY = 0.012 * U * DPR;
@@ -824,16 +843,55 @@
     }
   }
 
-  // Pola belang kucing yang umum (secukupnya, bukan seluruh layar): tiga garis
-  // pendek di dahi (tanda "M" kucing tabby) dan tiga garis di tiap pipi luar.
-  // Warna sedikit lebih gelap dari bulu (wajah hitam: sedikit lebih terang).
-  // Digambar SEBELUM mata, jadi tidak pernah menutupi mata.
+  // Corak wajah kucing (secukupnya, bukan seluruh layar), digambar SEBELUM mata
+  // jadi tidak pernah menutupi mata:
+  //  belang : tiga garis di dahi (tanda "M" tabby) + tiga garis di tiap pipi luar
+  //  calico : bercak oranye (kiri atas) dan hitam (kanan atas) di wajah putih
+  //  siam   : "topeng" cokelat lembut di tengah wajah (moncong, sekitar mata)
+  //  polos  : tanpa corak (kucing hitam, putih)
+  // pakaiBelang = sakelar "Tampilkan corak" di panel.
   let pakaiBelang = true;
+  let corak = 'belang';            // 'belang' | 'calico' | 'siam' | 'polos'
+  let warnaIris2 = '';             // iris mata KANAN berbeda (kucing mata ganjil); '' = sama
+  const CALICO_ORANYE = '#e3914a', CALICO_HITAM = '#2e2826', SIAM_TOPENG = '70,46,36';
+  const corakAktif = () => gaya === 'kucing' && pakaiBelang ? corak : 'polos';
+
+  // Kelopak di dalam bercak calico / topeng siam ikut warna bercaknya, supaya
+  // saat berkedip tidak muncul kelopak putih di tengah bercak gelap.
+  function warnaKelopakMata(sisi) {
+    const c = corakAktif();
+    if (c === 'calico') return sisi === 'kiri' ? campur(CALICO_ORANYE, '#000000', 0.06) : campur(CALICO_HITAM, '#ffffff', 0.1);
+    if (c === 'siam') return campur(kulit.kelopak, '#46302a', 0.45);
+    return kulit.kelopak;
+  }
+
   function gambarPolaKucing(dyTambah) {
-    if (!pakaiBelang) return;
+    const c = corakAktif();
+    if (c === 'polos') return;
     const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
     const cy = H / 2 + dy * U;
     const gx = pandang.cur.x * 0.03 * U;
+    if (c === 'calico') {
+      ctx.save();
+      ctx.fillStyle = CALICO_ORANYE;   // bercak besar kiri atas, melingkupi mata kiri
+      ctx.beginPath(); ctx.ellipse(W / 2 + gx - 0.66 * U, cy - 0.2 * U, 0.44 * U, 0.34 * U, -0.35, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(W / 2 + gx - 0.25 * U, cy - 0.42 * U, 0.2 * U, 0.12 * U, 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = CALICO_HITAM;    // bercak kanan atas, melingkupi mata kanan
+      ctx.beginPath(); ctx.ellipse(W / 2 + gx + 0.72 * U, cy - 0.16 * U, 0.38 * U, 0.3 * U, 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = CALICO_ORANYE;   // titik kecil di pipi kanan
+      ctx.beginPath(); ctx.ellipse(W / 2 + gx + 0.62 * U, cy + 0.3 * U, 0.09 * U, 0.06 * U, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    if (c === 'siam') {
+      const g = ctx.createRadialGradient(W / 2 + gx, cy + 0.14 * U, 0, W / 2 + gx, cy + 0.14 * U, 0.62 * U);
+      g.addColorStop(0, `rgba(${SIAM_TOPENG},0.8)`);
+      g.addColorStop(0.45, `rgba(${SIAM_TOPENG},0.5)`);
+      g.addColorStop(1, `rgba(${SIAM_TOPENG},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
     const warna = kulit.id === 'hitam' ? campur(kulit.latar, '#ffffff', 0.14) : campur(kulit.latar, '#000000', 0.26);
     ctx.save();
     ctx.strokeStyle = warna;
@@ -875,8 +933,9 @@
     const garis = warnaAksen();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-    // Moncong: dua gundukan pipi kumis sedikit lebih terang (bagian dari pola belang).
-    if (pakaiBelang) {
+    // Moncong: dua gundukan pipi kumis sedikit lebih terang (kucing belang & calico).
+    const c = corakAktif();
+    if (c === 'belang' || c === 'calico') {
       ctx.fillStyle = kulit.id === 'hitam' ? campur(kulit.latar, '#ffffff', 0.08) : campur(kulit.latar, '#ffffff', 0.35);
       ctx.globalAlpha = 0.6;
       for (const s of [-1, 1]) {
@@ -887,10 +946,11 @@
       ctx.globalAlpha = 1;
     }
 
-    // Hidung: segitiga membulat merah muda.
+    // Hidung: segitiga membulat merah muda (siam: cokelat tua, menyatu dengan topeng).
     const lh = 0.075 * U, th = 0.05 * U;
-    ctx.fillStyle = '#e58a9b';
-    ctx.strokeStyle = campur('#e58a9b', '#000000', 0.35);
+    const warnaHidung = c === 'siam' ? '#5a3c30' : '#e58a9b';
+    ctx.fillStyle = warnaHidung;
+    ctx.strokeStyle = campur(warnaHidung, '#000000', 0.35);
     ctx.lineWidth = 0.006 * U;
     ctx.beginPath();
     ctx.moveTo(x0 - lh / 2, yHidung - th / 2);
@@ -1496,12 +1556,14 @@
   const tandaiSwatch = (grid, id) => grid.querySelectorAll('.warna').forEach(b => b.setAttribute('aria-pressed', String(b.id === id)));
 
   const gridIris = document.getElementById('gridIris');
-  IRIS.forEach(([hex, nama]) => buatSwatch(gridIris, 'iris-' + hex.slice(1), hex, 'Iris ' + nama, () => setIris(hex)));
+  // Memilih iris dari panel = kedua mata sama (mata ganjil dari "Jenis kucing" dibatalkan).
+  IRIS.forEach(([hex, nama]) => buatSwatch(gridIris, 'iris-' + hex.slice(1), hex, 'Iris ' + nama, () => { setIris(hex); setIris2(''); }));
   function setIris(hex) {
     warnaIris = hex;
     tandaiSwatch(gridIris, 'iris-' + hex.slice(1));
     simpan('kiko.iris', hex);
   }
+  function setIris2(hex) { warnaIris2 = hex || ''; simpan('kiko.iris2', warnaIris2); }
 
   const gridKulit = document.getElementById('gridKulit');
   KULIT.forEach(k => buatSwatch(gridKulit, 'kulit-' + k.id, k.latar, 'Wajah ' + k.nama, () => setKulit(k.id)));
@@ -1518,6 +1580,35 @@
   cekBelang.checked = pakaiBelang;
   cekBelang.addEventListener('change', () => { pakaiBelang = cekBelang.checked; simpan('kiko.belang', pakaiBelang ? '1' : '0'); });
 
+  // ---------- Jenis kucing (preset bulu + mata + corak) ----------
+  const gridJenis = document.getElementById('gridJenis');
+  JENIS_KUCING.forEach(j => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pilih'; b.dataset.jenis = j.id;
+    b.innerHTML = `<span>${j.nama}</span>`;
+    // contoh warna kecil: bulu + mata
+    const contoh = document.createElement('kbd');
+    contoh.innerHTML = `<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KULIT.find(k => k.id === j.kulit).latar};border:1px solid #888"></i>`
+      + `<i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:3px;background:${j.iris}"></i>`;
+    b.appendChild(contoh);
+    b.addEventListener('click', () => setJenisKucing(j.id));
+    gridJenis.appendChild(b);
+  });
+  function tandaiJenis(id) { gridJenis.querySelectorAll('.pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.jenis === id))); }
+  function setJenisKucing(id) {
+    const j = JENIS_KUCING.find(x => x.id === id) || JENIS_KUCING[0];
+    setKulit(j.kulit);
+    setIris(j.iris);
+    setIris2(j.iris2 || '');
+    corak = j.corak; simpan('kiko.corak', corak);
+    pakaiBelang = true; cekBelang.checked = true; simpan('kiko.belang', '1');
+    simpan('kiko.jenis', j.id);
+    tandaiJenis(j.id);
+  }
+  corak = muat('kiko.corak') || 'belang';
+  warnaIris2 = muat('kiko.iris2') || '';
+  tandaiJenis(muat('kiko.jenis') || '');
+
   function setGaya(g) {
     gaya = (g === 'robot' || g === 'kucing') ? g : 'realistis';
     document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gaya === gaya)));
@@ -1529,7 +1620,7 @@
   }
   document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.addEventListener('click', () => {
     // Pertama pindah ke kucing: langsung pakai warna kucing (bisa diganti lagi di bawah).
-    if (b.dataset.gaya === 'kucing' && gaya !== 'kucing') { setIris('#d6a01e'); setKulit('oranye'); }
+    if (b.dataset.gaya === 'kucing' && gaya !== 'kucing') setJenisKucing(muat('kiko.jenis') || 'oranye');
     setGaya(b.dataset.gaya);
   }));
 
