@@ -206,6 +206,7 @@
     <h2>Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> Kepala ikut lirikan mata (butuh firmware base Ver 3)</label>
+    <label class="saklar"><input type="checkbox" id="cekTepi" checked> Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</label>
     <label class="saklar"><input type="checkbox" id="cekMalam" checked> Mode malam: cepat tidur, tanpa mikrofon otomatis</label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
       <label class="petunjuk" for="jamMalamMulai">Dari jam</label>
@@ -265,6 +266,7 @@
     <div class="baris" style="justify-content:flex-start" id="pilihGaya">
       <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis">Realistis</button>
       <button class="pilih" type="button" id="gaya-robot" data-gaya="robot">Robot</button>
+      <button class="pilih" type="button" id="gaya-kucing" data-gaya="kucing">Kucing</button>
     </div>
   </div>
 
@@ -277,6 +279,7 @@
     <h2>Warna wajah</h2>
     <div class="grid-warna" id="gridKulit"></div>
     <label class="saklar"><input type="checkbox" id="cekAlis" checked> Tampilkan alis</label>
+    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> Pola belang kucing (dahi & pipi)</label>
   </div>
 
   <div class="bagian khusus-robot">
@@ -590,13 +593,16 @@
   //  Digambar langsung ke kanvas utama (tanpa kanvas "lapis"), karena gaya
   //  ini tidak memakai glow.
   // =====================================================================
-  let gaya = 'realistis';          // 'realistis' | 'robot'
+  // 'kucing' = mesin gaya realistis + pupil celah, tanpa alis/bulu mata,
+  // ditambah hidung, mulut "w" dan kumis (gambarWajahKucing). Cocok dengan
+  // paket body kucing (telinga di atas HP).
+  let gaya = 'realistis';          // 'realistis' | 'robot' | 'kucing'
   let warnaIris = '#6b4428';
   let pakaiAlis = true;
 
   const IRIS = [
     ['#6b4428', 'Cokelat'], ['#8d6b32', 'Hazel'], ['#3a78b8', 'Biru'], ['#4b8b52', 'Hijau'],
-    ['#7d8b97', 'Abu-abu'], ['#7b52b3', 'Ungu'], ['#20b8c9', 'Toska'],
+    ['#7d8b97', 'Abu-abu'], ['#7b52b3', 'Ungu'], ['#20b8c9', 'Toska'], ['#d6a01e', 'Kuning'],
   ];
   // Tiap warna wajah punya pasangan kelopak/lipatan/alis/bulu mata sendiri,
   // supaya kontrasnya tetap enak di wajah terang maupun gelap.
@@ -607,6 +613,8 @@
     { id: 'biru',    nama: 'Biru robot',  latar: '#a7d7ea', kelopak: '#96cadf', lipatan: '#6fa6bf', alis: '#2d5061', bulu: '#1d3643' },
     { id: 'pink',    nama: 'Merah muda',  latar: '#f7c9d4', kelopak: '#efb8c6', lipatan: '#d492a5', alis: '#6b3445', bulu: '#4a2230' },
     { id: 'hitam',   nama: 'Hitam',       latar: '#0d0d0f', kelopak: '#1b1b1f', lipatan: '#34343b', alis: '#5b606a', bulu: '#000000' },
+    { id: 'oranye',  nama: 'Kucing oranye', latar: '#f2ad6b', kelopak: '#e79c58', lipatan: '#c47a3a', alis: '#6b3a16', bulu: '#4a250c' },
+    { id: 'abu',     nama: 'Kucing abu',  latar: '#b9bcc2', kelopak: '#a9adb4', lipatan: '#868a92', alis: '#3e4148', bulu: '#2a2c31' },
   ];
   let kulit = KULIT[0];
 
@@ -716,12 +724,22 @@
     ctx.fillRect(cx - w, cy - ry * 2, w * 2, ry * 4);
 
     // Iris + pupil bergerak di dalam mata mengikuti arah pandang.
-    const rI = 0.15 * U * skala;
+    // Kucing: iris besar (sklera hampir tidak terlihat) dan pupil celah tegak.
+    const kucing = gaya === 'kucing';
+    const rI = (kucing ? 0.18 : 0.15) * U * skala;
     const ix = cx + gx * (w / 2 - rI * 1.1), iy = cy + ry * 0.05 + gy * ry * 0.5;
     ctx.drawImage(teksturIris(warnaIris, rI), ix - rI, iy - rI, rI * 2, rI * 2);
-    const rP = rI * p.pupil * (kurangGerak ? 1 : 1 + 0.03 * Math.sin(now / 1300));
+    const denyut = kurangGerak ? 1 : 1 + 0.03 * Math.sin(now / 1300);
+    const rP = rI * p.pupil * denyut;
     ctx.fillStyle = '#080606';
     if (p.heart > 0.5) { jalurHati(ctx, ix, iy, rP * 2.6, rP * 2.4); ctx.fill(); }
+    else if (kucing) {
+      // Lebar celah: kucing membelalak (kaget/takut) -> pupil hampir bulat, marah ->
+      // celah tipis. p.pupil saja tidak cukup karena di gaya realistis kaget justru
+      // memakai pupil kecil, jadi tinggi mata (p.h, kaget 1,18) ikut menentukan.
+      const lebar = batas(0.1 + (p.pupil - 0.3) * 1.1 + (p.h - 1) * 2.2, 0.07, 0.62) * rI * denyut;
+      ctx.beginPath(); ctx.ellipse(ix, iy, lebar, rI * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+    }
     else { ctx.beginPath(); ctx.arc(ix, iy, rP, 0, Math.PI * 2); ctx.fill(); }
 
     // Pantulan cahaya (catchlight): besar di kiri atas, kecil di kanan bawah.
@@ -768,9 +786,9 @@
     ctx.lineWidth = 0.014 * U;
     garisTitik(xs, tepiAtas);
     ctx.stroke();
-    // Tiga helai bulu mata kecil di sudut luar.
+    // Tiga helai bulu mata kecil di sudut luar (kucing: tidak ada).
     ctx.lineWidth = 0.008 * U;
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < (kucing ? 0 : 3); k++) {
       const i = arah > 0 ? N - 2 - k * 2 : 2 + k * 2;
       const panjang = 0.035 * U * (1 - k * 0.2);
       ctx.beginPath();
@@ -780,7 +798,8 @@
     }
 
     // Alis: naik/turun lewat p.alis, miring lewat p.tilt (marah = sisi dalam turun).
-    if (pakaiAlis) {
+    // Kucing tidak beralis; emosinya terbaca dari kelopak, pupil dan mulut.
+    if (pakaiAlis && !kucing) {
       ctx.strokeStyle = kulit.alis;
       ctx.lineWidth = 0.034 * U * skala;
       const yAlis = cy - ry - 0.11 * U - p.alis * 0.05 * U;
@@ -805,6 +824,133 @@
     }
   }
 
+  // Pola belang kucing yang umum (secukupnya, bukan seluruh layar): tiga garis
+  // pendek di dahi (tanda "M" kucing tabby) dan tiga garis di tiap pipi luar.
+  // Warna sedikit lebih gelap dari bulu (wajah hitam: sedikit lebih terang).
+  // Digambar SEBELUM mata, jadi tidak pernah menutupi mata.
+  let pakaiBelang = true;
+  function gambarPolaKucing(dyTambah) {
+    if (!pakaiBelang) return;
+    const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
+    const cy = H / 2 + dy * U;
+    const gx = pandang.cur.x * 0.03 * U;
+    const warna = kulit.id === 'hitam' ? campur(kulit.latar, '#ffffff', 0.14) : campur(kulit.latar, '#000000', 0.26);
+    ctx.save();
+    ctx.strokeStyle = warna;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.55;
+    // dahi: garis tengah paling panjang, dua sisi sedikit miring keluar
+    for (const k of [-1, 0, 1]) {
+      const x = W / 2 + gx + k * 0.075 * U;
+      // tetap di dalam layar landscape (U ~ tinggi layar, mata di tengah): puncak <= 0,47U di atas mata
+      const yAtas = cy - (k === 0 ? 0.47 : 0.43) * U, yBawah = cy - 0.3 * U;
+      ctx.lineWidth = (k === 0 ? 0.034 : 0.028) * U;
+      ctx.beginPath();
+      ctx.moveTo(x + k * 0.03 * U, yAtas);
+      ctx.quadraticCurveTo(x + k * 0.01 * U, (yAtas + yBawah) / 2, x, yBawah);
+      ctx.stroke();
+    }
+    // pipi luar: tiga garis melengkung, meruncing ke arah tepi layar
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const y = cy + (0.02 + i * 0.075) * U;
+        const x0 = W / 2 + gx + s * 0.78 * U, x1 = x0 + s * (0.2 - i * 0.03) * U;
+        ctx.lineWidth = (0.026 - i * 0.004) * U;
+        ctx.beginPath();
+        ctx.moveTo(x0, y);
+        ctx.quadraticCurveTo((x0 + x1) / 2, y - 0.025 * U, x1, y + 0.01 * U);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Hidung, mulut "w" dan kumis gaya kucing. Ikut naik-turun bersama mata (dy
+  // rata-rata kedua mata + dyTambah), mulut membuka saat senang/tertawa/kaget
+  // dan saat KiKo bicara, terbalik saat sedih.
+  function gambarWajahKucing(mood, now, dyTambah) {
+    const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
+    const x0 = W / 2 + pandang.cur.x * 0.03 * U;
+    const yHidung = H / 2 + (0.25 + dy) * U + pandang.cur.y * 0.02 * U;
+    const garis = warnaAksen();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Moncong: dua gundukan pipi kumis sedikit lebih terang (bagian dari pola belang).
+    if (pakaiBelang) {
+      ctx.fillStyle = kulit.id === 'hitam' ? campur(kulit.latar, '#ffffff', 0.08) : campur(kulit.latar, '#ffffff', 0.35);
+      ctx.globalAlpha = 0.6;
+      for (const s of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(x0 + s * 0.065 * U, yHidung + 0.05 * U, 0.085 * U, 0.06 * U, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Hidung: segitiga membulat merah muda.
+    const lh = 0.075 * U, th = 0.05 * U;
+    ctx.fillStyle = '#e58a9b';
+    ctx.strokeStyle = campur('#e58a9b', '#000000', 0.35);
+    ctx.lineWidth = 0.006 * U;
+    ctx.beginPath();
+    ctx.moveTo(x0 - lh / 2, yHidung - th / 2);
+    ctx.quadraticCurveTo(x0, yHidung - th * 0.8, x0 + lh / 2, yHidung - th / 2);
+    ctx.quadraticCurveTo(x0 + lh * 0.12, yHidung + th * 0.45, x0, yHidung + th / 2);
+    ctx.quadraticCurveTo(x0 - lh * 0.12, yHidung + th * 0.45, x0 - lh / 2, yHidung - th / 2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Seberapa lebar mulut terbuka.
+    let buka = 0;
+    if (mood === 'tertawa') buka = 0.75 + (kurangGerak ? 0 : 0.2 * Math.abs(Math.sin(now / 85)));
+    else if (mood === 'kaget') buka = 0.6;
+    else if (mood === 'senang' || mood === 'sayang') buka = 0.3;
+    if (ai.bicara) buka = Math.max(buka, kurangGerak ? 0.3 : 0.15 + 0.35 * Math.abs(Math.sin(now / 90)));
+
+    const yW = yHidung + th / 2 + 0.03 * U;   // pusat "w"
+    const rw = 0.042 * U;
+    if (buka > 0.05) {
+      ctx.fillStyle = '#7a2a34';
+      ctx.beginPath();
+      if (mood === 'kaget') ctx.ellipse(x0, yW + 0.03 * U, 0.025 * U, 0.03 * U * buka + 0.01 * U, 0, 0, Math.PI * 2);
+      else ctx.ellipse(x0, yW + 0.012 * U, rw * 1.1, 0.06 * U * buka, 0, 0, Math.PI);
+      ctx.fill();
+    }
+    ctx.strokeStyle = garis;
+    ctx.lineWidth = 0.009 * U;
+    ctx.beginPath();
+    ctx.moveTo(x0, yHidung + th / 2);
+    ctx.lineTo(x0, yW);
+    if (mood === 'sedih') {
+      // terbalik: "n" yang lesu
+      ctx.moveTo(x0 - 2 * rw, yW + rw * 0.7);
+      ctx.quadraticCurveTo(x0 - rw, yW - rw * 0.4, x0, yW);
+      ctx.quadraticCurveTo(x0 + rw, yW - rw * 0.4, x0 + 2 * rw, yW + rw * 0.7);
+    } else if (mood !== 'kaget') {
+      ctx.moveTo(x0 - 2 * rw, yW - rw * 0.25);
+      ctx.quadraticCurveTo(x0 - rw, yW + rw * 1.1, x0, yW);
+      ctx.quadraticCurveTo(x0 + rw, yW + rw * 1.1, x0 + 2 * rw, yW - rw * 0.25);
+    }
+    ctx.stroke();
+
+    // Kumis: 3 helai tiap sisi, sedikit melengkung, berkedut pelan.
+    ctx.lineWidth = 0.006 * U;
+    ctx.globalAlpha = 0.7;
+    const kedut = kurangGerak ? 0 : 0.04 * Math.sin(now / 420);
+    for (const s of [-1, 1]) {
+      for (let k = -1; k <= 1; k++) {
+        const sudut = k * 0.16 + kedut * s;
+        const xa = x0 + s * 0.12 * U, ya = yHidung + 0.03 * U + k * 0.025 * U;
+        const pj = 0.3 * U;
+        const xb = xa + s * pj * Math.cos(sudut), yb = ya + pj * Math.sin(sudut);
+        ctx.beginPath();
+        ctx.moveTo(xa, ya);
+        ctx.quadraticCurveTo((xa + xb) / 2, (ya + yb) / 2 - 0.02 * U, xb, yb);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // =====================================================================
   //  LOOP UTAMA
   // =====================================================================
@@ -814,7 +960,7 @@
     waktuLalu = now;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = gaya === 'realistis' ? kulit.latar : '#000';
+    ctx.fillStyle = gaya !== 'robot' ? kulit.latar : '#000';
     ctx.fillRect(0, 0, kanvas.width, kanvas.height);
 
     if (fase === 'memuat') {
@@ -861,17 +1007,19 @@
     let dyTambah = 0;
     // Beri ruang untuk teks di bawah. Gaya realistis punya alis di atas mata,
     // jadi digeser lebih sedikit supaya alis tidak keluar layar.
-    if (fase === 'pasang') dyTambah = gaya === 'realistis' ? -0.16 : -0.3;
+    if (fase === 'pasang') dyTambah = gaya !== 'robot' ? -0.16 : -0.3;
     if (sentuh.elus && !kurangGerak) dyTambah += 0.025 * Math.sin(now / 70); // bergoyang geli saat dielus
     if (mood === 'tidur' && !kurangGerak) dyTambah += 0.012 * Math.sin(now / 900); // napas
     if (ai.bicara && !kurangGerak) dyTambah += 0.008 * Math.sin(now / 55);          // bergetar kecil saat bicara
     if (mood === 'tertawa' && !kurangGerak) dyTambah -= 0.03 * Math.abs(Math.sin(now / 85)); // terguncang tertawa
 
     const kedipan = nilaiKedip(now, mood);
-    if (gaya === 'realistis') {
+    if (gaya !== 'robot') {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      if (gaya === 'kucing') gambarPolaKucing(dyTambah);
       gambarMataRealistis('kiri', mata.kiri.cur, kedipan, now, dyTambah);
       gambarMataRealistis('kanan', mata.kanan.cur, kedipan, now, dyTambah);
+      if (gaya === 'kucing') gambarWajahKucing(mood, now, dyTambah);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
       lctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1186,6 +1334,7 @@
     const [kode, nilai] = baris.trim().split(',');
     // T = badan mulai dielus (TTP223, firmware Ver 5); T,tahan = masih dielus (tiap 1 detik)
     if (kode === 'T') { interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500); }
+    // C = sensor tepi melihat jurang (Ver 6: "C,depan" / "C,belakang"); base sudah mengerem
     else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
     else if (kode === 'B' && nilai) { ble.baterai = parseFloat(nilai); perbaruiChip(); }
   }
@@ -1243,6 +1392,7 @@
       statusPasang.textContent = '';
       perbaruiChip();
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
+      kirim(document.getElementById('cekTepi').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
       if (fase === 'pasang') mulaiMemuat();
     }
   }
@@ -1363,15 +1513,25 @@
 
   const cekAlis = document.getElementById('cekAlis');
   cekAlis.addEventListener('change', () => { pakaiAlis = cekAlis.checked; simpan('kiko.alis', pakaiAlis ? '1' : '0'); });
+  const cekBelang = document.getElementById('cekBelang');
+  pakaiBelang = muat('kiko.belang') !== '0';
+  cekBelang.checked = pakaiBelang;
+  cekBelang.addEventListener('change', () => { pakaiBelang = cekBelang.checked; simpan('kiko.belang', pakaiBelang ? '1' : '0'); });
 
   function setGaya(g) {
-    gaya = g === 'robot' ? 'robot' : 'realistis';
+    gaya = (g === 'robot' || g === 'kucing') ? g : 'realistis';
     document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gaya === gaya)));
-    document.querySelectorAll('.khusus-realistis').forEach(el => el.hidden = gaya !== 'realistis');
+    // Warna iris & wajah berlaku untuk gaya realistis dan kucing.
+    document.querySelectorAll('.khusus-realistis').forEach(el => el.hidden = gaya === 'robot');
     document.querySelectorAll('.khusus-robot').forEach(el => el.hidden = gaya !== 'robot');
+    document.querySelectorAll('.khusus-kucing').forEach(el => el.hidden = gaya !== 'kucing');
     simpan('kiko.gaya', gaya);
   }
-  document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.addEventListener('click', () => setGaya(b.dataset.gaya)));
+  document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.addEventListener('click', () => {
+    // Pertama pindah ke kucing: langsung pakai warna kucing (bisa diganti lagi di bawah).
+    if (b.dataset.gaya === 'kucing' && gaya !== 'kucing') { setIris('#d6a01e'); setKulit('oranye'); }
+    setGaya(b.dataset.gaya);
+  }));
 
   setIris(muat('kiko.iris') || warnaIris);
   setKulit(muat('kiko.kulit') || 'langsat');
@@ -2008,6 +2168,16 @@
     if (!kepalaIkutMata) kirim('L,0,0');   // kembalikan kepala ke pose ekspresi
     lirik.pan = lirik.tilt = 0;
     try { localStorage.setItem('kiko.lirik', kepalaIkutMata ? '1' : '0'); } catch (_) {}
+  });
+
+  // Proteksi jatuh dari meja (firmware Ver 6): K,1 / K,0. Base juga menyimpannya
+  // di NVS; HP mengirim ulang setelah tersambung supaya keduanya selalu sama.
+  // Firmware lama membalas "?,K,..." yang diabaikan terimaBaris().
+  const cekTepi = document.getElementById('cekTepi');
+  try { cekTepi.checked = localStorage.getItem('kiko.tepi') !== '0'; } catch (_) {}
+  cekTepi.addEventListener('change', () => {
+    try { localStorage.setItem('kiko.tepi', cekTepi.checked ? '1' : '0'); } catch (_) {}
+    kirim(cekTepi.checked ? 'K,1' : 'K,0');
   });
 
   document.getElementById('tombolSetir').addEventListener('click', ev => {
