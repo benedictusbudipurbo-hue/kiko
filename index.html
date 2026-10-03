@@ -1396,6 +1396,8 @@
     if (kode === 'T') { interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500); }
     // C = sensor tepi melihat jurang (Ver 6: "C,depan" / "C,belakang"); base sudah mengerem
     else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
+    // J = roda macet (Ver 8, encoder): ada tenaga tapi roda tidak berputar, base sudah mengerem
+    else if (kode === 'J') { interaksi(); ekspresiSingkat('bingung', 1800); kirim('G,bingung'); }
     else if (kode === 'B' && nilai) { ble.baterai = parseFloat(nilai); perbaruiChip(); }
   }
 
