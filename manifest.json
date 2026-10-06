@@ -1,0 +1,21 @@
+{
+  "name": "KiKo by ELI",
+  "short_name": "KiKo",
+  "description": "Wajah dan otak robot meja KiKo",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#f2cfae",
+  "theme_color": "#000000",
+  "lang": "id",
+  "launch_handler": { "client_mode": ["focus-existing", "auto"] },
+  "icons": [
+    { "src": "ikon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "ikon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "ikon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "ikon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
