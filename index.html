@@ -176,6 +176,7 @@
     font-size: clamp(14px, 4.5vmin, 26px); font-weight: 600; letter-spacing: .1em;
     font-variant-numeric: tabular-nums; opacity: .7;
   }
+  #teksCas { font-size: 14px; font-weight: 600; color: #ffd84a; text-shadow: 0 0 6px rgba(0,0,0,.6); }
   #teksTimer {
     padding: 4px 10px; border-radius: 10px; background: rgba(0,0,0,.6); color: #fff;
     font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
@@ -205,20 +206,21 @@
 <canvas id="wajah" aria-label="Wajah KiKo: dua mata animasi. Ketuk, ketuk dua kali, atau tahan untuk berinteraksi."></canvas>
 
 <div id="pasang">
-  <h1>PASANG HP KE KIKO</h1>
-  <p>Tempelkan HP ke dudukan magnet, lalu hubungkan ke base lewat Bluetooth. Belum punya base? Coba wajahnya dulu.</p>
+  <h1 data-en="ATTACH THE PHONE TO KIKO">PASANG HP KE KIKO</h1>
+  <p data-en="Attach the phone to the magnetic mount, then connect to the base over Bluetooth. No base yet? Try the face first.">Tempelkan HP ke dudukan magnet, lalu hubungkan ke base lewat Bluetooth. Belum punya base? Coba wajahnya dulu.</p>
   <div class="baris">
     <button class="tombol utama" id="tombolHubung" type="button">Hubungkan base</button>
-    <button class="tombol" id="tombolDemo" type="button">Coba tanpa base</button>
+    <button class="tombol" id="tombolDemo" type="button" data-en="Try without base">Coba tanpa base</button>
   </div>
   <p id="statusPasang" role="status"></p>
 </div>
 
-<button id="bukaAtur" type="button" hidden>ATUR</button>
+<button id="bukaAtur" type="button" hidden data-en="MENU">ATUR</button>
 
 <canvas id="pratinjauKamera" width="160" height="120" hidden aria-label="Pratinjau kamera depan untuk uji pelacakan wajah"></canvas>
 
 <div id="sudut">
+  <p id="teksCas" hidden aria-live="polite"></p>
   <p id="teksTimer" hidden aria-live="off"></p>
   <p id="jam" hidden aria-live="off"></p>
 </div>
@@ -228,7 +230,7 @@
   <p id="konfirmasiTeks"></p>
   <div class="baris">
     <a class="tombol utama" id="konfirmasiYa" href="#">Ya</a>
-    <button class="tombol" id="konfirmasiBatal" type="button">Batal</button>
+    <button class="tombol" id="konfirmasiBatal" type="button" data-en="Cancel">Batal</button>
   </div>
 </div>
 <p id="teksBicara" class="gelembung" hidden></p>
@@ -249,202 +251,220 @@
   </div>
 
   <div class="bagian">
-    <h2>Ekspresi</h2>
-    <div class="grid-ekspresi" id="gridEkspresi"></div>
-  </div>
-
-  <div class="bagian">
-    <h2>Joystick setir</h2>
-    <div class="baris" style="justify-content:flex-start" id="pilihSetir">
-      <button class="pilih" type="button" id="setir-roda" data-mode="roda" aria-pressed="true">Roda</button>
-      <button class="pilih" type="button" id="setir-kepala" data-mode="kepala" aria-pressed="false">Kepala</button>
+    <h2>Bahasa / Language</h2>
+    <div class="baris" style="justify-content:flex-start" id="pilihBahasa">
+      <button class="pilih" type="button" data-bahasa="id" aria-pressed="true">Indonesia</button>
+      <button class="pilih" type="button" data-bahasa="en" aria-pressed="false">English</button>
     </div>
   </div>
 
   <div class="bagian">
-    <h2>Perilaku</h2>
-    <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> Ekspresi spontan dan tidur sendiri saat didiamkan</label>
-    <label class="saklar"><input type="checkbox" id="cekLirik" checked> Kepala ikut lirikan mata (butuh firmware base Ver 3)</label>
-    <label class="saklar"><input type="checkbox" id="cekTepi" checked> Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</label>
-    <label class="saklar"><input type="checkbox" id="cekMalam" checked> Mode malam: cepat tidur, tanpa mikrofon otomatis</label>
+    <h2 data-en="Expressions">Ekspresi</h2>
+    <div class="grid-ekspresi" id="gridEkspresi"></div>
+  </div>
+
+  <div class="bagian">
+    <h2 data-en="Steering joystick">Joystick setir</h2>
+    <div class="baris" style="justify-content:flex-start" id="pilihSetir">
+      <button class="pilih" type="button" id="setir-roda" data-mode="roda" aria-pressed="true" data-en="Wheels">Roda</button>
+      <button class="pilih" type="button" id="setir-kepala" data-mode="kepala" aria-pressed="false" data-en="Head">Kepala</button>
+    </div>
+  </div>
+
+  <div class="bagian">
+    <h2 data-en="Behaviour">Perilaku</h2>
+    <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> <span data-en="Spontaneous expressions; falls asleep when left alone">Ekspresi spontan dan tidur sendiri saat didiamkan</span></label>
+    <label class="saklar"><input type="checkbox" id="cekLirik" checked> <span data-en="Head follows the eyes&#x27; gaze (needs base firmware Ver 3)">Kepala ikut lirikan mata (butuh firmware base Ver 3)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekTepi" checked> <span data-en="Table-edge fall protection (wheeled version + edge sensors, firmware Ver 6)">Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekMalam" checked> <span data-en="Night mode: sleeps sooner, no automatic microphone">Mode malam: cepat tidur, tanpa mikrofon otomatis</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
-      <label class="petunjuk" for="jamMalamMulai">Dari jam</label>
+      <label class="petunjuk" for="jamMalamMulai" data-en="From">Dari jam</label>
       <input class="isian" id="jamMalamMulai" type="number" min="0" max="23" step="1" style="width:5.5em">
-      <label class="petunjuk" for="jamMalamSelesai">sampai jam</label>
+      <label class="petunjuk" for="jamMalamSelesai" data-en="until">sampai jam</label>
       <input class="isian" id="jamMalamSelesai" type="number" min="0" max="23" step="1" style="width:5.5em">
     </div>
     <p class="petunjuk" id="statusMalam"></p>
   </div>
 
   <div class="bagian">
-    <h2>Tempel ke dudukan</h2>
-    <label class="saklar"><input type="checkbox" id="cekTempel" checked> Wajah bangun saat HP ditempel ke dudukan, tidur saat diangkat (NFC + sensor gerak)</label>
+    <h2 data-en="Attach to the mount">Tempel ke dudukan</h2>
+    <label class="saklar"><input type="checkbox" id="cekTempel" checked> <span data-en="Face wakes when the phone is attached to the mount, sleeps when lifted (NFC + motion sensor)">Wajah bangun saat HP ditempel ke dudukan, tidur saat diangkat (NFC + sensor gerak)</span></label>
     <div class="baris" style="justify-content:flex-start">
-      <button class="tombol" id="tombolNfc" type="button">Aktifkan NFC</button>
+      <button class="tombol" id="tombolNfc" type="button" data-en="Enable NFC">Aktifkan NFC</button>
     </div>
     <p class="petunjuk" id="statusNfc" role="status">NFC belum aktif. Sensor gerak tetap bekerja.</p>
   </div>
 
   <div class="bagian">
-    <h2>Aplikasi</h2>
+    <h2 data-en="App">Aplikasi</h2>
     <div class="baris" style="justify-content:flex-start">
-      <button class="tombol utama" id="tombolPasangApp" type="button" hidden>Pasang aplikasi KiKo</button>
+      <button class="tombol utama" id="tombolPasangApp" type="button" hidden data-en="Install the KiKo app">Pasang aplikasi KiKo</button>
     </div>
     <p class="petunjuk" id="statusApp" role="status">Buka dari GitHub Pages di Chrome untuk memasang KiKo sebagai aplikasi (atau menu ⋮ → Instal aplikasi).</p>
   </div>
 
   <div class="bagian">
-    <h2>Pelacakan wajah</h2>
-    <label class="saklar"><input type="checkbox" id="cekWajah"> Ikuti wajah orang (kamera depan)</label>
-    <label class="saklar"><input type="checkbox" id="cekKamera"> Tampilkan gambar kamera (untuk uji)</label>
+    <h2 data-en="Face tracking">Pelacakan wajah</h2>
+    <label class="saklar"><input type="checkbox" id="cekWajah"> <span data-en="Follow people&#x27;s faces (front camera)">Ikuti wajah orang (kamera depan)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekKamera"> <span data-en="Show the camera image (for testing)">Tampilkan gambar kamera (untuk uji)</span></label>
     <p class="petunjuk" id="statusWajah" role="status">Mati.</p>
-    <p class="petunjuk">Gambar kamera diproses di HP saja dan tidak dikirim ke mana pun. Hanya jalan di versi GitHub Pages, tidak di link artifact.</p>
+    <p class="petunjuk" data-en="Camera images are processed on the phone only and never sent anywhere. Works only in the GitHub Pages version, not the artifact link.">Gambar kamera diproses di HP saja dan tidak dikirim ke mana pun. Hanya jalan di versi GitHub Pages, tidak di link artifact.</p>
   </div>
 
   <div class="bagian">
-    <h2>Ngobrol (AI)</h2>
-    <label for="inputWorker" class="petunjuk">Alamat Cloudflare Worker KiKo</label>
+    <h2 data-en="Chat (AI)">Ngobrol (AI)</h2>
+    <label for="inputWorker" class="petunjuk" data-en="KiKo Cloudflare Worker address">Alamat Cloudflare Worker KiKo</label>
     <input class="isian" id="inputWorker" type="url" inputmode="url" placeholder="https://kiko.akun-anda.workers.dev" autocomplete="off" spellcheck="false">
-    <label class="saklar"><input type="checkbox" id="cekSuara" checked> Ucapkan jawaban dengan suara</label>
-    <label class="saklar"><input type="checkbox" id="cekDengarOtomatis" checked> Dengar otomatis saat ada wajah menatap KiKo (butuh Pelacakan wajah)</label>
+    <label class="saklar"><input type="checkbox" id="cekSuara" checked> <span data-en="Speak answers aloud">Ucapkan jawaban dengan suara</span></label>
+    <label class="saklar"><input type="checkbox" id="cekDengarOtomatis" checked> <span data-en="Listen automatically when a face looks at KiKo (needs Face tracking)">Dengar otomatis saat ada wajah menatap KiKo (butuh Pelacakan wajah)</span></label>
     <p class="petunjuk" id="statusAi" role="status">Isi alamat Worker untuk memunculkan tombol mikrofon.</p>
-    <p class="petunjuk">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
+    <p class="petunjuk" data-en="Tap the microphone button and speak. Chrome&#x27;s speech recognition sends the audio to Google to turn it into text; the text goes to your Worker and then to Cloudflare&#x27;s AI model (free).">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
   </div>
 
   <div class="bagian">
-    <h2>Menari ikut musik</h2>
-    <label class="saklar"><input type="checkbox" id="cekMenari"> Dengarkan musik lalu menari (mikrofon)</label>
-    <label class="petunjuk" for="kepekaanTari">Kepekaan (naikkan kalau musik pelan tidak terdeteksi)</label>
+    <h2 data-en="Dance to music">Menari ikut musik</h2>
+    <label class="saklar"><input type="checkbox" id="cekMenari"> <span data-en="Listen for music and dance (microphone)">Dengarkan musik lalu menari (mikrofon)</span></label>
+    <label class="petunjuk" for="kepekaanTari" data-en="Sensitivity (raise it if quiet music isn&#x27;t detected)">Kepekaan (naikkan kalau musik pelan tidak terdeteksi)</label>
     <input id="kepekaanTari" type="range" min="1" max="10" step="1" value="5">
     <p class="petunjuk" id="statusTari" role="status">Mati.</p>
-    <p class="petunjuk">Suara diolah di HP saja, tidak direkam dan tidak dikirim. Selama mode ini nyala, dengar otomatis (ngobrol) istirahat; tombol mikrofon tetap bisa dipakai. Tidak menari di jam mode malam.</p>
+    <p class="petunjuk" data-en="Sound is processed on the phone only, never recorded or sent. While this mode is on, automatic listening (chat) pauses; the microphone button still works. No dancing during night mode.">Suara diolah di HP saja, tidak direkam dan tidak dikirim. Selama mode ini nyala, dengar otomatis (ngobrol) istirahat; tombol mikrofon tetap bisa dipakai. Tidak menari di jam mode malam.</p>
   </div>
 
   <div class="bagian">
-    <h2>Jam &amp; pengingat</h2>
-    <label class="saklar"><input type="checkbox" id="cekJam"> Tampilkan jam di layar</label>
+    <h2 data-en="Clock &amp; reminders">Jam &amp; pengingat</h2>
+    <label class="saklar"><input type="checkbox" id="cekJam"> <span data-en="Show the clock on screen">Tampilkan jam di layar</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
       <input class="isian" id="pengingatJam" type="time" aria-label="Jam pengingat" style="width:8em">
-      <input class="isian" id="pengingatTeks" type="text" placeholder="minum obat" aria-label="Isi pengingat" maxlength="80" style="flex:1;min-width:9em;width:auto">
+      <input class="isian" id="pengingatTeks" type="text" placeholder="minum obat" data-en-ph="take my medicine" aria-label="Isi pengingat" maxlength="80" style="flex:1;min-width:9em;width:auto">
       <select class="isian" id="pengingatUlang" aria-label="Ulangi" style="width:auto">
-        <option value="sekali">Sekali</option>
-        <option value="harian">Setiap hari</option>
+        <option value="sekali" data-en="Once">Sekali</option>
+        <option value="harian" data-en="Every day">Setiap hari</option>
       </select>
-      <button class="tombol" id="tombolTambahPengingat" type="button">Tambah</button>
+      <button class="tombol" id="tombolTambahPengingat" type="button" data-en="Add">Tambah</button>
     </div>
     <ul class="daftar" id="daftarPengingat"></ul>
     <p class="petunjuk" id="statusPengingat" role="status">Belum ada pengingat.</p>
-    <p class="petunjuk">Bisa juga lewat suara: "ingatkan aku jam 7 malam minum obat", "ingatkan aku 10 menit lagi angkat jemuran", "ingatkan aku setiap hari jam 6 pagi olahraga", "jam berapa sekarang?". Disimpan di HP ini saja. Pengingat hanya berbunyi selama KiKo terbuka di layar.</p>
+    <p class="petunjuk" data-en="You can also say: &quot;remind me at 7 pm to take my medicine&quot;, &quot;remind me in 10 minutes to bring in the laundry&quot;, &quot;remind me every day at 6 am to exercise&quot;, &quot;what time is it?&quot;. Stored on this phone only. Reminders only ring while KiKo is open on screen.">Bisa juga lewat suara: "ingatkan aku jam 7 malam minum obat", "ingatkan aku 10 menit lagi angkat jemuran", "ingatkan aku setiap hari jam 6 pagi olahraga", "jam berapa sekarang?". Disimpan di HP ini saja. Pengingat hanya berbunyi selama KiKo terbuka di layar.</p>
   </div>
 
   <div class="bagian">
-    <h2>Telepon &amp; WhatsApp</h2>
-    <label class="saklar"><input type="checkbox" id="cekTelepon" checked> Aktifkan perintah telepon / WhatsApp</label>
+    <h2 data-en="Phone &amp; WhatsApp">Telepon &amp; WhatsApp</h2>
+    <label class="saklar"><input type="checkbox" id="cekTelepon" checked> <span data-en="Enable phone / WhatsApp commands">Aktifkan perintah telepon / WhatsApp</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
-      <input class="isian" id="kontakNama" type="text" placeholder="Mama" aria-label="Nama kontak" maxlength="30" style="width:9em">
+      <input class="isian" id="kontakNama" type="text" placeholder="Mama" data-en-ph="Mama" aria-label="Nama kontak" maxlength="30" style="width:9em">
       <input class="isian" id="kontakNomor" type="tel" placeholder="0812xxxxxxxx" aria-label="Nomor kontak" maxlength="20" style="flex:1;min-width:9em;width:auto">
-      <button class="tombol" id="tombolTambahKontak" type="button">Tambah</button>
+      <button class="tombol" id="tombolTambahKontak" type="button" data-en="Add">Tambah</button>
     </div>
     <ul class="daftar" id="daftarKontak"></ul>
-    <p class="petunjuk">Bilang: "telepon Mama", "WA Mama", "kirim pesan ke Mama aku pulang telat". KiKo selalu menampilkan tombol hijau dulu; telepon atau pesan baru jalan setelah Anda mengetuknya. Nomor hanya disimpan di HP ini, tidak dikirim ke AI.</p>
+    <p class="petunjuk" data-en="Say: &quot;call Mama&quot;, &quot;WhatsApp Mama&quot;, &quot;message Mama I&#x27;ll be late&quot;. KiKo always shows a green button first; the call or message only goes ahead after you tap it. Numbers are stored on this phone only, never sent to the AI.">Bilang: "telepon Mama", "WA Mama", "kirim pesan ke Mama aku pulang telat". KiKo selalu menampilkan tombol hijau dulu; telepon atau pesan baru jalan setelah Anda mengetuknya. Nomor hanya disimpan di HP ini, tidak dikirim ke AI.</p>
   </div>
 
   <div class="bagian">
     <h2>Timer</h2>
-    <label class="saklar"><input type="checkbox" id="cekTimer" checked> Aktifkan timer</label>
+    <label class="saklar"><input type="checkbox" id="cekTimer" checked> <span data-en="Enable timer">Aktifkan timer</span></label>
     <div class="baris" style="justify-content:flex-start" id="tombolTimerCepat">
-      <button class="tombol" type="button" data-detik="60">1 menit</button>
-      <button class="tombol" type="button" data-detik="300">5 menit</button>
-      <button class="tombol" type="button" data-detik="600">10 menit</button>
-      <button class="tombol" type="button" data-detik="1800">30 menit</button>
-      <button class="tombol" type="button" id="tombolHentiTimer">Hentikan</button>
+      <button class="tombol" type="button" data-detik="60" data-en="1 min">1 menit</button>
+      <button class="tombol" type="button" data-detik="300" data-en="5 min">5 menit</button>
+      <button class="tombol" type="button" data-detik="600" data-en="10 min">10 menit</button>
+      <button class="tombol" type="button" data-detik="1800" data-en="30 min">30 menit</button>
+      <button class="tombol" type="button" id="tombolHentiTimer" data-en="Stop">Hentikan</button>
     </div>
     <p class="petunjuk" id="statusTimer" role="status">Tidak ada timer.</p>
-    <p class="petunjuk">Bilang: "timer 5 menit", "hitung mundur 30 detik", "sisa timer berapa", "batalkan timer".</p>
+    <p class="petunjuk" data-en="Say: &quot;set a timer for 5 minutes&quot;, &quot;countdown 30 seconds&quot;, &quot;how much time is left on the timer&quot;, &quot;cancel the timer&quot;.">Bilang: "timer 5 menit", "hitung mundur 30 detik", "sisa timer berapa", "batalkan timer".</p>
   </div>
 
   <div class="bagian">
     <h2>Radio</h2>
-    <label class="saklar"><input type="checkbox" id="cekRadio" checked> Aktifkan radio</label>
+    <label class="saklar"><input type="checkbox" id="cekRadio" checked> <span data-en="Enable radio">Aktifkan radio</span></label>
     <ul class="daftar" id="daftarRadio"></ul>
     <div class="baris" style="justify-content:flex-start;align-items:center">
-      <input class="isian" id="radioNama" type="text" placeholder="Nama stasiun" aria-label="Nama stasiun" maxlength="30" style="width:9em">
+      <input class="isian" id="radioNama" type="text" placeholder="Nama stasiun" data-en-ph="Station name" aria-label="Nama stasiun" maxlength="30" style="width:9em">
       <input class="isian" id="radioUrl" type="url" placeholder="https://…" aria-label="Alamat stream" style="flex:1;min-width:9em;width:auto">
-      <button class="tombol" id="tombolTambahRadio" type="button">Tambah</button>
+      <button class="tombol" id="tombolTambahRadio" type="button" data-en="Add">Tambah</button>
     </div>
-    <label class="petunjuk" for="volRadio">Volume</label>
+    <label class="petunjuk" for="volRadio" data-en="Volume">Volume</label>
     <input id="volRadio" type="range" min="0" max="100" step="5" value="70">
     <p class="petunjuk" id="statusRadio" role="status">Mati.</p>
-    <p class="petunjuk">Bilang: "putar radio", "putar radio Suara Surabaya", "putar berita", "putar musik", "matikan radio", "kecilkan suara", "besarkan suara". Stream harus https. Selama radio menyala, dengar otomatis istirahat dan suara radio dikecilkan saat KiKo mendengar/bicara. Kalau mode menari nyala, KiKo ikut menari.</p>
+    <p class="petunjuk" data-en="Say: &quot;play the radio&quot;, &quot;play radio Suara Surabaya&quot;, &quot;play the news&quot;, &quot;play some music&quot;, &quot;stop the radio&quot;, &quot;turn it down&quot;, &quot;turn it up&quot;. Streams must be https. While the radio plays, automatic listening pauses and the radio is turned down while KiKo listens or speaks. With dance mode on, KiKo dances along.">Bilang: "putar radio", "putar radio Suara Surabaya", "putar berita", "putar musik", "matikan radio", "kecilkan suara", "besarkan suara". Stream harus https. Selama radio menyala, dengar otomatis istirahat dan suara radio dikecilkan saat KiKo mendengar/bicara. Kalau mode menari nyala, KiKo ikut menari.</p>
   </div>
 
   <div class="bagian">
-    <h2>Cuaca</h2>
-    <label class="saklar"><input type="checkbox" id="cekCuaca" checked> Aktifkan cuaca</label>
+    <h2 data-en="Weather">Cuaca</h2>
+    <label class="saklar"><input type="checkbox" id="cekCuaca" checked> <span data-en="Enable weather">Aktifkan cuaca</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
-      <input class="isian" id="inputKota" type="text" placeholder="Nama kota, mis. Bandung" aria-label="Nama kota" maxlength="40" style="flex:1;min-width:9em;width:auto">
-      <button class="tombol" id="tombolKota" type="button">Simpan kota</button>
-      <button class="tombol" id="tombolLokasiHp" type="button">Pakai lokasi HP</button>
+      <input class="isian" id="inputKota" type="text" placeholder="Nama kota, mis. Bandung" data-en-ph="City name, e.g. Bandung" aria-label="Nama kota" maxlength="40" style="flex:1;min-width:9em;width:auto">
+      <button class="tombol" id="tombolKota" type="button" data-en="Save city">Simpan kota</button>
+      <button class="tombol" id="tombolLokasiHp" type="button" data-en="Use phone location">Pakai lokasi HP</button>
     </div>
     <p class="petunjuk" id="statusCuaca" role="status">Lokasi belum diatur.</p>
-    <p class="petunjuk">Bilang: "cuaca hari ini", "besok hujan nggak?", "panas nggak sekarang?". Data dari Open-Meteo (gratis, tanpa akun); yang dikirim hanya koordinat kota.</p>
+    <p class="petunjuk" data-en="Say: &quot;what&#x27;s the weather today&quot;, &quot;will it rain tomorrow?&quot;, &quot;is it hot right now?&quot;. Data from Open-Meteo (free, no account); only the city&#x27;s coordinates are sent.">Bilang: "cuaca hari ini", "besok hujan nggak?", "panas nggak sekarang?". Data dari Open-Meteo (gratis, tanpa akun); yang dikirim hanya koordinat kota.</p>
   </div>
 
   <div class="bagian">
-    <h2>Ingatan KiKo</h2>
+    <h2 data-en="KiKo&#x27;s memory">Ingatan KiKo</h2>
     <p class="petunjuk" id="isiIngatan">Belum ada.</p>
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol" id="tombolLupa" type="button">Lupakan semua</button>
     </div>
-    <p class="petunjuk">Disimpan di HP ini saja. KiKo mengingat nama dan hal yang Anda ceritakan, lalu memakainya saat ngobrol.</p>
+    <p class="petunjuk" data-en="Stored on this phone only. KiKo remembers your name and the things you tell it, and uses them when chatting.">Disimpan di HP ini saja. KiKo mengingat nama dan hal yang Anda ceritakan, lalu memakainya saat ngobrol.</p>
   </div>
 
   <div class="bagian">
-    <h2>Gaya mata</h2>
+    <h2 data-en="Eye style">Gaya mata</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihGaya">
-      <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis">Realistis</button>
+      <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis" data-en="Realistic">Realistis</button>
       <button class="pilih" type="button" id="gaya-robot" data-gaya="robot">Robot</button>
-      <button class="pilih" type="button" id="gaya-kucing" data-gaya="kucing">Kucing</button>
+      <button class="pilih" type="button" id="gaya-kucing" data-gaya="kucing" data-en="Cat">Kucing</button>
     </div>
   </div>
 
   <div class="bagian khusus-kucing">
-    <h2>Jenis kucing</h2>
+    <h2 data-en="Cat breed">Jenis kucing</h2>
     <div class="grid-ekspresi" id="gridJenis"></div>
   </div>
 
   <div class="bagian khusus-realistis">
-    <h2>Warna iris</h2>
+    <h2 data-en="Iris colour">Warna iris</h2>
     <div class="grid-warna" id="gridIris"></div>
   </div>
 
   <div class="bagian khusus-realistis">
-    <h2>Warna wajah</h2>
+    <h2 data-en="Face colour">Warna wajah</h2>
     <div class="grid-warna" id="gridKulit"></div>
-    <label class="saklar"><input type="checkbox" id="cekAlis" checked> Tampilkan alis</label>
-    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> Tampilkan corak kucing (belang / bercak / topeng)</label>
+    <label class="saklar"><input type="checkbox" id="cekAlis" checked> <span data-en="Show eyebrows">Tampilkan alis</span></label>
+    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> <span data-en="Show cat markings (stripes / patches / mask)">Tampilkan corak kucing (belang / bercak / topeng)</span></label>
   </div>
 
   <div class="bagian khusus-robot">
-    <h2>Warna cahaya</h2>
+    <h2 data-en="Glow colour">Warna cahaya</h2>
     <div class="grid-warna" id="gridWarna"></div>
   </div>
 
   <div class="baris" style="justify-content:flex-start">
     <button class="tombol" id="tombolSetir" type="button">Tampilkan setir</button>
-    <button class="tombol" id="tombolLayarPenuh" type="button">Layar penuh</button>
+    <button class="tombol" id="tombolLayarPenuh" type="button" data-en="Fullscreen">Layar penuh</button>
     <button class="tombol" id="tombolBasePanel" type="button">Hubungkan base</button>
-    <button class="tombol utama" id="tutupAtur" type="button">Tutup</button>
+    <button class="tombol utama" id="tutupAtur" type="button" data-en="Close">Tutup</button>
   </div>
 
-  <p class="petunjuk">Ketuk wajah: kaget. Ketuk dua kali: senang. Tahan: dielus. Goyang HP: kaget.
-    Didiamkan 45 detik: ngantuk, 90 detik: tidur. Keyboard: 1–9 ekspresi, spasi kedip, F layar penuh, A panel.
+  <p class="petunjuk" data-en="Tap the face: surprised. Double tap: happy. Hold: petting. Shake the phone: surprised. Left alone 45 s: sleepy, 90 s: asleep. Keyboard: 1–9 expressions, space blink, F fullscreen, A panel, D dance. Joystick: push up to drive forward, sideways to turn. Release = stop.">Ketuk wajah: kaget. Ketuk dua kali: senang. Tahan: dielus. Goyang HP: kaget.
+    Didiamkan 45 detik: ngantuk, 90 detik: tidur. Keyboard: 1–9 ekspresi, spasi kedip, F layar penuh, A panel, D menari.
     Setir: geser joystick ke atas untuk maju, ke samping untuk berbelok. Lepas = berhenti.</p>
 </section>
 
 <script>
 (() => {
   'use strict';
+
+  // =====================================================================
+  //  BAHASA (2026-10-07): Indonesia (bawaan) atau English. L('id', 'en')
+  //  memilih teks sesuai bahasa aktif. Teks HTML statis memakai atribut
+  //  data-en / data-en-ph (lihat terapkanBahasa). Kunci internal (nama
+  //  ekspresi, perintah BLE, localStorage) tetap bahasa Indonesia.
+  // =====================================================================
+  let bahasa = 'id';
+  try { if (localStorage.getItem('kiko.bahasa') === 'en') bahasa = 'en'; } catch (_) {}
+  const L = (id, en) => bahasa === 'en' ? en : id;
 
   // =====================================================================
   //  KANVAS
@@ -1306,7 +1326,7 @@
         // elusan itu yang menyalakan suara sapaan (lihat lepas()).
         if (belumPernahDisentuh()) {
           menungguElus = true;
-          tampilTeks('Elus aku dong!');
+          tampilTeks(L('Elus aku dong!', 'Pet me, please!'));
           ekspresiSingkat('sayang', 2500);
         } else {
           sapaDenganSuara(true);
@@ -1440,11 +1460,11 @@
   function saatDiangkat() {
     if (!cekTempel.checked || fase === 'pasang') return;
     // Diangkat saat animasi memuat: langsung kembali tidur.
-    if (fase === 'memuat') { keLayarPasang('Tempelkan aku lagi ke dudukan ya.'); return; }
+    if (fase === 'memuat') { keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.')); return; }
     ekspresiSingkat('sedih', 900);
     kirim('G,geleng');
     setTimeout(() => {
-      if (fase === 'hidup' && !gerak.tempel) keLayarPasang('Tempelkan aku lagi ke dudukan ya.');
+      if (fase === 'hidup' && !gerak.tempel) keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.'));
     }, 900);
   }
 
@@ -1488,17 +1508,17 @@
   let nfcAktif = false;
   async function mulaiNfc() {
     if (nfcAktif) return;
-    if (!('NDEFReader' in window)) { statusNfc('Web NFC tidak tersedia di sini (butuh Chrome Android + HTTPS).'); return; }
+    if (!('NDEFReader' in window)) { statusNfc(L('Web NFC tidak tersedia di sini (butuh Chrome Android + HTTPS).', 'Web NFC is not available here (needs Chrome on Android + HTTPS).')); return; }
     try {
       const pembaca = new NDEFReader();
       await pembaca.scan();                          // pertama kali: Chrome minta izin NFC
       nfcAktif = true;
-      statusNfc('NFC aktif: tempelkan HP ke dudukan.');
+      statusNfc(L('NFC aktif: tempelkan HP ke dudukan.', 'NFC active: attach the phone to the mount.'));
       pembaca.onreading = ev => { if (pesanKiko(ev.message)) saatDitempel('nfc'); };
       pembaca.onreadingerror = () => {};
     } catch (err) {
-      statusNfc(err && err.name === 'NotAllowedError' ? 'Izin NFC ditolak. Izinkan NFC untuk situs ini di Chrome.'
-                                                      : 'NFC gagal: ' + (err && err.message ? err.message : err));
+      statusNfc(err && err.name === 'NotAllowedError' ? L('Izin NFC ditolak. Izinkan NFC untuk situs ini di Chrome.', 'NFC permission denied. Allow NFC for this site in Chrome.')
+                                                      : L('NFC gagal: ', 'NFC failed: ') + (err && err.message ? err.message : err));
     }
   }
   // Izin NFC yang sudah pernah diberikan -> langsung memindai tanpa ketukan.
@@ -1540,7 +1560,21 @@
   const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
   const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // HP menulis ke sini
   const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // base mengirim notify dari sini
-  const ble = { device: null, rx: null, terhubung: false, baterai: null, sisa: '', kritis: false };
+  const ble = { device: null, rx: null, terhubung: false, baterai: null, sisa: '', kritis: false, cas: false };
+  const elTeksCas = document.getElementById('teksCas');
+  // Ver 12: kabel charger tercolok -> base mengunci roda. Wajah memberi tahu sekali,
+  // joystick roda berhenti mengirim M. diam = tanpa ucapan (mis. saat terputus).
+  function aturCas(cas, diam) {
+    if (cas === ble.cas) return;
+    ble.cas = cas;
+    elTeksCas.textContent = L('⚡ Di-cas', '⚡ Charging');
+    elTeksCas.hidden = !cas;
+    perbaruiChip();
+    if (diam || fase !== 'hidup') return;
+    interaksi();
+    ucapkan(cas ? L('Aku lagi di-cas. Rodaku istirahat dulu, tapi aku tetap bisa ngobrol.', "I'm charging. My wheels are resting, but I can still chat.")
+                : L('Kabel cas dicabut. Aku bisa jalan lagi!', 'Charger unplugged. I can move again!'), cas ? 'sayang' : 'senang');
+  }
   const enc = new TextEncoder(), dec = new TextDecoder();
   let antrianTulis = Promise.resolve();
 
@@ -1551,7 +1585,7 @@
   if (!bleAda) {
     tombolHubung.disabled = true;
     tombolBasePanel.disabled = true;
-    statusPasang.textContent = 'Bluetooth tidak tersedia di sini. Butuh Chrome Android di halaman HTTPS; dipakai mulai langkah 2.';
+    statusPasang.textContent = L('Bluetooth tidak tersedia di sini. Butuh Chrome Android di halaman HTTPS; dipakai mulai langkah 2.', 'Bluetooth is not available here. It needs Chrome on Android on an HTTPS page.');
   }
 
   function kirim(baris) {
@@ -1571,20 +1605,22 @@
     else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
     // J = roda macet (Ver 8, encoder): ada tenaga tapi roda tidak berputar, base sudah mengerem
     else if (kode === 'J') { interaksi(); ekspresiSingkat('bingung', 1800); kirim('G,bingung'); }
+    // U = kabel charger tercolok (U,1) / dicabut (U,0), firmware Ver 12
+    else if (kode === 'U' && nilai) aturCas(nilai === '1');
     else if (kode === 'B' && nilai) {
       ble.baterai = parseFloat(nilai); perbaruiChip();
       // Ver 11: "B,6.31,kritis" = baterai di bawah 6,4 V, base akan mematikan motor/servo lalu tidur.
       if (baris.includes('kritis')) {
         ble.kritis = true;
         interaksi();
-        ucapkan('Baterai badanku hampir habis. Matikan saklar, lalu cas aku ya.', 'sedih');
+        ucapkan(L('Baterai badanku hampir habis. Matikan saklar, lalu cas aku ya.', 'My body battery is almost empty. Please switch me off and charge me.'), 'sedih');
       }
     }
   }
 
   async function hubungkanBle() {
     try {
-      statusPasang.textContent = 'Mencari base KiKo…';
+      statusPasang.textContent = L('Mencari base KiKo…', 'Looking for the KiKo base…');
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'KiKo' }], optionalServices: [NUS],
       });
@@ -1592,9 +1628,9 @@
     } catch (err) {
       const pesan = String(err && err.name);
       statusPasang.textContent =
-        pesan === 'NotFoundError' ? 'Tidak ada base yang dipilih.' :
-        pesan === 'SecurityError' ? 'Halaman ini tidak diizinkan memakai Bluetooth. Buka lewat HTTPS di Chrome Android.' :
-        'Gagal terhubung: ' + (err && err.message ? err.message : err);
+        pesan === 'NotFoundError' ? L('Tidak ada base yang dipilih.', 'No base was selected.') :
+        pesan === 'SecurityError' ? L('Halaman ini tidak diizinkan memakai Bluetooth. Buka lewat HTTPS di Chrome Android.', 'This page may not use Bluetooth. Open it over HTTPS in Chrome on Android.') :
+        L('Gagal terhubung: ', 'Could not connect: ') + (err && err.message ? err.message : err);
     }
   }
 
@@ -1636,15 +1672,17 @@
       perbaruiChip();
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
       kirim(document.getElementById('cekTepi').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
+      kirim('U');                    // Ver 12: tanya colokan cas (firmware lama membalas ?,U, diabaikan)
       if (fase === 'pasang') mulaiMemuat();
     }
   }
 
   function saatTerputus() {
     ble.terhubung = false; ble.rx = null; ble.baterai = null;
+    aturCas(false, true);
     perbaruiChip();
     // Base Ver 11 mengirim "B,x.xx,kritis" lalu tidur: jelaskan alasannya, bukan sekadar "terputus".
-    if (fase === 'hidup') keLayarPasang(ble.kritis ? 'Baterai KiKo hampir habis. Matikan saklar lalu cas ya.' : 'Base terputus.');
+    if (fase === 'hidup') keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
     ble.kritis = false;
   }
 
@@ -1658,7 +1696,7 @@
     if (window.speechSynthesis) speechSynthesis.cancel();
     lepasSetir();
     elSetir.hidden = true;
-    document.getElementById('tombolSetir').textContent = 'Tampilkan setir';
+    document.getElementById('tombolSetir').textContent = L('Tampilkan setir', 'Show joystick');
     document.getElementById('pasang').hidden = false;
     statusPasang.textContent = pesan || '';
   }
@@ -1692,7 +1730,7 @@
   URUTAN.forEach((nama, i) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pilih'; b.dataset.nama = nama; b.id = 'ekspresi-' + nama;
-    b.innerHTML = `<span>${EKSPRESI[nama].label}</span><kbd>${i + 1}</kbd>`;
+    b.innerHTML = `<span class="label-ekspresi"></span><kbd>${i + 1}</kbd>`;
     b.addEventListener('click', () => pilihEkspresi(nama));
     gridEkspresi.appendChild(b);
   });
@@ -1770,7 +1808,7 @@
   JENIS_KUCING.forEach(j => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pilih'; b.dataset.jenis = j.id;
-    b.innerHTML = `<span>${j.nama}</span>`;
+    b.innerHTML = `<span class="label-jenis"></span>`;
     // contoh warna kecil: bulu + mata
     const contoh = document.createElement('kbd');
     contoh.innerHTML = `<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KULIT.find(k => k.id === j.kulit).latar};border:1px solid #888"></i>`
@@ -1823,10 +1861,12 @@
     const chip = document.getElementById('chipBase');
     chip.classList.toggle('aktif', ble.terhubung);
     chip.textContent = ble.terhubung
-      ? 'Base terhubung' + (ble.baterai ? ' · ' + ble.baterai.toFixed(2) + ' V' : '')
-      : 'Base: tidak terhubung';
-    tombolBasePanel.textContent = ble.terhubung ? 'Putuskan base' : 'Hubungkan base';
-    document.getElementById('setirInfo').textContent = ble.terhubung ? 'Setir aktif' : 'Base belum terhubung';
+      ? L('Base terhubung', 'Base connected') + (ble.baterai ? ' · ' + ble.baterai.toFixed(2) + ' V' : '') + (ble.cas ? ' · ⚡' : '')
+      : L('Base: tidak terhubung', 'Base: not connected');
+    tombolBasePanel.textContent = ble.terhubung ? L('Putuskan base', 'Disconnect base') : L('Hubungkan base', 'Connect base');
+    tombolHubung.textContent = L('Hubungkan base', 'Connect base');
+    document.getElementById('setirInfo').textContent = !ble.terhubung ? L('Base belum terhubung', 'Base not connected')
+      : ble.cas && modeSetir === 'roda' ? L('Roda dikunci: sedang di-cas', 'Wheels locked: charging') : L('Setir aktif', 'Steering active');
   }
 
   // =====================================================================
@@ -1921,13 +1961,13 @@
   async function mulaiWajah() {
     if (wajah.aktif || wajah.memuat) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      statusWajah('Kamera tidak tersedia di browser ini.');
+      statusWajah(L('Kamera tidak tersedia di browser ini.', 'The camera is not available in this browser.'));
       cekWajah.checked = false;
       return;
     }
     wajah.memuat = true;
     try {
-      statusWajah('Meminta izin kamera…');
+      statusWajah(L('Meminta izin kamera…', 'Requesting camera permission…'));
       wajah.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: false,
       });
@@ -1941,7 +1981,7 @@
       await wajah.video.play();
 
       if (!wajah.detektor) {
-        statusWajah('Memuat model deteksi wajah…');
+        statusWajah(L('Memuat model deteksi wajah…', 'Loading the face detection model…'));
         const { FaceDetector, FilesetResolver } = await import(`${MP_URL}/vision_bundle.mjs`);
         const fileset = await FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
         const opsi = delegate => ({
@@ -1953,10 +1993,10 @@
         try { wajah.detektor = await FaceDetector.createFromOptions(fileset, opsi('GPU')); }
         catch (_) { wajah.detektor = await FaceDetector.createFromOptions(fileset, opsi('CPU')); }
       }
-      if (!cekWajah.checked) { hentikanWajah(); statusWajah('Mati.'); return; }   // dimatikan saat masih memuat
+      if (!cekWajah.checked) { hentikanWajah(); statusWajah(L('Mati.', 'Off.')); return; }   // dimatikan saat masih memuat
 
       wajah.aktif = true;
-      statusWajah('Aktif. Mencari wajah…');
+      statusWajah(L('Aktif. Mencari wajah…', 'On. Looking for faces…'));
       clearInterval(wajah.timer);
       wajah.timer = setInterval(deteksiWajah, INTERVAL_DETEKSI);
       pratinjau.hidden = !cekKamera.checked;
@@ -2030,10 +2070,10 @@
           ekspresiSingkat('kaget', 900);
         }
       }
-      statusWajah('Aktif. Wajah terdeteksi.');
+      statusWajah(L('Aktif. Wajah terdeteksi.', 'On. Face detected.'));
     } else if (wajah.ada && now - wajah.terakhirLihat > 700) {
       wajah.ada = false;                                       // hilang sebentar dimaafkan (kedip, menoleh)
-      statusWajah('Aktif. Mencari wajah…');
+      statusWajah(L('Aktif. Mencari wajah…', 'On. Looking for faces…'));
     }
 
     if (!pratinjau.hidden) gambarPratinjau(v, terbaik);
@@ -2058,7 +2098,7 @@
   try { cekKamera.checked = localStorage.getItem('kiko.kamera') === '1'; } catch (_) {}
   cekWajah.addEventListener('change', () => {
     try { localStorage.setItem('kiko.wajah', cekWajah.checked ? '1' : '0'); } catch (_) {}
-    if (cekWajah.checked) mulaiWajah(); else { hentikanWajah(); statusWajah('Mati.'); }
+    if (cekWajah.checked) mulaiWajah(); else { hentikanWajah(); statusWajah(L('Mati.', 'Off.')); }
   });
   cekKamera.addEventListener('change', () => {
     try { localStorage.setItem('kiko.kamera', cekKamera.checked ? '1' : '0'); } catch (_) {}
@@ -2116,7 +2156,7 @@
   // dan KiKo tidak memotong dirinya sendiri yang sedang bicara.
   function mulaiDengar(otomatis = false) {
     if (!ai.url || fase !== 'hidup') return;
-    if (!SR) { statusAi('Pengenal suara tidak tersedia. Pakai Chrome Android.'); tampilTeks('Pengenal suara tidak tersedia di browser ini.', 4000); return; }
+    if (!SR) { statusAi(L('Pengenal suara tidak tersedia. Pakai Chrome Android.', 'Speech recognition is not available. Use Chrome on Android.')); tampilTeks(L('Pengenal suara tidak tersedia di browser ini.', 'Speech recognition is not available in this browser.'), 4000); return; }
     if (ai.tahap !== 'diam') return;
     if (otomatis && ai.bicara) return;
     if (window.speechSynthesis) speechSynthesis.cancel();      // tombol: memotong KiKo yang sedang bicara
@@ -2124,10 +2164,10 @@
     // Mikrofon mode menari dilepas dulu: di Chrome Android pengenal suara sering
     // gagal ("audio-capture") kalau mikrofon sedang dipegang getUserMedia.
     // Dinyalakan lagi oleh aturTahap('diam').
-    if (tari.mik) { tari.jeda = true; hentikanTari('Istirahat sebentar: mikrofon dipakai ngobrol.'); }
+    if (tari.mik) { tari.jeda = true; hentikanTari(L('Istirahat sebentar: mikrofon dipakai ngobrol.', 'Paused: the microphone is being used for chat.')); }
 
     const r = new SR();
-    r.lang = 'id-ID';
+    r.lang = L('id-ID', 'en-US');
     r.interimResults = false;
     r.maxAlternatives = 1;
     let dapat = false;
@@ -2141,10 +2181,10 @@
     };
     r.onerror = e => {
       if (otomatis && (e.error === 'no-speech' || e.error === 'aborted')) return;   // sunyi itu normal
-      const pesan = e.error === 'not-allowed' ? 'Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.' :
-                    e.error === 'no-speech' ? 'Tidak terdengar suara. Coba lagi.' :
-                    e.error === 'network' ? 'Pengenal suara butuh internet.' :
-                    'Pengenal suara gagal: ' + e.error;
+      const pesan = e.error === 'not-allowed' ? L('Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.', 'Microphone permission denied. Allow the microphone for this site in Chrome.') :
+                    e.error === 'no-speech' ? L('Tidak terdengar suara. Coba lagi.', "I didn't hear anything. Try again.") :
+                    e.error === 'network' ? L('Pengenal suara butuh internet.', 'Speech recognition needs the internet.') :
+                    L('Pengenal suara gagal: ', 'Speech recognition failed: ') + e.error;
       if (e.error === 'not-allowed' && cekDengarOtomatis.checked) {
         cekDengarOtomatis.checked = false;                      // jangan mencoba terus tanpa izin
         simpanDengarOtomatis();
@@ -2164,7 +2204,7 @@
       }
     };
     aturTahap('dengar');
-    tampilTeks(otomatis ? 'Aku mendengarkan…' : 'Mendengarkan…');
+    tampilTeks(otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…'));
     if (!otomatis) ekspresiSingkat('normal', 100);
     try { r.start(); } catch (_) { aturTahap('diam'); }
   }
@@ -2222,7 +2262,7 @@
 
   function waktuSekarang() {
     try {
-      return new Date().toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return new Date().toLocaleString(L('id-ID', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch (_) { return new Date().toString(); }
   }
 
@@ -2239,9 +2279,12 @@
     if (!paksa && terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
     terakhirSapa = now;
     const s = salamWaktu(), n = ingatan.nama;
-    const pilihan = n
-      ? [`Selamat ${s}, ${n}!`, `Hai ${n}, selamat ${s}!`, `Eh, ${n} datang. Selamat ${s}!`]
-      : [`Selamat ${s}!`, `Hai, selamat ${s}! Siapa namamu?`, `Halo! Selamat ${s}.`];
+    const e = { pagi: 'morning', siang: 'afternoon', sore: 'afternoon', malam: 'evening' }[s];
+    const pilihan = bahasa === 'en'
+      ? (n ? [`Good ${e}, ${n}!`, `Hi ${n}, good ${e}!`, `Oh, ${n} is here. Good ${e}!`]
+           : [`Good ${e}!`, `Hi, good ${e}! What's your name?`, `Hello! Good ${e}.`])
+      : (n ? [`Selamat ${s}, ${n}!`, `Hai ${n}, selamat ${s}!`, `Eh, ${n} datang. Selamat ${s}!`]
+           : [`Selamat ${s}!`, `Hai, selamat ${s}! Siapa namamu?`, `Halo! Selamat ${s}.`]);
     ucapkan(pilihan[Math.floor(Math.random() * pilihan.length)], 'senang');
   }
 
@@ -2249,7 +2292,7 @@
     // Jam, tanggal dan pengingat dijawab di HP (tanpa AI, tanpa kuota).
     if (jawabLokal(teks)) { aturTahap('diam'); return; }
     aturTahap('pikir');
-    tampilTeks('Kamu: ' + teks);
+    tampilTeks(L('Kamu: ', 'You: ') + teks);
     // Wajah "berpikir" sampai jawaban datang; mata melirik ke atas.
     ekspresiSingkat('curiga', 30000);
     if (!wajah.ada) { pandang.tgt.x = 0.5; pandang.tgt.y = -0.6; berikutLirik = performance.now() + 3000; }
@@ -2259,14 +2302,14 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pesan: teks, riwayat: ai.riwayat,
-          waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta,
+          waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta, bahasa,   // bahasa: Worker v4
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
       ai.riwayat.push({ role: 'user', content: teks }, { role: 'assistant', content: data.teks });
       ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
-      statusAi('Tersambung. Jawaban terakhir: ' + (data.ekspresi || 'normal'));
+      statusAi(L('Tersambung. Jawaban terakhir: ', 'Connected. Last answer: ') + (data.ekspresi || 'normal'));
       simpanIngatanBaru(data.nama, data.ingat);
       ucapkan(data.teks, data.ekspresi);
       // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
@@ -2275,19 +2318,20 @@
       if (data.gerak === 'angguk' || data.gerak === 'geleng') setTimeout(() => kirim('G,' + data.gerak), 300);
     } catch (err) {
       const pesan = String(err && err.message || err);
-      statusAi('Gagal: ' + pesan);
-      tampilTeks('Maaf, aku tidak bisa berpikir sekarang. (' + pesan + ')', 5000);
+      statusAi(L('Gagal: ', 'Failed: ') + pesan);
+      tampilTeks(L('Maaf, aku tidak bisa berpikir sekarang. (', "Sorry, I can't think right now. (") + pesan + ')', 5000);
       ekspresiSingkat('sedih', 2000);
     } finally {
       aturTahap('diam');
     }
   }
 
-  let suaraId = null;
+  let suaraId = null, suaraEn = null;
   function pilihSuara() {
     if (!window.speechSynthesis) return;
     const semua = speechSynthesis.getVoices();
     suaraId = semua.find(v => /^id([-_]|$)/i.test(v.lang)) || null;
+    suaraEn = semua.find(v => /^en[-_]US/i.test(v.lang)) || semua.find(v => /^en([-_]|$)/i.test(v.lang)) || null;
   }
   if (window.speechSynthesis) { pilihSuara(); speechSynthesis.onvoiceschanged = pilihSuara; }
 
@@ -2302,8 +2346,9 @@
     }
 
     const u = new SpeechSynthesisUtterance(teks);
-    u.lang = 'id-ID';
-    if (suaraId) u.voice = suaraId;
+    u.lang = L('id-ID', 'en-US');
+    const suara = L(suaraId, suaraEn);
+    if (suara) u.voice = suara;
     u.rate = 1.05;
     u.pitch = 1.35;                                            // sedikit lebih tinggi: terdengar seperti robot kecil
     u.onstart = () => { ai.bicara = true; ekspresiSingkat(nama, 60000); };
@@ -2327,10 +2372,10 @@
   inputWorker.value = ai.url;
   inputWorker.addEventListener('change', () => {
     const nilai = inputWorker.value.trim().replace(/\/+$/, '');
-    if (nilai && !/^https:\/\//i.test(nilai)) { statusAi('Alamat harus diawali https://'); return; }
+    if (nilai && !/^https:\/\//i.test(nilai)) { statusAi(L('Alamat harus diawali https://', 'The address must start with https://')); return; }
     ai.url = nilai;
     try { localStorage.setItem('kiko.worker', nilai); } catch (_) {}
-    statusAi(nilai ? 'Tersimpan. Tombol mikrofon muncul di bawah wajah.' : 'Isi alamat Worker untuk memunculkan tombol mikrofon.');
+    statusAi(nilai ? L('Tersimpan. Tombol mikrofon muncul di pojok kanan bawah.', 'Saved. The microphone button appears in the bottom-right corner.') : L('Isi alamat Worker untuk memunculkan tombol mikrofon.', 'Enter the Worker address to show the microphone button.'));
     perbaruiTombolBicara();
   });
   cekSuara.addEventListener('change', () => {
@@ -2349,8 +2394,8 @@
     jamMalamMulai.value = malam.mulai;
     jamMalamSelesai.value = malam.selesai;
     cacheMalam.waktu = 0;                                       // paksa hitung ulang
-    elStatusMalam.textContent = !malam.aktif ? 'Mode malam mati.'
-      : modeMalamAktif() ? 'Sekarang sedang mode malam.' : 'Sekarang bukan jam malam.';
+    elStatusMalam.textContent = !malam.aktif ? L('Mode malam mati.', 'Night mode is off.')
+      : modeMalamAktif() ? L('Sekarang sedang mode malam.', 'Night mode is active now.') : L('Sekarang bukan jam malam.', 'It is not night time now.');
   }
   function simpanMalam() {
     const jam = el => batas(Math.round(Number(el.value) || 0), 0, 23);
@@ -2368,9 +2413,9 @@
   const tombolLupa = document.getElementById('tombolLupa');
   function tampilkanIngatan() {
     const baris = [];
-    if (ingatan.nama) baris.push('Nama: ' + ingatan.nama);
+    if (ingatan.nama) baris.push(L('Nama: ', 'Name: ') + ingatan.nama);
     ingatan.fakta.forEach(f => baris.push('• ' + f));
-    elIsiIngatan.textContent = baris.length ? baris.join('\n') : 'Belum ada.';
+    elIsiIngatan.textContent = baris.length ? baris.join('\n') : L('Belum ada.', 'Nothing yet.');
     elIsiIngatan.style.whiteSpace = 'pre-line';
   }
   // Konfirmasi dua ketukan (dialog confirm() tidak bisa dipakai di semua tampilan).
@@ -2378,25 +2423,25 @@
   tombolLupa.addEventListener('click', () => {
     if (tombolLupa.dataset.yakin !== '1') {
       tombolLupa.dataset.yakin = '1';
-      tombolLupa.textContent = 'Yakin? Ketuk lagi';
+      tombolLupa.textContent = L('Yakin? Ketuk lagi', 'Sure? Tap again');
       clearTimeout(timerLupa);
-      timerLupa = setTimeout(() => { tombolLupa.dataset.yakin = ''; tombolLupa.textContent = 'Lupakan semua'; }, 4000);
+      timerLupa = setTimeout(() => { tombolLupa.dataset.yakin = ''; tombolLupa.textContent = L('Lupakan semua', 'Forget everything'); }, 4000);
       return;
     }
     clearTimeout(timerLupa);
     tombolLupa.dataset.yakin = '';
-    tombolLupa.textContent = 'Lupakan semua';
+    tombolLupa.textContent = L('Lupakan semua', 'Forget everything');
     ingatan = { nama: '', fakta: [] };
     ai.riwayat = [];
     simpanIngatan();
-    statusAi('Ingatan KiKo sudah dihapus.');
+    statusAi(L('Ingatan KiKo sudah dihapus.', "KiKo's memory has been cleared."));
   });
   tampilkanIngatan();
   try { cekDengarOtomatis.checked = localStorage.getItem('kiko.dengarOtomatis') !== '0'; } catch (_) {}
   cekDengarOtomatis.addEventListener('change', () => {
     simpanDengarOtomatis();
     ai.jedaDengar = JEDA_DENGAR_MIN;
-    if (cekDengarOtomatis.checked && !cekWajah.checked) statusAi('Nyalakan juga "Ikuti wajah orang" di Pelacakan wajah; KiKo mendengar saat melihat wajah.');
+    if (cekDengarOtomatis.checked && !cekWajah.checked) statusAi(L('Nyalakan juga "Ikuti wajah orang" di Pelacakan wajah; KiKo mendengar saat melihat wajah.', 'Also turn on "Follow people\'s faces" under Face tracking; KiKo listens when it sees a face.'));
   });
 
   // Joystick bisa menyetir roda (M) atau kepala/leher servo (S). Mode kepala
@@ -2412,6 +2457,7 @@
       kirim(`S,${tilt},${pan}`);
       return;
     }
+    if (ble.cas) return;                      // Ver 12: roda dikunci base selama di-cas
     // Pencampuran diferensial: maju/mundur dari sumbu Y, belok dari sumbu X.
     const maju = -setir.y, belok = setir.x;
     let kiri = maju + belok, kanan = maju - belok;
@@ -2478,7 +2524,7 @@
   document.getElementById('tombolSetir').addEventListener('click', ev => {
     elSetir.hidden = !elSetir.hidden;
     if (elSetir.hidden) lepasSetir();
-    ev.target.textContent = elSetir.hidden ? 'Tampilkan setir' : 'Sembunyikan setir';
+    ev.target.textContent = elSetir.hidden ? L('Tampilkan setir', 'Show joystick') : L('Sembunyikan setir', 'Hide joystick');
     tutupPanel();
   });
 
@@ -2522,7 +2568,7 @@
   async function mulaiTari() {
     if (tari.mik) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      elStatusTari.textContent = 'Mikrofon tidak tersedia di sini. Pakai versi GitHub Pages di Chrome.';
+      elStatusTari.textContent = L('Mikrofon tidak tersedia di sini. Pakai versi GitHub Pages di Chrome.', 'The microphone is not available here. Use the GitHub Pages version in Chrome.');
       return;
     }
     let stream;
@@ -2530,7 +2576,7 @@
       // Tanpa peredam gema/derau: keduanya justru meredam musik.
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     } catch (err) {
-      elStatusTari.textContent = 'Mikrofon tidak bisa dipakai: ' + (err && err.name || err) + '. Izinkan mikrofon untuk situs ini.';
+      elStatusTari.textContent = L('Mikrofon tidak bisa dipakai: ', 'The microphone cannot be used: ') + (err && err.name || err) + L('. Izinkan mikrofon untuk situs ini.', '. Allow the microphone for this site.');
       cekMenari.checked = false; simpanTari();
       return;
     }
@@ -2552,10 +2598,10 @@
     tari.mik = true;
     clearInterval(tari.timer);
     tari.timer = setInterval(prosesTari, 20);
-    elStatusTari.textContent = 'Mendengarkan… putar musik di dekat KiKo.';
+    elStatusTari.textContent = L('Mendengarkan… putar musik di dekat KiKo.', 'Listening… play music near KiKo.');
   }
 
-  function hentikanTari(pesan = 'Mati.') {
+  function hentikanTari(pesan = L('Mati.', 'Off.')) {
     clearInterval(tari.timer);
     if (tari.stream) tari.stream.getTracks().forEach(t => t.stop());
     if (tari.sumber) { try { tari.sumber.disconnect(); } catch (_) {} }
@@ -2595,9 +2641,9 @@
     if (tari.aktif && (now - tari.terakhir > 2500 || modeMalamAktif() || fase !== 'hidup')) selesaiMenari();
     if (now - tari.statusWaktu > 600) {
       tari.statusWaktu = now;
-      elStatusTari.textContent = tari.aktif ? `Menari! ±${Math.round(60000 / tari.ibi)} ketukan/menit.`
-        : modeMalamAktif() ? 'Mode malam: mendengar, tapi tidak menari.'
-        : `Mendengarkan… (keras suara ${Math.round(level)}, belum ada irama).`;
+      elStatusTari.textContent = tari.aktif ? L(`Menari! ±${Math.round(60000 / tari.ibi)} ketukan/menit.`, `Dancing! ±${Math.round(60000 / tari.ibi)} beats/min.`)
+        : modeMalamAktif() ? L('Mode malam: mendengar, tapi tidak menari.', 'Night mode: listening, but not dancing.')
+        : L(`Mendengarkan… (keras suara ${Math.round(level)}, belum ada irama).`, `Listening… (level ${Math.round(level)}, no beat yet).`);
     }
   }
 
@@ -2617,7 +2663,7 @@
     tari.aktif = true; tari.hitung = 0;
     interaksi();                                    // bangun kalau sedang tidur
     ekspresiSingkat('senang', 2000);
-    if (!ai.bicara) tampilTeks('♪ Ayo menari!', 2000);
+    if (!ai.bicara) tampilTeks(L('♪ Ayo menari!', "♪ Let's dance!"), 2000);
   }
 
   function selesaiMenari() {
@@ -2654,7 +2700,7 @@
   } catch (_) {}
   cekMenari.addEventListener('change', () => {
     simpanTari();
-    if (cekMenari.checked) { if (fase === 'hidup') mulaiTari(); else elStatusTari.textContent = 'Mulai saat wajah KiKo hidup.'; }
+    if (cekMenari.checked) { if (fase === 'hidup') mulaiTari(); else elStatusTari.textContent = L('Mulai saat wajah KiKo hidup.', "Starts when KiKo's face is awake."); }
     else { tari.jeda = false; hentikanTari(); }
   });
   kepekaanTari.addEventListener('change', simpanTari);
@@ -2717,16 +2763,16 @@
     for (const p of pengingat) {
       const li = document.createElement('li');
       const s = document.createElement('span');
-      const kapan = p.ulang === 'harian' ? 'setiap hari' : samaHari(p.waktu, Date.now()) ? 'hari ini' : 'besok';
-      s.textContent = `${p.jam.replace(':', '.')} · ${kapan} · ${p.teks || '(tanpa isi)'}`;
+      const kapan = p.ulang === 'harian' ? L('setiap hari', 'every day') : samaHari(p.waktu, Date.now()) ? L('hari ini', 'today') : L('besok', 'tomorrow');
+      s.textContent = `${p.jam.replace(':', '.')} · ${kapan} · ${p.teks || L('(tanpa isi)', '(no text)')}`;
       const b = document.createElement('button');
-      b.className = 'tombol'; b.type = 'button'; b.textContent = 'Hapus';
-      b.setAttribute('aria-label', 'Hapus pengingat ' + p.jam + ' ' + p.teks);
+      b.className = 'tombol'; b.type = 'button'; b.textContent = L('Hapus', 'Delete');
+      b.setAttribute('aria-label', L('Hapus pengingat ', 'Delete reminder ') + p.jam + ' ' + p.teks);
       b.addEventListener('click', () => { pengingat = pengingat.filter(x => x !== p); simpanPengingat(); });
       li.append(s, b);
       elDaftarPengingat.append(li);
     }
-    elStatusPengingat.textContent = pengingat.length ? pengingat.length + ' pengingat aktif.' : 'Belum ada pengingat.';
+    elStatusPengingat.textContent = pengingat.length ? pengingat.length + L(' pengingat aktif.', ' active reminder(s).') : L('Belum ada pengingat.', 'No reminders yet.');
   }
   function simpanPengingat() {
     pengingat.sort((a, b) => a.waktu - b.waktu);
@@ -2743,7 +2789,7 @@
   document.getElementById('tombolTambahPengingat').addEventListener('click', () => {
     const jam = document.getElementById('pengingatJam').value;
     const elTeks = document.getElementById('pengingatTeks');
-    if (!/^\d\d:\d\d$/.test(jam)) { elStatusPengingat.textContent = 'Isi jamnya dulu.'; return; }
+    if (!/^\d\d:\d\d$/.test(jam)) { elStatusPengingat.textContent = L('Isi jamnya dulu.', 'Enter the time first.'); return; }
     tambahPengingat(jam, elTeks.value.trim(), document.getElementById('pengingatUlang').value);
     elTeks.value = '';
   });
@@ -2755,8 +2801,9 @@
     kedipSekarang();
     const [h, m] = p.jam.split(':').map(Number);
     const sapaan = ingatan.nama ? ingatan.nama + ', ' : '';
-    const kalimat = (telat ? `Tadi jam ${jamUcap(h, m)}, ` : '') +
-      (p.teks ? `${sapaan}waktunya ${p.teks}!` : `${sapaan}ini pengingatmu jam ${jamUcap(h, m)}.`);
+    const kalimat = bahasa === 'en'
+      ? (telat ? `Earlier at ${jamUcapEn(h, m)}: ` : '') + (p.teks ? `${sapaan}time to ${p.teks}!` : `${sapaan}this is your ${jamUcapEn(h, m)} reminder.`)
+      : (telat ? `Tadi jam ${jamUcap(h, m)}, ` : '') + (p.teks ? `${sapaan}waktunya ${p.teks}!` : `${sapaan}ini pengingatmu jam ${jamUcap(h, m)}.`);
     ucapkan(kalimat, 'kaget');
     // Teks di pojok kiri atas (bukan #teksBicara di bawah yang menutupi mulut), bertahan 1 menit.
     tampilTeks('');
@@ -2828,6 +2875,7 @@
 
   // true = sudah dijawab di HP, tidak perlu ke Worker.
   function jawabLokal(teks) {
+    if (bahasa === 'en') return jawabLokalEn(teks.toLowerCase().replace(/[’]/g, "'"));
     const t = teks.toLowerCase();
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
@@ -2934,10 +2982,10 @@
       const s = document.createElement('span');
       s.textContent = `${k.nama} · ${k.nomor}`;
       const t = document.createElement('a');
-      t.className = 'tombol'; t.href = 'tel:' + nomorTel(k.nomor); t.textContent = 'Telepon';
+      t.className = 'tombol'; t.href = 'tel:' + nomorTel(k.nomor); t.textContent = L('Telepon', 'Call');
       const h = document.createElement('button');
-      h.className = 'tombol'; h.type = 'button'; h.textContent = 'Hapus';
-      h.setAttribute('aria-label', 'Hapus kontak ' + k.nama);
+      h.className = 'tombol'; h.type = 'button'; h.textContent = L('Hapus', 'Delete');
+      h.setAttribute('aria-label', L('Hapus kontak ', 'Delete contact ') + k.nama);
       h.addEventListener('click', () => { kontak = kontak.filter(x => x !== k); simpanKontak(); });
       li.append(s, t, h);
       elDaftarKontak.append(li);
@@ -2975,6 +3023,9 @@
     const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call)\b/.test(t);
     if (!pesan && !telp) return false;
     const k = cariKontak(t);
+    // Kontak tidak dikenal dan kata kerjanya tidak di awal kalimat ("aku suka main
+    // telepon") -> bukan perintah, teruskan ke AI.
+    if (!k && !/^(tolong |kiko,? )?(telepon|telpon|telfon|tlp|hubungi|video ?call|kirim|wa|whatsapp|chat)\b/.test(t)) return false;
     if (!k) {
       const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|call|ke|wa|whatsapp)\s+([a-z]+)/);
       const nama = m ? m[1] : 'itu';
@@ -3007,6 +3058,10 @@
   const formatSisa = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); const j = Math.floor(s / 3600); return (j ? j + ':' + dua(Math.floor(s / 60) % 60) : Math.floor(s / 60)) + ':' + dua(s % 60); };
   function ucapDurasi(detik) {
     const j = Math.floor(detik / 3600), m = Math.floor(detik / 60) % 60, s = detik % 60;
+    if (bahasa === 'en') {
+      const jm = (n, k) => n + ' ' + k + (n === 1 ? '' : 's');
+      return [j && jm(j, 'hour'), m && jm(m, 'minute'), s && jm(s, 'second')].filter(Boolean).join(' ') || '0 seconds';
+    }
     return [j && j + ' jam', m && m + ' menit', s && s + ' detik'].filter(Boolean).join(' ') || '0 detik';
   }
   function mulaiTimer(detik) {
@@ -3019,25 +3074,25 @@
     clearInterval(timer.interval);
     timer.sampai = 0;
     elTeksTimer.hidden = true;
-    elStatusTimer.textContent = 'Tidak ada timer.';
-    if (ucap) ucapkan('Timer dibatalkan.', 'normal');
+    elStatusTimer.textContent = L('Tidak ada timer.', 'No timer.');
+    if (ucap) ucapkan(L('Timer dibatalkan.', 'Timer cancelled.'), 'normal');
   }
   function detakTimer() {
     const sisa = timer.sampai - Date.now();
     if (sisa > 0) {
       elTeksTimer.textContent = '⏱ ' + formatSisa(sisa);
       elTeksTimer.hidden = false;
-      elStatusTimer.textContent = `Timer ${ucapDurasi(timer.total)}, sisa ${formatSisa(sisa)}.`;
+      elStatusTimer.textContent = L(`Timer ${ucapDurasi(timer.total)}, sisa ${formatSisa(sisa)}.`, `Timer ${ucapDurasi(timer.total)}, ${formatSisa(sisa)} left.`);
       return;
     }
     clearInterval(timer.interval);
     timer.sampai = 0;
-    elTeksTimer.textContent = '⏱ Selesai!';
-    elStatusTimer.textContent = 'Timer selesai.';
+    elTeksTimer.textContent = L('⏱ Selesai!', '⏱ Done!');
+    elStatusTimer.textContent = L('Timer selesai.', 'Timer finished.');
     setTimeout(() => { if (!timer.sampai) elTeksTimer.hidden = true; }, 30000);
     interaksi(); kedipSekarang();
     bunyiBip(3);
-    setTimeout(() => ucapkan(`Waktunya habis! Timer ${ucapDurasi(timer.total)} selesai.`, 'kaget'), 1300);
+    setTimeout(() => ucapkan(L(`Waktunya habis! Timer ${ucapDurasi(timer.total)} selesai.`, `Time's up! Your ${ucapDurasi(timer.total)} timer is done.`), 'kaget'), 1300);
     if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 400);
   }
   let actxBip = null;
@@ -3110,24 +3165,24 @@
     radio.stasiun = s;
     audioRadio.src = s.url;
     audioRadio.play().then(() => {
-      elStatusRadio.textContent = 'Memutar: ' + s.nama;
+      elStatusRadio.textContent = L('Memutar: ', 'Playing: ') + s.nama;
     }).catch(err => {
-      elStatusRadio.textContent = 'Gagal memutar ' + s.nama + ' (' + (err && err.name || err) + '). Ketuk layar sekali lalu coba lagi.';
+      elStatusRadio.textContent = L('Gagal memutar ', 'Could not play ') + s.nama + ' (' + (err && err.name || err) + L('). Ketuk layar sekali lalu coba lagi.', '). Tap the screen once and try again.');
     });
-    elStatusRadio.textContent = 'Menyambung ke ' + s.nama + '…';
+    elStatusRadio.textContent = L('Menyambung ke ', 'Connecting to ') + s.nama + '…';
     tampilkanRadio();
   }
   function hentikanRadio() {
     audioRadio.pause();
     audioRadio.removeAttribute('src'); audioRadio.load();      // putus dari stream, hemat kuota data
     radio.stasiun = null;
-    elStatusRadio.textContent = 'Mati.';
+    elStatusRadio.textContent = L('Mati.', 'Off.');
     tampilkanRadio();
   }
   audioRadio.addEventListener('error', () => {
     if (!radio.stasiun) return;
-    elStatusRadio.textContent = 'Stream ' + radio.stasiun.nama + ' tidak bisa diputar (alamat mati / bukan https).';
-    if (!ai.bicara) ucapkan('Maaf, radionya tidak bisa diputar.', 'sedih');
+    elStatusRadio.textContent = L('Stream ' + radio.stasiun.nama + ' tidak bisa diputar (alamat mati / bukan https).', 'Stream ' + radio.stasiun.nama + ' cannot be played (dead address / not https).');
+    if (!ai.bicara) ucapkan(L('Maaf, radionya tidak bisa diputar.', "Sorry, that radio station won't play."), 'sedih');
     radio.stasiun = null; tampilkanRadio();
   });
   // Suara radio dikecilkan saat KiKo mendengar atau bicara.
@@ -3149,12 +3204,12 @@
       const main = radio.stasiun && radio.stasiun.url === s.url;
       sp.textContent = (main ? '▶ ' : '') + s.nama;
       const b = document.createElement('button');
-      b.className = 'tombol'; b.type = 'button'; b.textContent = main ? 'Hentikan' : 'Putar';
+      b.className = 'tombol'; b.type = 'button'; b.textContent = main ? L('Hentikan', 'Stop') : L('Putar', 'Play');
       b.addEventListener('click', () => { if (main) hentikanRadio(); else if (fitur.radio) putarRadio(s); });
       li.append(sp, b);
       if (s.sendiri) {
         const h = document.createElement('button');
-        h.className = 'tombol'; h.type = 'button'; h.textContent = 'Hapus';
+        h.className = 'tombol'; h.type = 'button'; h.textContent = L('Hapus', 'Delete');
         h.addEventListener('click', () => {
           radioSendiri = radioSendiri.filter(r => r.url !== s.url);
           try { localStorage.setItem('kiko.radio', JSON.stringify(radioSendiri)); } catch (_) {}
@@ -3168,7 +3223,7 @@
   document.getElementById('tombolTambahRadio').addEventListener('click', () => {
     const elNama = document.getElementById('radioNama'), elUrl = document.getElementById('radioUrl');
     const nama = elNama.value.trim(), url = elUrl.value.trim();
-    if (!nama || !/^https:\/\//i.test(url)) { elStatusRadio.textContent = 'Isi nama dan alamat stream yang diawali https://'; return; }
+    if (!nama || !/^https:\/\//i.test(url)) { elStatusRadio.textContent = L('Isi nama dan alamat stream yang diawali https://', 'Enter a name and a stream address starting with https://'); return; }
     radioSendiri.push({ nama, url });
     try { localStorage.setItem('kiko.radio', JSON.stringify(radioSendiri)); } catch (_) {}
     elNama.value = ''; elUrl.value = '';
@@ -3209,27 +3264,31 @@
   function simpanLokasi(l) {
     lokasi = l;
     try { localStorage.setItem('kiko.lokasi', JSON.stringify(l)); } catch (_) {}
-    elStatusCuaca.textContent = 'Lokasi: ' + l.nama + '.';
+    tampilkanLokasi();
   }
-  if (lokasi) elStatusCuaca.textContent = 'Lokasi: ' + lokasi.nama + '.';
+  function tampilkanLokasi() {
+    elStatusCuaca.textContent = lokasi ? L('Lokasi: ', 'Location: ') + (lokasi.nama === 'sini' ? L('lokasi HP', 'phone location') : lokasi.nama) + '.'
+      : L('Lokasi belum diatur.', 'Location not set.');
+  }
+  tampilkanLokasi();
   document.getElementById('tombolKota').addEventListener('click', async () => {
     const nama = document.getElementById('inputKota').value.trim();
     if (!nama) return;
-    elStatusCuaca.textContent = 'Mencari ' + nama + '…';
+    elStatusCuaca.textContent = L('Mencari ', 'Searching for ') + nama + '…';
     try {
       const cari = async neg => (await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=id&name=' +
         encodeURIComponent(nama) + (neg ? '&countryCode=ID' : ''))).json()).results;
       const r = (await cari(true)) || (await cari(false));
-      if (!r || !r.length) { elStatusCuaca.textContent = 'Kota "' + nama + '" tidak ditemukan.'; return; }
+      if (!r || !r.length) { elStatusCuaca.textContent = L('Kota "' + nama + '" tidak ditemukan.', 'City "' + nama + '" not found.'); return; }
       simpanLokasi({ nama: r[0].name.replace(/^Kota\s+/, ''), lat: r[0].latitude, lon: r[0].longitude });
-    } catch (_) { elStatusCuaca.textContent = 'Gagal mencari kota (butuh internet).'; }
+    } catch (_) { elStatusCuaca.textContent = L('Gagal mencari kota (butuh internet).', 'City search failed (needs the internet).'); }
   });
   document.getElementById('tombolLokasiHp').addEventListener('click', () => {
-    if (!navigator.geolocation) { elStatusCuaca.textContent = 'Lokasi HP tidak tersedia di sini.'; return; }
-    elStatusCuaca.textContent = 'Meminta lokasi HP…';
+    if (!navigator.geolocation) { elStatusCuaca.textContent = L('Lokasi HP tidak tersedia di sini.', 'Phone location is not available here.'); return; }
+    elStatusCuaca.textContent = L('Meminta lokasi HP…', 'Requesting phone location…');
     navigator.geolocation.getCurrentPosition(
       p => simpanLokasi({ nama: 'sini', lat: Math.round(p.coords.latitude * 100) / 100, lon: Math.round(p.coords.longitude * 100) / 100 }),
-      e => { elStatusCuaca.textContent = 'Lokasi HP ditolak / gagal: ' + e.message; },
+      e => { elStatusCuaca.textContent = L('Lokasi HP ditolak / gagal: ', 'Phone location denied / failed: ') + e.message; },
       { timeout: 15000, maximumAge: 3600000 });
   });
 
@@ -3281,6 +3340,207 @@
     return true;
   }
 
+
+  // =====================================================================
+  //  PERINTAH SUARA BAHASA INGGRIS (bahasa === 'en')
+  //  Padanan jawabLokal/jawabAsisten untuk teks dari pengenal suara en-US.
+  //  Memakai fungsi yang sama (pengingat, timer, radio, cuaca, kontak).
+  // =====================================================================
+  function jamUcapEn(h, m) { return `${h % 12 || 12}${m ? ':' + dua(m) : ''} ${h < 12 ? 'AM' : 'PM'}`; }
+  const ANGKA_EN = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, 'forty-five': 45, fifty: 50, sixty: 60 };
+  const KATA_ANGKA_EN = '(\\d+|' + Object.keys(ANGKA_EN).sort((x, y) => y.length - x.length).join('|') + ')';
+  const angkaEn = w => /^\d+$/.test(w) ? Number(w) : (ANGKA_EN[w] || 0);
+
+  // "in 10 minutes", "at 7 pm", "at 7:30 p.m.", "7 am", "at 6 in the morning", "at noon".
+  function uraiWaktuEn(t) {
+    let m = t.match(new RegExp('in ' + KATA_ANGKA_EN + '\\s*(minutes?|mins?|hours?|hrs?)'));
+    if (m) {
+      const ms = angkaEn(m[1]) * (/^h/.test(m[2]) ? 3600000 : 60000);
+      if (ms) { const w = Date.now() + ms, d = new Date(w); return { waktu: w, jam: dua(d.getHours()) + ':' + dua(d.getMinutes()), frasa: m[0] }; }
+    }
+    let h, mnt = 0, ap = '', bag = '';
+    if ((m = t.match(/\b(at )?noon\b/))) h = 12;
+    else if ((m = t.match(/\b(at )?midnight\b/))) h = 0;
+    else {
+      const BAG = '(?:\\s+(in the morning|in the afternoon|in the evening|at night|tonight))?';
+      // Spasi masuk ke grup am/pm opsional; kalau "\s*" di luar grup, spasinya
+      // termakan dan "at 6 in the morning" kehilangan "in the morning".
+      m = t.match(new RegExp("\\bat (\\d{1,2})(?:[:.](\\d{2}))?(?:\\s*(a\\.?\\s?m\\.?|p\\.?\\s?m\\.?|o'?clock))?" + BAG))
+       || t.match(new RegExp('\\b(\\d{1,2})(?:[:.](\\d{2}))?\\s*(a\\.?\\s?m\\.?|p\\.?\\s?m\\.?)' + BAG));
+      if (!m) return null;
+      h = Number(m[1]); mnt = Number(m[2] || 0); ap = (m[3] || '').replace(/[\s.]/g, ''); bag = m[4] || '';
+      const pm = ap === 'pm' || /afternoon|evening|night|tonight/.test(bag) || (!ap && /\btonight\b/.test(t));
+      const am = ap === 'am' || /morning/.test(bag);
+      if (h > 23 || mnt > 59) return null;
+      if (pm && h < 12) h += 12;
+      if (am && h === 12) h = 0;
+      if (!pm && !am && h >= 1 && h <= 11 && waktuBerikut(dua(h + 12) + ':' + dua(mnt)) < waktuBerikut(dua(h) + ':' + dua(mnt))) h += 12;
+    }
+    const jam = dua(h) + ':' + dua(mnt);
+    return { waktu: waktuBerikut(jam), jam, frasa: m[0] };
+  }
+  function isiPengingatEn(t, frasa) {
+    let x = t.replace(frasa, ' ');
+    x = x.replace(/^.*?(remind me|set a reminder|create a reminder|add a reminder)\s*/, '');
+    x = x.replace(/\b(every day|everyday|each day|daily|please|kiko)\b/g, ' ');
+    x = x.replace(/^\s*(to|that|about|for)\s+/, '').replace(/\s+(to|that)\s*$/, '');
+    return x.replace(/\s+/g, ' ').trim().replace(/[.!?,]+$/, '');
+  }
+
+  function deskripsiCuacaEn(k) {
+    if (k === 0) return 'clear';
+    if (k === 1) return 'mostly clear';
+    if (k === 2) return 'partly cloudy';
+    if (k === 3) return 'overcast';
+    if (k === 45 || k === 48) return 'foggy';
+    if (k >= 51 && k <= 57) return 'drizzly';
+    if (k === 61 || k === 80) return 'light rain';
+    if (k === 63 || k === 81) return 'moderate rain';
+    if (k === 65 || k === 82 || k === 66 || k === 67) return 'heavy rain';
+    if (k >= 71 && k <= 77) return 'snowy';
+    if (k >= 95) return 'thunderstorms';
+    return 'unclear';
+  }
+
+  function jawabTeleponEn(t) {
+    const pesan = /(send (a )?(message|text|whatsapp|wa)|^(please )?(message|text|whatsapp)\b|(message|text) to\b)/.test(t);
+    const lewatWa = /(on|via|through|using|over) whatsapp|video call/.test(t);
+    const telp = /\b(call|phone|ring|dial)\b/.test(t) && !/\bcall me\b/.test(t);
+    if (!pesan && !telp) return false;
+    const k = cariKontak(t);
+    if (!k && !/^(please |kiko,? )?(call|phone|ring|dial|send|message|text|whatsapp|video call)\b/.test(t)) return false;
+    if (!k) {
+      const m = t.match(/(?:call|phone|ring|dial|to|message|text|whatsapp)\s+([a-z]+)/);
+      ucapkan(`I don't have a number for ${m ? m[1] : 'that person'} yet. Add it in the menu under Phone and WhatsApp.`, 'bingung');
+      return true;
+    }
+    interaksi();
+    if (pesan) {
+      const i = t.indexOf(k.nama.toLowerCase());
+      const isi = t.slice(i + k.nama.length).replace(/^\s*(that|saying|:|,)\s*/, '').trim();
+      ucapkan(isi ? `Send ${k.nama}: ${isi}? Tap the green button.` : `Open WhatsApp with ${k.nama}? Tap the green button.`, 'senang');
+      tawarkanAksi(isi ? `Message to ${k.nama}: “${isi}”` : `Open WhatsApp chat with ${k.nama}`, 'Open WhatsApp',
+        `https://wa.me/${nomorWa(k.nomor)}` + (isi ? '?text=' + encodeURIComponent(isi) : ''), true);
+    } else if (lewatWa) {
+      ucapkan(`I'll open WhatsApp with ${k.nama}. Then press the call icon in WhatsApp.`, 'senang');
+      tawarkanAksi(`Call ${k.nama} on WhatsApp: open the chat, then press the call icon.`, 'Open WhatsApp', `https://wa.me/${nomorWa(k.nomor)}`, true);
+    } else {
+      ucapkan(`Call ${k.nama}? Tap the green button.`, 'senang');
+      tawarkanAksi(`Call ${k.nama} (${k.nomor})`, '📞 Call', 'tel:' + nomorTel(k.nomor), false);
+    }
+    if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+    return true;
+  }
+
+  function jawabTimerEn(t) {
+    if (!/(timer|countdown|count down)/.test(t)) return false;
+    if (/(cancel|stop|delete|clear|turn off)/.test(t)) {
+      if (timer.sampai) hentikanTimer(true); else ucapkan('There is no timer running.', 'normal');
+      return true;
+    }
+    if (/(how much|how long|time left|remaining|left on)/.test(t)) {
+      ucapkan(timer.sampai ? `${ucapDurasi(Math.ceil((timer.sampai - Date.now()) / 1000))} left.` : 'There is no timer running.', 'normal');
+      return true;
+    }
+    let detik = 0, x = t;
+    if (/half an hour/.test(x)) { detik += 1800; x = x.replace(/half an hour/g, ' '); }
+    for (const m of x.matchAll(new RegExp(KATA_ANGKA_EN + '\\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)', 'g')))
+      detik += angkaEn(m[1]) * (/^h/.test(m[2]) ? 3600 : /^m/.test(m[2]) ? 60 : 1);
+    if (!detik || detik > 24 * 3600) { ucapkan('How long? For example: set a timer for 5 minutes.', 'bingung'); return true; }
+    mulaiTimer(detik);
+    ucapkan(`Okay, ${ucapDurasi(detik)} timer started.`, 'senang');
+    if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+    return true;
+  }
+
+  function jawabRadioEn(t) {
+    if (radioMain() && /(turn (it|the volume|the radio|the music) down|lower the volume|quieter|volume down)/.test(t)) {
+      radio.vol = Math.max(0.05, radio.vol - 0.2); volRadio.value = Math.round(radio.vol * 100); return true;
+    }
+    if (radioMain() && /(turn (it|the volume|the radio|the music) up|louder|volume up)/.test(t)) {
+      radio.vol = Math.min(1, radio.vol + 0.2); volRadio.value = Math.round(radio.vol * 100); return true;
+    }
+    if (!/(radio|music|news|station)/.test(t)) return false;
+    if (/(stop|turn off|switch off|pause)/.test(t)) {
+      if (radio.stasiun) { hentikanRadio(); ucapkan('Radio off.', 'normal'); } else ucapkan('The radio is already off.', 'normal');
+      return true;
+    }
+    if (!/(play|turn on|put on|start|switch on)/.test(t)) return false;
+    const daftar = semuaRadio();
+    let st = daftar.find(r => r.nama.toLowerCase().split(/\s+/).some(w => w.length >= 4 && !/^(radio|jakarta|suara)$/.test(w) && t.includes(w)));
+    if (!st && /news/.test(t)) st = daftar.find(r => /berita/i.test(r.nama));
+    if (!st && /music|song/.test(t)) st = daftar.find(r => /musik/i.test(r.nama));
+    if (!st) st = daftar.find(r => r.jenis === 'radio');
+    ucapkan('Okay, playing ' + st.nama + '.', 'senang');
+    setTimeout(() => putarRadio(st), 1800);
+    return true;
+  }
+
+  function jawabCuacaEn(t) {
+    if (!/(weather|rain|raining|hot|cold|temperature|umbrella|sunny|forecast)/.test(t)) return false;
+    if (/(remind|timer)/.test(t)) return false;
+    if (!lokasi) { ucapkan("I don't know which city you're in yet. Set it in the menu under Weather.", 'bingung'); return true; }
+    const besok = /tomorrow/.test(t);
+    ekspresiSingkat('curiga', 4000);
+    ambilCuaca().then(d => {
+      const i = besok ? 1 : 0, di = lokasi.nama === 'sini' ? 'here' : 'in ' + lokasi.nama;
+      const min = Math.round(d.daily.temperature_2m_min[i]), maks = Math.round(d.daily.temperature_2m_max[i]);
+      const hujan = d.daily.precipitation_probability_max[i];
+      let kal = besok
+        ? `Tomorrow ${di}: ${deskripsiCuacaEn(d.daily.weather_code[i])}, ${min} to ${maks} degrees`
+        : `Right now ${di} it's ${Math.round(d.current.temperature_2m)} degrees and ${deskripsiCuacaEn(d.current.weather_code)}. Today ${min} to ${maks} degrees`;
+      if (hujan != null) kal += `, ${hujan} percent chance of rain`;
+      kal += '.';
+      if (hujan >= 60) kal += " Don't forget your umbrella.";
+      else if (maks >= 33) kal += ' It will be hot, drink plenty of water.';
+      ucapkan(kal, hujan >= 60 ? 'sedih' : 'senang');
+    }).catch(() => ucapkan("Sorry, I couldn't get the weather. Please check the internet.", 'sedih'));
+    return true;
+  }
+
+  function jawabLokalEn(t) {
+    if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
+      if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
+      const isi = pengingat.slice(0, 3).map(p => {
+        const [h, m] = p.jam.split(':').map(Number);
+        return `at ${jamUcapEn(h, m)}${p.teks ? ' ' + p.teks : ''}`;
+      }).join(', ');
+      ucapkan(`You have ${pengingat.length} reminder${pengingat.length === 1 ? '' : 's'}: ${isi}${pengingat.length > 3 ? ', and more' : ''}.`, 'senang');
+      return true;
+    }
+    if (/(delete|cancel|remove|clear)\b.*reminder/.test(t)) {
+      ucapkan('You can delete reminders in the menu, under Clock and reminders.', 'normal');
+      return true;
+    }
+    if (/(remind me|set a reminder|create a reminder|add a reminder)/.test(t)) {
+      const w = uraiWaktuEn(t);
+      if (!w) { ucapkan('When should I remind you? For example: remind me at 7 pm to take my medicine.', 'bingung'); return true; }
+      const ulang = /(every day|everyday|each day|daily)/.test(t) ? 'harian' : 'sekali';
+      const isi = isiPengingatEn(t, w.frasa);
+      tambahPengingat(w.jam, isi, ulang, w.waktu);
+      const [h, m] = w.jam.split(':').map(Number);
+      const kapan = ulang === 'harian' ? 'every day at ' : samaHari(w.waktu, Date.now()) ? 'at ' : 'tomorrow at ';
+      ucapkan(`Okay! I'll remind you ${kapan}${jamUcapEn(h, m)}${isi ? ' to ' + isi : ''}.`, 'senang');
+      if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+      return true;
+    }
+    if (fitur.telepon && jawabTeleponEn(t)) return true;
+    if (fitur.timer && jawabTimerEn(t)) return true;
+    if (fitur.radio && jawabRadioEn(t)) return true;
+    if (fitur.cuaca && jawabCuacaEn(t)) return true;
+    if (/(what time|what's the time|time is it)/.test(t)) {
+      const d = new Date();
+      ucapkan(`It's ${jamUcapEn(d.getHours(), d.getMinutes())}.`, 'senang');
+      return true;
+    }
+    if (/(what day|what date|what's the date|today's date)/.test(t)) {
+      ucapkan('Today is ' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.', 'senang');
+      return true;
+    }
+    return false;
+  }
+
   // Uji perintah suara tanpa mikrofon, hanya di server lokal (localhost):
   // di konsol, kikoUji('telepon mama') -> true kalau dijawab di HP.
   if (location.hostname === 'localhost') window.kikoUji = teks => jawabLokal(teks);
@@ -3312,7 +3572,7 @@
     e.preventDefault();                 // tampilkan lewat tombol kita sendiri
     ajakanPasang = e;
     tombolPasangApp.hidden = false;
-    elStatusApp.textContent = 'KiKo bisa dipasang sebagai aplikasi layar penuh.';
+    elStatusApp.textContent = L('KiKo bisa dipasang sebagai aplikasi layar penuh.', 'KiKo can be installed as a fullscreen app.');
   });
   tombolPasangApp.addEventListener('click', async () => {
     if (!ajakanPasang) return;
@@ -3320,10 +3580,10 @@
     const hasil = await ajakanPasang.userChoice.catch(() => null);
     ajakanPasang = null;
     tombolPasangApp.hidden = true;
-    elStatusApp.textContent = hasil && hasil.outcome === 'accepted' ? 'Terpasang. Buka KiKo dari ikon di layar utama.' : 'Batal dipasang.';
+    elStatusApp.textContent = hasil && hasil.outcome === 'accepted' ? L('Terpasang. Buka KiKo dari ikon di layar utama.', 'Installed. Open KiKo from the home-screen icon.') : L('Batal dipasang.', 'Installation cancelled.');
   });
-  window.addEventListener('appinstalled', () => { elStatusApp.textContent = 'Terpasang. Buka KiKo dari ikon di layar utama.'; });
-  if (sebagaiAplikasi()) elStatusApp.textContent = 'Sedang berjalan sebagai aplikasi KiKo.';
+  window.addEventListener('appinstalled', () => { elStatusApp.textContent = L('Terpasang. Buka KiKo dari ikon di layar utama.', 'Installed. Open KiKo from the home-screen icon.'); });
+  if (sebagaiAplikasi()) elStatusApp.textContent = L('Sedang berjalan sebagai aplikasi KiKo.', 'Running as the KiKo app.');
 
   // Aplikasi sudah terbuka lalu stiker NFC dibaca sistem lagi: Chrome memakai
   // jendela yang sama (launch_handler focus-existing) dan mengirim URL-nya ke sini.
@@ -3340,6 +3600,54 @@
       history.replaceState(null, '', location.pathname);   // muat ulang tidak memicu lagi
     }
   } catch (_) {}
+
+  // =====================================================================
+  //  TERAPKAN BAHASA (pilihan "Bahasa / Language" di panel)
+  //  Elemen HTML dengan data-en / data-en-ph diganti teksnya; teks Indonesia
+  //  aslinya disimpan di data-id. Teks yang dibuat JS digambar ulang.
+  // =====================================================================
+  const LABEL_EN = { normal: 'Normal', senang: 'Happy', kaget: 'Surprised', ngantuk: 'Sleepy', sedih: 'Sad', marah: 'Angry',
+    curiga: 'Suspicious', sayang: 'Loving', tidur: 'Asleep', tertawa: 'Laughing', bingung: 'Confused' };
+  const JENIS_EN = { oranye: 'Orange tabby', abu: 'Grey tabby', hitam: 'Black', calico: 'Calico', siam: 'Siamese', ganjil: 'Odd-eyed white' };
+  function terapkanBahasa() {
+    document.documentElement.lang = bahasa;
+    document.querySelectorAll('[data-en]').forEach(el => {
+      if (el.dataset.id === undefined) el.dataset.id = el.textContent;
+      el.textContent = bahasa === 'en' ? el.dataset.en : el.dataset.id;
+    });
+    document.querySelectorAll('[data-en-ph]').forEach(el => {
+      if (el.dataset.idPh === undefined) el.dataset.idPh = el.placeholder;
+      el.placeholder = bahasa === 'en' ? el.dataset.enPh : el.dataset.idPh;
+    });
+    gridEkspresi.querySelectorAll('.pilih').forEach(b => {
+      const n = b.dataset.nama;
+      b.querySelector('.label-ekspresi').textContent = L(EKSPRESI[n].label, LABEL_EN[n] || EKSPRESI[n].label);
+    });
+    gridJenis.querySelectorAll('.pilih').forEach(b => {
+      const j = JENIS_KUCING.find(x => x.id === b.dataset.jenis);
+      b.querySelector('.label-jenis').textContent = L(j.nama, JENIS_EN[j.id] || j.nama);
+    });
+    document.querySelectorAll('#pilihBahasa .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bahasa === bahasa)));
+    perbaruiChip(); tampilkanMalam(); tampilkanIngatan(); tampilkanPengingat(); tampilkanKontak(); tampilkanRadio(); tampilkanLokasi();
+    if (!timer.sampai) elStatusTimer.textContent = L('Tidak ada timer.', 'No timer.');
+    if (!radio.stasiun) elStatusRadio.textContent = L('Mati.', 'Off.');
+    if (!tari.mik) elStatusTari.textContent = L('Mati.', 'Off.');
+    if (!cekWajah.checked) statusWajah(L('Mati.', 'Off.'));
+    if (!ai.url) statusAi(L('Isi alamat Worker untuk memunculkan tombol mikrofon.', 'Enter the Worker address to show the microphone button.'));
+    if (!nfcAktif) statusNfc(L('NFC belum aktif. Sensor gerak tetap bekerja.', 'NFC not active. The motion sensor still works.'));
+    if (!sebagaiAplikasi() && !ajakanPasang) elStatusApp.textContent = L('Buka dari GitHub Pages di Chrome untuk memasang KiKo sebagai aplikasi (atau menu ⋮ → Instal aplikasi).',
+      'Open from GitHub Pages in Chrome to install KiKo as an app (or menu ⋮ → Install app).');
+    tombolLupa.textContent = L('Lupakan semua', 'Forget everything');
+    document.getElementById('tombolSetir').textContent = elSetir.hidden ? L('Tampilkan setir', 'Show joystick') : L('Sembunyikan setir', 'Hide joystick');
+    elTeksCas.textContent = L('⚡ Di-cas', '⚡ Charging');
+  }
+  document.querySelectorAll('#pilihBahasa .pilih').forEach(b => b.addEventListener('click', () => {
+    bahasa = b.dataset.bahasa === 'en' ? 'en' : 'id';
+    try { localStorage.setItem('kiko.bahasa', bahasa); } catch (_) {}
+    ai.riwayat = [];                     // riwayat bahasa lain membingungkan model
+    terapkanBahasa();
+  }));
+  terapkanBahasa();
 
   window.addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input, select')) return;
