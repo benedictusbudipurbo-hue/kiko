@@ -207,7 +207,7 @@
 
 <div id="pasang">
   <h1 data-en="ATTACH THE PHONE TO KIKO">PASANG HP KE KIKO</h1>
-  <p data-en="Attach the phone to the magnetic mount, then connect to the base over Bluetooth. No base yet? Try the face first.">Tempelkan HP ke dudukan magnet, lalu hubungkan ke base lewat Bluetooth. Belum punya base? Coba wajahnya dulu.</p>
+  <p data-en="Attach the phone to the magnetic mount, then connect to the base over Bluetooth. KiKo's face only comes alive while connected to a KiKo base.">Tempelkan HP ke dudukan magnet, lalu hubungkan ke base lewat Bluetooth. Wajah KiKo hanya hidup saat tersambung ke base KiKo.</p>
   <div class="baris">
     <button class="tombol utama" id="tombolHubung" type="button">Hubungkan base</button>
     <button class="tombol" id="tombolDemo" type="button" data-en="Try without base">Coba tanpa base</button>
@@ -233,6 +233,7 @@
     <button class="tombol" id="konfirmasiBatal" type="button" data-en="Cancel">Batal</button>
   </div>
 </div>
+<p id="teksPesan" class="gelembung" hidden aria-live="polite"></p>
 <p id="teksBicara" class="gelembung" hidden></p>
 </div>
 <button id="tombolBicara" type="button" hidden aria-label="Bicara dengan KiKo">
@@ -360,6 +361,14 @@
   </div>
 
   <div class="bagian">
+    <h2 data-en="Incoming messages">Pesan masuk</h2>
+    <label class="saklar"><input type="checkbox" id="cekPesan"> <span data-en="Show incoming messages briefly (needs the KiKo Notif app)">Tampilkan pesan masuk sekejap (butuh aplikasi KiKo Notif)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanIsi" checked> <span data-en="Also show the message text (off = sender only)">Tampilkan juga isi pesan (mati = hanya pengirim)</span></label>
+    <p class="petunjuk" id="statusPesan" role="status"></p>
+    <p class="petunjuk" data-en="KiKo Notif (Android app) reads message notifications from any app (WhatsApp, SMS, Telegram, …) and hands them to KiKo inside the phone only (127.0.0.1); nothing goes to the internet. The bubble appears for a few seconds at the bottom without covering the face.">KiKo Notif (aplikasi Android) membaca notifikasi pesan dari aplikasi apa pun (WhatsApp, SMS, Telegram, …) dan memberikannya ke KiKo hanya di dalam HP (127.0.0.1); tidak ada yang dikirim ke internet. Gelembung muncul beberapa detik di bawah tanpa menutupi wajah.</p>
+  </div>
+
+  <div class="bagian">
     <h2>Timer</h2>
     <label class="saklar"><input type="checkbox" id="cekTimer" checked> <span data-en="Enable timer">Aktifkan timer</span></label>
     <div class="baris" style="justify-content:flex-start" id="tombolTimerCepat">
@@ -465,6 +474,8 @@
   let bahasa = 'id';
   try { if (localStorage.getItem('kiko.bahasa') === 'en') bahasa = 'en'; } catch (_) {}
   const L = (id, en) => bahasa === 'en' ? en : id;
+  // Server uji lokal di PC: fitur pengembang (wajah tanpa base, kikoUji).
+  const MODE_PENGEMBANG = ['localhost', '127.0.0.1'].includes(location.hostname);
 
   // =====================================================================
   //  KANVAS
@@ -1290,7 +1301,19 @@
     requestAnimationFrame(bingkai);
   }
 
+  // Lapis 1 pengaman (2026-10-08): wajah hanya hidup saat tersambung ke base
+  // KiKo lewat Bluetooth, supaya halaman publik ini tidak bisa dipakai tanpa
+  // unit KiKo. Mode pengembang (server uji localhost) tetap boleh tanpa base.
+  // Catatan: ini pengecekan di sisi HP saja (bisa diakali orang yang paham kode);
+  // lapis 2-3 (tanda tangan digital base + pengecekan di Worker) masih ditunda.
+  function bolehHidup() { return ble.terhubung || MODE_PENGEMBANG; }
+
   function mulaiMemuat() {
+    if (!bolehHidup()) {
+      statusPasang.textContent = L('Hubungkan base KiKo dulu: nyalakan KiKo lalu ketuk "Hubungkan base".',
+                                   'Connect the KiKo base first: switch KiKo on, then tap "Connect base".');
+      return;
+    }
     document.getElementById('pasang').hidden = true;
     fase = 'memuat';
     mulaiMuat = performance.now();
@@ -1449,8 +1472,15 @@
     if (fase === 'pasang') {
       statusPasang.textContent = '';
       bangunDenganSapa = true;
-      if (!ble.terhubung) sambungUlangOtomatis();     // tidak ditunggu: wajah langsung bangun
-      mulaiMemuat();
+      if (bolehHidup()) mulaiMemuat();
+      else {
+        // Wajah baru bangun setelah base tersambung (sambungkanPerangkat -> mulaiMemuat).
+        statusPasang.textContent = L('Menyambung ke base…', 'Connecting to the base…');
+        sambungUlangOtomatis().then(ok => {
+          if (!ok && fase === 'pasang') statusPasang.textContent = L('Base tidak ditemukan. Nyalakan KiKo lalu ketuk "Hubungkan base".',
+                                                                     'Base not found. Switch KiKo on, then tap "Connect base".');
+        });
+      }
     } else if (fase === 'hidup' && sumber === 'nfc') {
       interaksi();
       ekspresiSingkat('senang', 1200);                // sudah bangun: cukup senang disentuh dudukan
@@ -1682,7 +1712,7 @@
     aturCas(false, true);
     perbaruiChip();
     // Base Ver 11 mengirim "B,x.xx,kritis" lalu tidur: jelaskan alasannya, bukan sekadar "terputus".
-    if (fase === 'hidup') keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
+    if (fase === 'hidup' || (fase === 'memuat' && !MODE_PENGEMBANG)) keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
     ble.kritis = false;
   }
 
@@ -2534,6 +2564,8 @@
   tombolBasePanel.addEventListener('click', () => ble.terhubung ? putuskanBle() : hubungkanBle());
   // Ketukan tombol sekalian dipakai untuk minta izin NFC (Web NFC butuh ketukan pertama kali).
   tombolHubung.addEventListener('click', () => { layarPenuh(); mulaiNfc(); hubungkanBle(); });
+  // "Coba tanpa base" hanya ada di mode pengembang (lapis 1 pengaman).
+  document.getElementById('tombolDemo').hidden = !MODE_PENGEMBANG;
   document.getElementById('tombolDemo').addEventListener('click', () => { layarPenuh(); mulaiNfc(); mulaiMemuat(); });
   document.getElementById('tombolNfc').addEventListener('click', () => mulaiNfc());
   try { cekTempel.checked = localStorage.getItem('kiko.tempel') !== '0'; } catch (_) {}
@@ -3541,6 +3573,83 @@
     return false;
   }
 
+  // =====================================================================
+  //  PESAN MASUK (aplikasi pendamping "KiKo Notif", KiKo/android/kiko_notif)
+  //  Halaman web tidak bisa membaca notifikasi HP. KiKo Notif (izin Akses
+  //  notifikasi) menyimpan pesan masuk dan menyajikannya di
+  //  http://127.0.0.1:8787/pesan?sejak=N, hanya untuk Origin web KiKo.
+  //  Di sini dicek tiap 2 detik selama halaman terlihat; pesan baru tampil
+  //  sekejap (PESAN_MS) di pita bawah, wajah kaget sebentar + menoleh.
+  //  Bawaan MATI: tanpa aplikasinya, Chrome tidak perlu menanyakan izin
+  //  "jaringan lokal" dan tidak ada permintaan gagal tiap 2 detik.
+  // =====================================================================
+  const ALAMAT_NOTIF = 'http://127.0.0.1:8787';
+  const PESAN_MS = 4500;
+  const cekPesan = document.getElementById('cekPesan');
+  const cekPesanIsi = document.getElementById('cekPesanIsi');
+  const elStatusPesan = document.getElementById('statusPesan');
+  const elTeksPesan = document.getElementById('teksPesan');
+  const notif = { timer: 0, sejak: -1, antre: [], tampil: false, gagal: 0, sibuk: false };
+  try {
+    cekPesan.checked = localStorage.getItem('kiko.pesanMasuk') === '1';
+    cekPesanIsi.checked = localStorage.getItem('kiko.pesanIsi') !== '0';
+  } catch (_) {}
+
+  function statusPesan() {
+    elStatusPesan.textContent = !cekPesan.checked ? L('Mati.', 'Off.')
+      : notif.gagal >= 2 ? L('KiKo Notif tidak ditemukan. Pasang aplikasinya, beri Akses notifikasi, lalu izinkan akses jaringan lokal di Chrome.',
+                             'KiKo Notif not found. Install the app, grant Notification access, then allow local network access in Chrome.')
+      : notif.sejak >= 0 ? L('Tersambung ke KiKo Notif.', 'Connected to KiKo Notif.') : L('Menghubungi KiKo Notif…', 'Contacting KiKo Notif…');
+  }
+  async function ambilPesan() {
+    if (notif.sibuk || document.hidden || !cekPesan.checked) return;
+    notif.sibuk = true;
+    try {
+      const r = await fetch(`${ALAMAT_NOTIF}/pesan?sejak=${Math.max(0, notif.sejak)}`, { cache: 'no-store' });
+      const d = await r.json();
+      // Pertama tersambung: pesan lama tidak ditampilkan, hanya dicatat posisinya.
+      if (notif.sejak >= 0) for (const p of d.pesan || []) notif.antre.push(p);
+      notif.sejak = d.terakhir || 0;
+      notif.gagal = 0;
+      tampilPesanBerikut();
+    } catch (_) {
+      notif.gagal++;
+    } finally {
+      notif.sibuk = false;
+      statusPesan();
+    }
+  }
+  function tampilPesanBerikut() {
+    if (notif.tampil || !notif.antre.length) return;
+    notif.antre = notif.antre.slice(-3);                 // banjir pesan grup: cukup 3 terakhir
+    const p = notif.antre.shift();
+    const isi = cekPesanIsi.checked && p.isi ? ': ' + (p.isi.length > 70 ? p.isi.slice(0, 70) + '…' : p.isi) : '';
+    elTeksPesan.textContent = `💬 ${p.dari || L('Pesan', 'Message')}${p.app ? ' · ' + p.app : ''}${isi}`;
+    elTeksPesan.hidden = false;
+    notif.tampil = true;
+    if (fase === 'hidup' && !modeMalamAktif()) {
+      ekspresiSingkat('kaget', 700);
+      setTimeout(() => ekspresiSingkat('curiga', 1500), 700);
+      pandang.tgt.x = 0.6; pandang.tgt.y = 0.3; berikutLirik = performance.now() + 1500;   // melirik ke "kotak pesan"
+      if (ble.terhubung) kirim('G,kaget');
+    }
+    setTimeout(() => {
+      elTeksPesan.hidden = true;
+      notif.tampil = false;
+      setTimeout(tampilPesanBerikut, 400);
+    }, PESAN_MS);
+  }
+  function aturPesan() {
+    try { localStorage.setItem('kiko.pesanMasuk', cekPesan.checked ? '1' : '0'); } catch (_) {}
+    clearInterval(notif.timer);
+    notif.sejak = -1; notif.gagal = 0; notif.antre = [];
+    if (cekPesan.checked) { notif.timer = setInterval(ambilPesan, 2000); ambilPesan(); }
+    statusPesan();
+  }
+  cekPesan.addEventListener('change', aturPesan);
+  cekPesanIsi.addEventListener('change', () => { try { localStorage.setItem('kiko.pesanIsi', cekPesanIsi.checked ? '1' : '0'); } catch (_) {} });
+  aturPesan();
+
   // Uji perintah suara tanpa mikrofon, hanya di server lokal (localhost):
   // di konsol, kikoUji('telepon mama') -> true kalau dijawab di HP.
   if (location.hostname === 'localhost') window.kikoUji = teks => jawabLokal(teks);
@@ -3628,7 +3737,7 @@
       b.querySelector('.label-jenis').textContent = L(j.nama, JENIS_EN[j.id] || j.nama);
     });
     document.querySelectorAll('#pilihBahasa .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bahasa === bahasa)));
-    perbaruiChip(); tampilkanMalam(); tampilkanIngatan(); tampilkanPengingat(); tampilkanKontak(); tampilkanRadio(); tampilkanLokasi();
+    perbaruiChip(); tampilkanMalam(); tampilkanIngatan(); tampilkanPengingat(); tampilkanKontak(); tampilkanRadio(); tampilkanLokasi(); statusPesan();
     if (!timer.sampai) elStatusTimer.textContent = L('Tidak ada timer.', 'No timer.');
     if (!radio.stasiun) elStatusRadio.textContent = L('Mati.', 'Off.');
     if (!tari.mik) elStatusTari.textContent = L('Mati.', 'Off.');
