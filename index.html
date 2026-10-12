@@ -1935,8 +1935,11 @@
   //  +1. Kemungkinan orientasi servo pan di dudukan kebalikan dari asumsi
   //  "pan besar = kanan KiKo". Kalau nanti terbalik lagi setelah dudukan
   //  diubah, cukup ganti tanda ini.
+  //  2026-10-11: dugaan itu benar. Uji rakitan menunjukkan pan +10 menoleh ke kiri
+  //  KiKo, jadi firmware Ver 14 membalik servo pan (PAN_BALIK = true) dan tanda ini
+  //  kembali ke -1. PERLU firmware Ver 14+; dengan Ver 13 ke bawah pakai +1.
   // =====================================================================
-  const ARAH_PAN_LIRIK = 1;
+  const ARAH_PAN_LIRIK = -1;
   const LIRIK_PAN = 25, LIRIK_TILT = 10;   // derajat pada lirikan penuh (firmware membatasi +-25 / +-12)
   let kepalaIkutMata = true;
   const lirik = { pan: 0, tilt: 0, waktu: 0 };
