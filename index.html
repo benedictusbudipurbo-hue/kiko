@@ -1670,12 +1670,28 @@
   // karena butuh ketukan pengguna. Diam saja kalau browser tidak mendukung.
   async function sambungUlangOtomatis() {
     if (ble.terhubung || !navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
+    // 2026-10-13: dulu hanya mencoba KiKo-Base PERTAMA yang pernah diizinkan. Setelah
+    // ganti ESP32, itu selalu board lama yang sudah mati -> "Base tidak ditemukan".
+    // Sekarang semua base yang pernah diizinkan dicoba, yang terakhir berhasil (kiko.baseId)
+    // lebih dulu, masing-masing dengan batas waktu supaya board mati tidak menggantung.
     try {
-      const daftar = await navigator.bluetooth.getDevices();
-      const base = daftar.find(d => (d.name || '').startsWith('KiKo'));
-      if (!base) return false;
-      await sambungkanPerangkat(base);
-      return true;
+      const daftar = (await navigator.bluetooth.getDevices()).filter(d => (d.name || '').startsWith('KiKo'));
+      if (!daftar.length) return false;
+      let idTerakhir = '';
+      try { idTerakhir = localStorage.getItem('kiko.baseId') || ''; } catch (_) {}
+      daftar.sort((a, b) => (b.id === idTerakhir) - (a.id === idTerakhir));
+      for (const base of daftar) {
+        try {
+          await Promise.race([
+            sambungkanPerangkat(base),
+            new Promise((_, gagal) => setTimeout(() => gagal(new Error('waktu habis')), 7000))
+          ]);
+          if (ble.terhubung) return true;
+        } catch (_) {
+          try { if (base.gatt.connected) base.gatt.disconnect(); } catch (_) {}
+        }
+      }
+      return false;
     } catch (_) { return false; }
   }
 
@@ -1697,7 +1713,7 @@
         }
       });
       ble.device = device; ble.terhubung = true;
-      try { localStorage.setItem('kiko.pernahBase', '1'); } catch (_) {}
+      try { localStorage.setItem('kiko.pernahBase', '1'); localStorage.setItem('kiko.baseId', device.id); } catch (_) {}
       statusPasang.textContent = '';
       perbaruiChip();
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
