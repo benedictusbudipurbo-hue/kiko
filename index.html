@@ -944,7 +944,9 @@
     // Kucing: iris besar (sklera hampir tidak terlihat) dan pupil celah tegak.
     const kucing = gaya === 'kucing';
     const rI = (kucing ? 0.18 : 0.15) * U * skala;
-    const ix = cx + gx * (w / 2 - rI * 1.1), iy = cy + ry * 0.05 + gy * ry * 0.5;
+    // 2026-10-13 (pengguna: "mata kurang melirik jauh"): iris boleh menyelip sebagian ke sudut
+    // mata (dulu rI*1.1 / 0.5), karena kepala sekarang baru ikut saat mata hampir mentok.
+    const ix = cx + gx * (w / 2 - rI * 0.7), iy = cy + ry * 0.05 + gy * ry * 0.68;
     const iris = kucing && warnaIris2 && sisi === 'kanan' ? warnaIris2 : warnaIris;   // mata ganjil
     ctx.drawImage(teksturIris(iris, rI), ix - rI, iy - rI, rI * 2, rI * 2);
     const denyut = kurangGerak ? 1 : 1 + 0.03 * Math.sin(now / 1300);
@@ -1535,14 +1537,27 @@
     return false;
   }
 
-  let nfcAktif = false;
+  let nfcAktif = false, nfcHenti = null;
+  // 2026-10-13 (pengguna: hindari HP panas): setelah tersambung ke base, pemindaian NFC
+  // halaman dihentikan (AbortController); dinyalakan lagi saat kembali ke layar pasang.
+  // Catatan: radio NFC Android sendiri tetap diatur sistem (Setelan), halaman tidak bisa mematikannya.
+  function hentikanNfc() {
+    if (nfcHenti) { try { nfcHenti.abort(); } catch (_) {} }
+    nfcHenti = null; nfcAktif = false;
+  }
+  function nyalakanNfcLagi() {
+    try { navigator.permissions.query({ name: 'nfc' }).then(p => { if (p.state === 'granted') mulaiNfc(); }).catch(() => {}); } catch (_) {}
+  }
   async function mulaiNfc() {
     if (nfcAktif) return;
+    if (ble.terhubung) return;                       // sudah tersambung: tidak perlu memindai
     if (!('NDEFReader' in window)) { statusNfc(L('Web NFC tidak tersedia di sini (butuh Chrome Android + HTTPS).', 'Web NFC is not available here (needs Chrome on Android + HTTPS).')); return; }
     try {
       const pembaca = new NDEFReader();
-      await pembaca.scan();                          // pertama kali: Chrome minta izin NFC
+      nfcHenti = new AbortController();
+      await pembaca.scan({ signal: nfcHenti.signal });   // pertama kali: Chrome minta izin NFC
       nfcAktif = true;
+      if (ble.terhubung) { hentikanNfc(); return; }   // tersambung selagi menunggu izin
       statusNfc(L('NFC aktif: tempelkan HP ke dudukan.', 'NFC active: attach the phone to the mount.'));
       pembaca.onreading = ev => { if (pesanKiko(ev.message)) saatDitempel('nfc'); };
       pembaca.onreadingerror = () => {};
@@ -1713,6 +1728,7 @@
         }
       });
       ble.device = device; ble.terhubung = true;
+      hentikanNfc();
       try { localStorage.setItem('kiko.pernahBase', '1'); localStorage.setItem('kiko.baseId', device.id); } catch (_) {}
       statusPasang.textContent = '';
       perbaruiChip();
@@ -1735,6 +1751,7 @@
   // Kembali ke layar "PASANG HP KE KIKO" dengan mata tertidur (seperti Looi).
   function keLayarPasang(pesan) {
     fase = 'pasang';
+    setTimeout(nyalakanNfcLagi, 500);
     tutupPanel();
     tombolAtur.hidden = true;
     perbaruiTombolBicara();
@@ -1967,12 +1984,16 @@
   // sebanding posisi relatif itu, sehingga begitu kepala menoleh, wajah bergeser ke
   // tengah kamera, L mengecil, kepala balik lagi -> berburu bolak-balik kecil-kecil.
   // Sekarang posisi kepala DISIMPAN (kepala.pan/tilt) dan hanya ditambah saat melompat.
-  const MATA_AMBANG_X = 0.6, MATA_AMBANG_Y = 0.55;  // seberapa jauh mata melirik sebelum kepala ikut
+  const MATA_AMBANG_X = 0.72, MATA_AMBANG_Y = 0.65;  // seberapa jauh mata melirik sebelum kepala ikut
   const MATA_TAHAN_MS = 350;      // mata harus bertahan di tepi selama ini (abaikan kedip/salah deteksi)
-  const KEPALA_JEDA_MS = 1400;    // jeda minimum antar lompatan kepala (biar gerakan sempat selesai)
+  const KEPALA_JEDA_MS = 2200;    // jeda minimum antar lompatan kepala (biar gerakan sempat selesai)
   const DERAJAT_PER_LIRIK_X = 22, DERAJAT_PER_LIRIK_Y = 12;   // +-sudut kamera untuk lirikan penuh
   const KEPALA_PAN_MAKS = 18, KEPALA_NAIK_MAKS = 8, KEPALA_TURUN_MAKS = 4;   // = batas firmware Ver 18
-  const kepala = { pan: 0, tilt: 0, lompat: 0, tepiSejak: 0, wajahHilang: 0 };
+  const kepala = { pan: 0, tilt: 0, lompat: 0, tepiSejak: 0, wajahHilang: 0, acuX: 0, acuY: 0, tenangSejak: 0 };
+  // 2026-10-13 (video 20:45, pengguna: "biarkan wajah tenang baru layar menyesuaikan"):
+  // kepala baru menoleh kalau posisi wajah sudah diam WAJAH_TENANG_MS (orang berhenti
+  // bergerak). Selama orang masih bergerak, cukup mata yang mengikuti.
+  const WAJAH_TENANG_MS = 700, WAJAH_GOYANG = 0.12;
 
   function hitungKepala(now) {
     const ex = pandang.tgt.x, ey = pandang.tgt.y;
@@ -1982,24 +2003,25 @@
 
     if (wajah.ada) {
       kepala.wajahHilang = 0;
+      if (Math.abs(ex - kepala.acuX) > WAJAH_GOYANG || Math.abs(ey - kepala.acuY) > WAJAH_GOYANG || !kepala.tenangSejak) {
+        kepala.acuX = ex; kepala.acuY = ey; kepala.tenangSejak = now;
+      }
+      const tenang = now - kepala.tenangSejak > WAJAH_TENANG_MS;
       // Wajah terlacak: posisi relatif -> kepala melompat menutup selisihnya (kumulatif).
-      if (diTepi && now - kepala.tepiSejak > MATA_TAHAN_MS && now - kepala.lompat > KEPALA_JEDA_MS) {
+      if (diTepi && tenang && now - kepala.tepiSejak > MATA_TAHAN_MS && now - kepala.lompat > KEPALA_JEDA_MS) {
         if (Math.abs(ex) > MATA_AMBANG_X) kepala.pan += ARAH_PAN_LIRIK * ex * DERAJAT_PER_LIRIK_X * 0.85;
         if (Math.abs(ey) > MATA_AMBANG_Y) kepala.tilt += -ey * DERAJAT_PER_LIRIK_Y * 0.85;
         kepala.lompat = now; kepala.tepiSejak = 0;
       }
     } else {
-      // Tanpa wajah (lirikan acak): lirikan kecil cukup mata saja; lirikan jauh
-      // membuat kepala menoleh sebagian dan tinggal di situ sampai lirikan jauh berikutnya.
+      // Tanpa wajah: lirikan acak cukup MATA saja, kepala diam (video 20:45: lirikan acak saat
+      // wajah sesaat tak terdeteksi membuat kepala tiba-tiba menoleh ke arah yang salah, lalu
+      // kembali begitu wajah terlihat lagi). Kepala kembali ke tengah sekali, setelah wajah
+      // hilang lama (6 dtk), misalnya orangnya pergi.
+      kepala.tenangSejak = 0;
       if (!kepala.wajahHilang) kepala.wajahHilang = now;
-      if (now - kepala.lompat > KEPALA_JEDA_MS) {
-        const tPan = diTepi ? ARAH_PAN_LIRIK * ex * LIRIK_PAN * 0.6 : 0;
-        const tTilt = diTepi ? -ey * LIRIK_TILT * 0.6 : 0;
-        // Kembali ke tengah hanya setelah wajah lama hilang (3 dtk), sekali gerak.
-        const boleh = diTepi ? now - kepala.tepiSejak > MATA_TAHAN_MS : now - kepala.wajahHilang > 3000;
-        if (boleh && (Math.abs(tPan - kepala.pan) >= 6 || Math.abs(tTilt - kepala.tilt) >= 4)) {
-          kepala.pan = tPan; kepala.tilt = tTilt; kepala.lompat = now;
-        }
+      if (now - kepala.wajahHilang > 6000 && (kepala.pan || kepala.tilt)) {
+        kepala.pan = 0; kepala.tilt = 0; kepala.lompat = now;
       }
     }
     kepala.pan = batas(kepala.pan, -KEPALA_PAN_MAKS, KEPALA_PAN_MAKS);
