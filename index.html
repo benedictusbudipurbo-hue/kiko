@@ -1959,15 +1959,61 @@
   const LIRIK_PAN = 25, LIRIK_TILT = 10;   // derajat pada lirikan penuh (firmware membatasi +-25 / +-12)
   let kepalaIkutMata = true;
   const lirik = { pan: 0, tilt: 0, waktu: 0 };
+  // 2026-10-13 "MATA DULU, KEPALA MENYUSUL" (usul pengguna: leher bergerak pendek-pendek
+  // sering sehingga tampak bergetar). Seperti manusia: mata melirik dulu; kepala diam
+  // sampai mata hampir mentok di tepi, lalu kepala menoleh SEKALI agak jauh, dan mata
+  // kembali ke tengah. Ini juga membereskan cacat lama: kamera ada di HP yang ikut
+  // bergerak, jadi posisi wajah di kamera itu RELATIF terhadap kepala. Dulu L dibuat
+  // sebanding posisi relatif itu, sehingga begitu kepala menoleh, wajah bergeser ke
+  // tengah kamera, L mengecil, kepala balik lagi -> berburu bolak-balik kecil-kecil.
+  // Sekarang posisi kepala DISIMPAN (kepala.pan/tilt) dan hanya ditambah saat melompat.
+  const MATA_AMBANG_X = 0.6, MATA_AMBANG_Y = 0.55;  // seberapa jauh mata melirik sebelum kepala ikut
+  const MATA_TAHAN_MS = 350;      // mata harus bertahan di tepi selama ini (abaikan kedip/salah deteksi)
+  const KEPALA_JEDA_MS = 1400;    // jeda minimum antar lompatan kepala (biar gerakan sempat selesai)
+  const DERAJAT_PER_LIRIK_X = 22, DERAJAT_PER_LIRIK_Y = 12;   // +-sudut kamera untuk lirikan penuh
+  const KEPALA_PAN_MAKS = 18, KEPALA_NAIK_MAKS = 8, KEPALA_TURUN_MAKS = 4;   // = batas firmware Ver 18
+  const kepala = { pan: 0, tilt: 0, lompat: 0, tepiSejak: 0, wajahHilang: 0 };
+
+  function hitungKepala(now) {
+    const ex = pandang.tgt.x, ey = pandang.tgt.y;
+    const diTepi = Math.abs(ex) > MATA_AMBANG_X || Math.abs(ey) > MATA_AMBANG_Y;
+    if (!diTepi) kepala.tepiSejak = 0;
+    else if (!kepala.tepiSejak) kepala.tepiSejak = now;
+
+    if (wajah.ada) {
+      kepala.wajahHilang = 0;
+      // Wajah terlacak: posisi relatif -> kepala melompat menutup selisihnya (kumulatif).
+      if (diTepi && now - kepala.tepiSejak > MATA_TAHAN_MS && now - kepala.lompat > KEPALA_JEDA_MS) {
+        if (Math.abs(ex) > MATA_AMBANG_X) kepala.pan += ARAH_PAN_LIRIK * ex * DERAJAT_PER_LIRIK_X * 0.85;
+        if (Math.abs(ey) > MATA_AMBANG_Y) kepala.tilt += -ey * DERAJAT_PER_LIRIK_Y * 0.85;
+        kepala.lompat = now; kepala.tepiSejak = 0;
+      }
+    } else {
+      // Tanpa wajah (lirikan acak): lirikan kecil cukup mata saja; lirikan jauh
+      // membuat kepala menoleh sebagian dan tinggal di situ sampai lirikan jauh berikutnya.
+      if (!kepala.wajahHilang) kepala.wajahHilang = now;
+      if (now - kepala.lompat > KEPALA_JEDA_MS) {
+        const tPan = diTepi ? ARAH_PAN_LIRIK * ex * LIRIK_PAN * 0.6 : 0;
+        const tTilt = diTepi ? -ey * LIRIK_TILT * 0.6 : 0;
+        // Kembali ke tengah hanya setelah wajah lama hilang (3 dtk), sekali gerak.
+        const boleh = diTepi ? now - kepala.tepiSejak > MATA_TAHAN_MS : now - kepala.wajahHilang > 3000;
+        if (boleh && (Math.abs(tPan - kepala.pan) >= 6 || Math.abs(tTilt - kepala.tilt) >= 4)) {
+          kepala.pan = tPan; kepala.tilt = tTilt; kepala.lompat = now;
+        }
+      }
+    }
+    kepala.pan = batas(kepala.pan, -KEPALA_PAN_MAKS, KEPALA_PAN_MAKS);
+    kepala.tilt = batas(kepala.tilt, -KEPALA_TURUN_MAKS, KEPALA_NAIK_MAKS);
+  }
 
   function kirimLirikan(now) {
     if (!kepalaIkutMata || !ble.terhubung || fase !== 'hidup') return;
     if (setir.aktif && modeSetir === 'kepala') return;   // joystick kepala sedang memegang kendali
     if (tari.aktif) return;                              // sedang menari: ketukanTari() yang mengirim L
-    // Pakai target lirikan (bukan posisi pegas): berubah per lirikan saja,
-    // jadi jumlah pesan BLE sedikit; kehalusan gerak diurus firmware.
-    const pan = Math.round(ARAH_PAN_LIRIK * pandang.tgt.x * LIRIK_PAN);
-    const tilt = Math.round(-pandang.tgt.y * LIRIK_TILT);   // mata ke atas = mendongak
+    hitungKepala(now);
+    // Firmware menghaluskan gerak (profil trapesium, Ver 18); di sini cukup target lompatan.
+    const pan = Math.round(kepala.pan);
+    const tilt = Math.round(kepala.tilt);   // + = mendongak
     const berubah = Math.abs(pan - lirik.pan) >= 2 || Math.abs(tilt - lirik.tilt) >= 2;
     // Kirim saat berubah (maks 10x/detik), atau tiap 800 ms sebagai "detak"
     // supaya firmware tidak mengembalikan lirikan ke 0 (timeout 2 detik).
