@@ -177,6 +177,12 @@
     font-variant-numeric: tabular-nums; opacity: .7;
   }
   #teksCas { font-size: 14px; font-weight: 600; color: #ffd84a; text-shadow: 0 0 6px rgba(0,0,0,.6); }
+  /* Baterai lemah: hanya muncul <= 20% (lihat perbaruiBaterai), di pojok supaya wajah tidak tertutup. */
+  #teksBaterai { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #ff7a6b; text-shadow: 0 0 6px rgba(0,0,0,.6); }
+  #teksBaterai[hidden] { display: none; }
+  .ikonBaterai { position: relative; width: 22px; height: 11px; border: 2px solid currentColor; border-radius: 3px; box-sizing: border-box; }
+  .ikonBaterai::after { content: ''; position: absolute; right: -5px; top: 2px; width: 3px; height: 4px; border-radius: 0 2px 2px 0; background: currentColor; }
+  .ikonBaterai > i { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 20%; background: currentColor; border-radius: 1px; }
   #teksTimer {
     padding: 4px 10px; border-radius: 10px; background: rgba(0,0,0,.6); color: #fff;
     font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
@@ -221,6 +227,7 @@
 
 <div id="sudut">
   <p id="teksCas" hidden aria-live="polite"></p>
+  <p id="teksBaterai" hidden aria-live="polite"><span class="ikonBaterai" aria-hidden="true"><i id="isiIkonBaterai"></i></span><span id="angkaBaterai"></span></p>
   <p id="teksTimer" hidden aria-live="off"></p>
   <p id="jam" hidden aria-live="off"></p>
 </div>
@@ -1605,8 +1612,62 @@
   const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
   const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // HP menulis ke sini
   const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // base mengirim notify dari sini
-  const ble = { device: null, rx: null, terhubung: false, baterai: null, sisa: '', kritis: false, cas: false };
+  const ble = { device: null, rx: null, terhubung: false, baterai: null, persen: null, sisa: '', kritis: false, cas: false,
+                lemahHitung: 0, lemahDiumumkan: false };
   const elTeksCas = document.getElementById('teksCas');
+
+  // ---------------------------------------------------------------------
+  //  LEVEL BATERAI (2026-10-17)
+  //  Base mengirim "B,7.94" tiap 5 detik (tegangan 2 sel Li-ion seri). Wajah
+  //  sengaja TIDAK menampilkan baterai terus-menerus (KiKo harus terasa hidup,
+  //  bukan gadget); persen hanya ada di chip panel ATUR, bisa ditanya lewat
+  //  suara, dan ikon merah kecil di pojok baru muncul saat <= 20%, sekali
+  //  disertai ucapan. Persen mengikuti kurva baterai Li-ion 2S (tidak lurus),
+  //  supaya angkanya tidak anjlok mendadak di ujung. Versi Hemat (tanpa
+  //  baterai) membaca 0 V -> dianggap tidak ada baterai.
+  // ---------------------------------------------------------------------
+  const KURVA_BATERAI = [[6.4, 0], [6.8, 5], [7.2, 15], [7.4, 30], [7.6, 45], [7.8, 62], [8.0, 75], [8.2, 90], [8.4, 100]];
+  const BATERAI_LEMAH = 20, BATERAI_PULIH = 25;   // histeresis: muncul <= 20%, hilang > 25%
+  function persenBaterai(v) {
+    if (!(v > 3)) return null;
+    if (v <= KURVA_BATERAI[0][0]) return 0;
+    for (let i = 1; i < KURVA_BATERAI.length; i++) {
+      const [v1, p1] = KURVA_BATERAI[i], [v0, p0] = KURVA_BATERAI[i - 1];
+      if (v <= v1) return Math.round(p0 + (p1 - p0) * (v - v0) / (v1 - v0));
+    }
+    return 100;
+  }
+  function perbaruiBaterai() {
+    const el = document.getElementById('teksBaterai');
+    const p = ble.persen;
+    if (p === null || !ble.terhubung || ble.cas) {
+      el.hidden = true;
+      if (ble.cas) { ble.lemahHitung = 0; ble.lemahDiumumkan = false; }
+      return;
+    }
+    // Tegangan turun sesaat saat servo menahan beban: butuh 2 bacaan berturut (+-10 dtk).
+    if (p <= BATERAI_LEMAH) ble.lemahHitung++;
+    else if (p > BATERAI_PULIH) { ble.lemahHitung = 0; ble.lemahDiumumkan = false; }
+    const lemah = ble.lemahHitung >= 2;
+    if (lemah || p > BATERAI_PULIH) el.hidden = !lemah;
+    document.getElementById('angkaBaterai').textContent = p + '%';
+    document.getElementById('isiIkonBaterai').style.width = Math.max(8, p) + '%';
+    if (lemah && !ble.lemahDiumumkan && fase === 'hidup' && !ble.kritis) {
+      ble.lemahDiumumkan = true;
+      interaksi();
+      ucapkan(L(`Bateraiku tinggal ${p} persen. Aku mulai lapar nih, cas aku dong.`,
+                `My battery is down to ${p} percent. I'm getting hungry, please charge me.`), 'ngantuk');
+    }
+  }
+  // Jawaban suara "baterai kamu berapa?" (dipanggil jawabLokal / jawabLokalEn).
+  function jawabBaterai() {
+    if (!ble.terhubung) { ucapkan(L('Aku belum tersambung ke badanku, jadi belum tahu baterainya.', "I'm not connected to my body yet, so I don't know the battery level."), 'bingung'); return; }
+    if (ble.persen === null) { ucapkan(L('Badanku tidak pakai baterai, aku dapat listrik dari kabel.', "My body doesn't use a battery, I run on the cable."), 'senang'); return; }
+    const p = ble.persen;
+    const cas = ble.cas ? L(', dan sekarang lagi di-cas', ", and I'm charging now") : '';
+    const nada = p > 50 ? L('aman!', "I'm good!") : p > BATERAI_LEMAH ? L('masih cukup.', 'still enough.') : L('cas aku sebentar lagi ya.', 'please charge me soon.');
+    ucapkan(L(`Bateraiku ${p} persen${cas}, ${nada}`, `My battery is at ${p} percent${cas}, ${nada}`), p > BATERAI_LEMAH ? 'senang' : 'ngantuk');
+  }
   // Ver 12: kabel charger tercolok -> base mengunci roda. Wajah memberi tahu sekali,
   // joystick roda berhenti mengirim M. diam = tanpa ucapan (mis. saat terputus).
   function aturCas(cas, diam) {
@@ -1615,6 +1676,7 @@
     elTeksCas.textContent = L('⚡ Di-cas', '⚡ Charging');
     elTeksCas.hidden = !cas;
     perbaruiChip();
+    perbaruiBaterai();
     if (diam || fase !== 'hidup') return;
     interaksi();
     ucapkan(cas ? L('Aku lagi di-cas. Rodaku istirahat dulu, tapi aku tetap bisa ngobrol.', "I'm charging. My wheels are resting, but I can still chat.")
@@ -1653,7 +1715,10 @@
     // U = kabel charger tercolok (U,1) / dicabut (U,0), firmware Ver 12
     else if (kode === 'U' && nilai) aturCas(nilai === '1');
     else if (kode === 'B' && nilai) {
-      ble.baterai = parseFloat(nilai); perbaruiChip();
+      ble.baterai = parseFloat(nilai);
+      ble.persen = persenBaterai(ble.baterai);
+      perbaruiChip();
+      perbaruiBaterai();
       // Ver 11: "B,6.31,kritis" = baterai di bawah 6,4 V, base akan mematikan motor/servo lalu tidur.
       if (baris.includes('kritis')) {
         ble.kritis = true;
@@ -1740,9 +1805,11 @@
   }
 
   function saatTerputus() {
-    ble.terhubung = false; ble.rx = null; ble.baterai = null;
+    ble.terhubung = false; ble.rx = null; ble.baterai = null; ble.persen = null;
+    ble.lemahHitung = 0; ble.lemahDiumumkan = false;
     aturCas(false, true);
     perbaruiChip();
+    perbaruiBaterai();
     // Base Ver 11 mengirim "B,x.xx,kritis" lalu tidur: jelaskan alasannya, bukan sekadar "terputus".
     if (fase === 'hidup' || (fase === 'memuat' && !MODE_PENGEMBANG)) keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
     ble.kritis = false;
@@ -1924,7 +1991,7 @@
     const chip = document.getElementById('chipBase');
     chip.classList.toggle('aktif', ble.terhubung);
     chip.textContent = ble.terhubung
-      ? L('Base terhubung', 'Base connected') + (ble.baterai ? ' · ' + ble.baterai.toFixed(2) + ' V' : '') + (ble.cas ? ' · ⚡' : '')
+      ? L('Base terhubung', 'Base connected') + (ble.persen !== null ? L(' · Baterai ', ' · Battery ') + ble.persen + '% (' + ble.baterai.toFixed(2) + ' V)' : '') + (ble.cas ? ' · ⚡' : '')
       : L('Base: tidak terhubung', 'Base: not connected');
     tombolBasePanel.textContent = ble.terhubung ? L('Putuskan base', 'Disconnect base') : L('Hubungkan base', 'Connect base');
     tombolHubung.textContent = L('Hubungkan base', 'Connect base');
@@ -3021,6 +3088,7 @@
       if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
       return true;
     }
+    if (/baterai/.test(t) && /(berapa|sisa|masih|tinggal|level|habis|penuh|cukup)/.test(t)) { jawabBaterai(); return true; }
     if (jawabAsisten(t)) return true;                         // telepon/WA, timer, radio, cuaca
     if (/(jam|pukul) berapa/.test(t)) {
       const d = new Date();
@@ -3644,6 +3712,7 @@
       if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
       return true;
     }
+    if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
     if (fitur.telepon && jawabTeleponEn(t)) return true;
     if (fitur.timer && jawabTimerEn(t)) return true;
     if (fitur.radio && jawabRadioEn(t)) return true;
@@ -3739,7 +3808,11 @@
 
   // Uji perintah suara tanpa mikrofon, hanya di server lokal (localhost):
   // di konsol, kikoUji('telepon mama') -> true kalau dijawab di HP.
-  if (location.hostname === 'localhost') window.kikoUji = teks => jawabLokal(teks);
+  if (location.hostname === 'localhost') {
+    window.kikoUji = teks => jawabLokal(teks);
+    // Uji tanpa base: pura-pura terhubung lalu terima satu baris dari base, mis. "B,6.95".
+    window.kikoUjiBase = baris => { ble.terhubung = true; terimaBaris(baris); return { persen: ble.persen, chip: document.getElementById('chipBase').textContent }; };
+  }
 
   // Urutan: telepon dulu (kalimat "kirim pesan ke Mama ... timer" tetap jadi pesan).
   function jawabAsisten(t) {
