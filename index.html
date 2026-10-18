@@ -3244,6 +3244,11 @@
                        : L(`Buka WhatsApp ${k.nama}? Ketuk tombol hijau ya.`, `Open WhatsApp with ${k.nama}? Tap the green button.`)), 'senang');
       tawarkanAksi(isi ? L(`Pesan ke ${k.nama}: “${isi}”`, `Message to ${k.nama}: “${isi}”`) : L(`Buka chat WhatsApp ${k.nama}`, `Open WhatsApp chat with ${k.nama}`),
         L('Buka WhatsApp', 'Open WhatsApp'), href, true);
+    } else if (mode === 'vc') {
+      // Video call WA: halaman web hanya bisa membuka chat; ikon kamera ditekan di WhatsApp.
+      ucapkan(a + L(`Aku bukakan WhatsApp ${k.nama}. Lalu tekan ikon kamera untuk video call ya.`, `I'll open WhatsApp with ${k.nama}. Then press the camera icon for a video call.`), 'senang');
+      tawarkanAksi(L(`Video call ${k.nama} lewat WhatsApp: buka chat, lalu tekan ikon kamera.`, `Video call ${k.nama} on WhatsApp: open the chat, then press the camera icon.`),
+        L('Buka WhatsApp', 'Open WhatsApp'), `https://wa.me/${nomorWa(k.nomor)}`, true);
     } else if (mode === 'wa') {
       ucapkan(a + L(`Aku bukakan WhatsApp ${k.nama}. Lalu tekan ikon telepon di WhatsApp ya.`, `I'll open WhatsApp with ${k.nama}. Then press the call icon in WhatsApp.`), 'senang');
       tawarkanAksi(L(`Telepon ${k.nama} lewat WhatsApp: buka chat, lalu tekan ikon telepon.`, `Call ${k.nama} on WhatsApp: open the chat, then press the call icon.`),
@@ -3308,9 +3313,9 @@
     const pesan = /(kirim (pesan|wa|whatsapp|chat)|^(wa|whatsapp|chat)\b|pesan (ke|untuk|buat))/.test(t);
     const lewatWa = /(lewat|pakai|via) (wa|whatsapp)|video ?call|\bvc\b|(telepon|telpon|telfon|tlp|hubungi) (wa|whatsapp)\b/.test(t);
     // "panggil" sengaja tidak dipakai: "panggil aku Budi" itu perkenalan, bukan telepon.
-    const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call)\b/.test(t);
+    const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\b/.test(t);
     if (!pesan && !telp) return false;
-    const mode = pesan ? 'pesan' : lewatWa ? 'wa' : 'tel';
+    const mode = pesan ? 'pesan' : /video ?call|\bvc\b/.test(t) ? 'vc' : lewatWa ? 'wa' : 'tel';
     const k = cariKontak(t);
     // Nomor diucapkan langsung, tanpa daftar.
     const n = !k && nomorDiucapkan(t);
@@ -3320,14 +3325,14 @@
     }
     // Kontak tidak dikenal dan kata kerjanya tidak di awal kalimat ("aku suka main
     // telepon") -> bukan perintah, teruskan ke AI.
-    if (!k && !/^(tolong |kiko,? )?(telepon|telpon|telfon|tlp|hubungi|video ?call|kirim|wa|whatsapp|chat)\b/.test(t)) return false;
+    if (!k && !/^(tolong |kiko,? )?(telepon|telpon|telfon|tlp|hubungi|video ?call|vc|kirim|wa|whatsapp|chat)\b/.test(t)) return false;
     if (!k) {
       let nama = '', isi = '';
       if (mode === 'pesan') {
         const m = t.match(/(?:\bke|\buntuk|\bbuat|^wa|^whatsapp|^chat)\s+([a-z]+)\s*(.*)$/);
         if (m) { nama = m[1]; isi = m[2].replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim(); }
       } else {
-        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|via|sekarang|dong|ya|pakai)\b|$)/);
+        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|via|sekarang|dong|ya|pakai)\b|$)/);
         if (m) nama = m[1];
       }
       kontakBelumAda(nama, mode, isi);
@@ -3721,7 +3726,7 @@
     const lewatWa = /(on|via|through|using|over) whatsapp|video call/.test(t);
     const telp = /\b(call|phone|ring|dial)\b/.test(t) && !/\bcall me\b/.test(t);
     if (!pesan && !telp) return false;
-    const mode = pesan ? 'pesan' : lewatWa ? 'wa' : 'tel';
+    const mode = pesan ? 'pesan' : /video ?call/.test(t) ? 'vc' : lewatWa ? 'wa' : 'tel';
     const k = cariKontak(t);
     const n = !k && nomorDiucapkan(t);
     if (n) {
