@@ -1645,10 +1645,12 @@
       if (ble.cas) { ble.lemahHitung = 0; ble.lemahDiumumkan = false; }
       return;
     }
-    // Tegangan turun sesaat saat servo menahan beban: butuh 2 bacaan berturut (+-10 dtk).
+    // Tegangan turun sesaat saat servo menahan beban. 2026-10-18: 2 bacaan berturut (+-10 dtk)
+    // ternyata kurang; wajah bilang "cas aku" padahal baterai 7,8 V (+-60 %). Sekarang butuh
+    // 6 bacaan berturut (+-30 dtk); firmware Ver 24 juga mengirim tegangan yang sudah dihaluskan.
     if (p <= BATERAI_LEMAH) ble.lemahHitung++;
     else if (p > BATERAI_PULIH) { ble.lemahHitung = 0; ble.lemahDiumumkan = false; }
-    const lemah = ble.lemahHitung >= 2;
+    const lemah = ble.lemahHitung >= 6;
     if (lemah || p > BATERAI_PULIH) el.hidden = !lemah;
     document.getElementById('angkaBaterai').textContent = p + '%';
     document.getElementById('isiIkonBaterai').style.width = Math.max(8, p) + '%';
