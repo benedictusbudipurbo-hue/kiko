@@ -190,6 +190,10 @@
     background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   #tombolStopRadio[hidden] { display: none; }
+  /* Kartu bantuan "kamu bisa apa?" (2026-10-18): di pita bawah, ketuk untuk menutup. */
+  #kartuBantuan { pointer-events: auto; text-align: left; font-size: 13px; line-height: 1.35; max-width: min(560px, 92vw); cursor: pointer; }
+  #kartuBantuan[hidden] { display: none; }
+  #kartuBantuan p { margin: 0; }
   #teksTimer {
     padding: 4px 10px; border-radius: 10px; background: rgba(0,0,0,.6); color: #fff;
     font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
@@ -240,6 +244,7 @@
   <p id="jam" hidden aria-live="off"></p>
 </div>
 <div id="pita">
+<div id="kartuBantuan" class="gelembung" hidden role="status"></div>
 <p id="teksPengingat" class="gelembung" hidden role="status"></p>
 <div id="konfirmasi" hidden role="dialog" aria-label="Konfirmasi tindakan KiKo">
   <p id="konfirmasiTeks"></p>
@@ -2511,6 +2516,9 @@
       ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
       statusAi(L('Tersambung. Jawaban terakhir: ', 'Connected. Last answer: ') + (data.ekspresi || 'normal'));
       simpanIngatanBaru(data.nama, data.ingat);
+      // Worker v7: AI menebak maksud perintah ("aku pengen dengerin radio Surabaya dong").
+      // Kalau HP bisa menjalankannya, fitur HP yang bicara; kalau tidak, ucapkan jawaban AI.
+      if (data.aksi && jalankanAksiAi(data)) return;
       ucapkan(data.teks, data.ekspresi);
       // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
       // setelah E dari pergantian ekspresi supaya tidak langsung ditimpa
@@ -3075,8 +3083,159 @@
     return s.replace(/\s+/g, ' ').trim().replace(/[.!?,]+$/, '');
   }
 
+  // =====================================================================
+  //  PEMANDU PERINTAH (2026-10-18)
+  //  Pengguna: orang di depan KiKo punya kemauan tapi tidak ingat format perintah.
+  //  1. Kalimat yang tidak dikenali di HP tetap dikirim ke Worker; Worker v7 juga
+  //     mengembalikan maksudnya ("aksi" + target/isi/waktu). jalankanAksiAi() menyusun
+  //     kalimat baku lalu menjalankannya lewat pengurai yang sama, jadi telepon/pesan
+  //     tetap lewat ketukan tombol hijau.
+  //  2. Perintah yang kurang lengkap ("telepon", "putar radio", "timer", "ingatkan
+  //     aku") -> KiKo bertanya balik (tanyaLanjut); jawaban berikutnya dalam 40 dtk
+  //     melengkapinya ("Mama", "Suara Surabaya", "5 menit"). "Batal" membatalkan.
+  //  3. "Kamu bisa apa?" / "bantuan" / "cara telepon gimana?" -> KiKo menjelaskan
+  //     dan menampilkan kartu contoh di pita bawah (tidak menutupi wajah).
+  // =====================================================================
+  let lanjut = null;   // { buat: jawaban -> kalimat lengkap, sampai: ms }
+  function tanyaLanjut(pertanyaan, buat) {
+    lanjut = { buat, sampai: Date.now() + 40000 };
+    ucapkan(pertanyaan, 'bingung');
+  }
+  const KATA_BATAL = /^(batal|batalkan|gak jadi|ga jadi|nggak jadi|enggak jadi|tidak jadi|ndak jadi|cancel|never ?mind|forget it)\b/;
+
   // true = sudah dijawab di HP, tidak perlu ke Worker.
   function jawabLokal(teks) {
+    const t = teks.toLowerCase().replace(/[’]/g, "'").trim();
+    const tunggu = lanjut && Date.now() < lanjut.sampai ? lanjut : null;
+    lanjut = null;
+    if (tunggu) {
+      if (KATA_BATAL.test(t)) { ucapkan(L('Oke, tidak jadi.', 'Okay, never mind.'), 'normal'); return true; }
+      // Jawaban yang sudah berupa perintah lengkap dijalankan apa adanya; selain itu dilengkapi.
+      if (jawabLokalInti(teks)) return true;
+      const lengkap = tunggu.buat(t.replace(/[.!?]+$/, ''));
+      if (lengkap && jawabLokalInti(lengkap)) return true;
+    }
+    if (jawabBantuan(t)) return true;
+    return jawabLokalInti(teks);
+  }
+
+  // ---- Lapis 1: maksud dari AI (Worker v7) -> kalimat baku -> pengurai yang sama ----
+  function kalimatDariAksi(d) {
+    const en = bahasa === 'en', tg = String(d.target || ''), isi = String(d.isi || '');
+    const w = String(d.waktu || '').trim().toLowerCase();
+    switch (d.aksi) {
+      case 'radio_putar': return en ? `play the radio ${tg}` : `putar radio ${tg}`;
+      case 'radio_stop': return en ? 'stop the radio' : 'matikan radio';
+      case 'telepon': return en ? `call ${tg}` : `telepon ${tg}`;
+      case 'telepon_wa': return en ? `call ${tg} on whatsapp` : `telepon ${tg} lewat wa`;
+      case 'video_call': return `video call ${tg}`;
+      case 'pesan_wa': return en ? `message ${tg} ${isi}` : `kirim pesan ke ${tg} ${isi}`;
+      case 'pengingat': {
+        const harian = /^harian\s*/.test(w), w2 = w.replace(/^harian\s*/, '');
+        let frasa = '', m;
+        if ((m = w2.match(/^\+(\d+)$/))) frasa = en ? `in ${m[1]} minutes` : `${m[1]} menit lagi`;
+        else if ((m = w2.match(/^(\d{1,2})[:.](\d{2})$/))) {
+          const h = Number(m[1]), mm = m[2];
+          // 24 jam -> tulis pagi/am supaya pengurai tidak memilih "yang paling dekat".
+          if (en) frasa = `at ${h % 12 || 12}:${mm} ${h < 12 ? 'am' : 'pm'}`;
+          else frasa = h < 12 ? `pukul ${h || 12}.${mm} pagi` : `pukul ${h}.${mm}`;
+        }
+        if (harian && frasa) frasa = (en ? 'every day ' : 'setiap hari ') + frasa;
+        return en ? `remind me ${frasa} ${isi ? 'to ' + isi : ''}` : `ingatkan aku ${frasa} ${isi}`;
+      }
+      case 'timer': {
+        const s = parseInt(w, 10);
+        return s > 0 ? (en ? `set a timer for ${s} seconds` : `timer ${s} detik`) : (en ? 'set a timer' : 'timer');
+      }
+      case 'timer_batal': return en ? 'cancel the timer' : 'batalkan timer';
+      case 'cuaca': return /besok|tomorrow/.test(w + ' ' + tg) ? (en ? 'weather tomorrow' : 'cuaca besok') : (en ? "what's the weather" : 'cuaca hari ini');
+      case 'baterai': return en ? 'how much battery' : 'baterai kamu berapa';
+      case 'jam': return en ? 'what time is it' : 'jam berapa';
+      case 'tanggal': return en ? 'what day is it' : 'hari apa';
+      case 'bantuan': return en ? 'what can you do' : 'kamu bisa apa';
+    }
+    return '';
+  }
+  function jalankanAksiAi(d) {
+    const k = kalimatDariAksi(d).replace(/\s+/g, ' ').trim();
+    if (!k) return false;
+    lanjut = null;
+    return jawabLokal(k);
+  }
+
+  // ---- Lapis 3: bantuan "kamu bisa apa?" ----
+  const elKartuBantuan = document.getElementById('kartuBantuan');
+  let timerBantuan = 0;
+  elKartuBantuan.addEventListener('click', () => { elKartuBantuan.hidden = true; });
+  function isiBantuan() {
+    const B = [];
+    if (fitur.telepon) B.push({ k: 'telepon', judul: L('Telepon & WhatsApp', 'Phone & WhatsApp'),
+      bisa: L('menelepon dan WhatsApp-an', 'call and WhatsApp people'),
+      contoh: L(['"Telepon Mama"', '"Telepon WA Pak Budi"', '"Video call Mama"', '"WA Mama, aku pulang telat"', 'Nama baru? Pilih sekali dari kontak HP.'],
+                ['"Call Mum"', '"Call Sarah on WhatsApp"', '"Video call Mum"', '"Message Mum I\'ll be late"', 'New name? Pick it once from the phone\'s contacts.']) });
+    if (fitur.radio) B.push({ k: 'radio', judul: 'Radio', bisa: L('memutar radio', 'play the radio'),
+      contoh: L(['"Putar radio" (aku tanya stasiunnya)', '"Nyalakan Suara Surabaya"', '"Stop", atau tombol ⏹ di pojok'],
+                ['"Play the radio" (I\'ll ask which one)', '"Play Suara Surabaya"', '"Stop", or the ⏹ button in the corner']) });
+    B.push({ k: 'pengingat', judul: L('Pengingat', 'Reminders'), bisa: L('membuat pengingat', 'set reminders'),
+      contoh: L(['"Ingatkan aku jam 7 malam minum obat"', '"Ingatkan aku 10 menit lagi angkat jemuran"', '"Setiap hari jam 6 pagi ingatkan aku olahraga"', '"Pengingat apa saja?"'],
+                ['"Remind me at 7 pm to take my medicine"', '"Remind me in 10 minutes to check the oven"', '"Remind me every day at 6 am to exercise"', '"What are my reminders?"']) });
+    if (fitur.timer) B.push({ k: 'timer', judul: 'Timer', bisa: L('memasang timer', 'set timers'),
+      contoh: L(['"Timer 5 menit"', '"Sisa timer berapa?"', '"Batalkan timer"'], ['"Set a timer for 5 minutes"', '"How much time is left?"', '"Cancel the timer"']) });
+    if (fitur.cuaca) B.push({ k: 'cuaca', judul: L('Cuaca', 'Weather'), bisa: L('memberi tahu cuaca', 'tell you the weather'),
+      contoh: L(['"Cuaca hari ini"', '"Besok hujan nggak?"'], ['"What\'s the weather?"', '"Will it rain tomorrow?"']) });
+    B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
+      contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
+                ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
+    return B;
+  }
+  function tampilkanBantuan(topik) {
+    const B = isiBantuan();
+    const pilih = topik ? B.filter(b => b.k === topik) : B;
+    if (!pilih.length) return false;
+    elKartuBantuan.textContent = '';
+    for (const b of pilih) {
+      const p = document.createElement('p');
+      const s = document.createElement('strong');
+      s.textContent = b.judul + ': ';
+      p.append(s, document.createTextNode(topik ? '' : b.contoh[0]));
+      elKartuBantuan.append(p);
+      if (topik) for (const c of b.contoh) { const q = document.createElement('p'); q.textContent = '• ' + c; elKartuBantuan.append(q); }
+    }
+    elKartuBantuan.hidden = false;
+    clearTimeout(timerBantuan);
+    timerBantuan = setTimeout(() => { elKartuBantuan.hidden = true; }, topik ? 20000 : 25000);
+    interaksi();
+    if (topik) {
+      const b = pilih[0];
+      const jd = b.judul.toLowerCase().replace('&', L('dan', 'and'));
+      ucapkan(L(`Untuk ${jd}, misalnya bilang ${b.contoh[0].replace(/"/g, '')}. Contoh lainnya ada di layar.`,
+                `For ${jd}, you can say ${b.contoh[0].replace(/"/g, '')}. More examples are on the screen.`), 'senang');
+    } else {
+      const bisa = B.map(b => b.bisa).filter(Boolean);
+      const daftar = bisa.length > 1 ? bisa.slice(0, -1).join(', ') + L(', dan ', ', and ') + bisa[bisa.length - 1] : bisa.join('');
+      ucapkan(L(`Aku bisa ${daftar}. Aku juga tahu jam dan bateraiku, dan tentu saja bisa diajak ngobrol. Bilang saja dengan kalimatmu sendiri, nanti aku tanya kalau kurang jelas. Contohnya ada di layar.`,
+                `I can ${daftar}. I also know the time and my battery, and of course I love to chat. Just say it in your own words, and I'll ask if something is unclear. Examples are on the screen.`), 'senang');
+    }
+    return true;
+  }
+  function jawabBantuan(t) {
+    const umum = bahasa === 'en'
+      ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
+      : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
+    const topik = bahasa === 'en'
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca)/);
+    if (topik) {
+      const w = topik[2];
+      const k = /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
+              : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : 'telepon';
+      if (tampilkanBantuan(k)) return true;
+    }
+    if (!umum.test(t)) return false;
+    return tampilkanBantuan(null);
+  }
+
+  function jawabLokalInti(teks) {
     if (bahasa === 'en') return jawabLokalEn(teks.toLowerCase().replace(/[’]/g, "'"));
     const t = teks.toLowerCase();
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
@@ -3094,7 +3253,12 @@
     }
     if (/(ingatkan|ingetin|pasang pengingat|buat pengingat|bikin pengingat)/.test(t)) {
       const w = uraiWaktuPengingat(t);
-      if (!w) { ucapkan('Jam berapa aku harus mengingatkan? Misalnya: ingatkan aku jam 7 malam minum obat.', 'bingung'); return true; }
+      if (!w) {
+        // Lapis 2: jawaban "jam 7 malam", "7 malam" atau "10 menit lagi" melengkapi kalimat tadi.
+        tanyaLanjut('Jam berapa aku harus mengingatkan? Misalnya jam 7 malam, atau 10 menit lagi.',
+          j => `${t} ${/^\d+\s*(menit|jam)\s*(lagi|dari)/.test(j) || /^(jam|pukul)/.test(j) ? j : /^(\d|setengah)/.test(j) ? 'jam ' + j : j}`);
+        return true;
+      }
       const ulang = /(setiap|tiap) hari|harian/.test(t) ? 'harian' : 'sekali';
       const isi = isiPengingat(t, w.frasa);
       tambahPengingat(w.jam, isi, ulang, w.waktu);
@@ -3335,6 +3499,13 @@
         const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|via|sekarang|dong|ya|pakai)\b|$)/);
         if (m) nama = m[1];
       }
+      if (/^(lewat|pakai|via|wa|whatsapp|sekarang|dong|ya|dulu|seseorang|orang|siapa|aja|saja)\b/.test(nama)) nama = '';
+      if (!nama) {
+        // Lapis 2: "telepon" saja -> tanya siapa, jawaban berikutnya melengkapi.
+        const tanya = { pesan: 'Mau kirim pesan ke siapa?', vc: 'Mau video call siapa?', wa: 'Mau telepon siapa lewat WhatsApp?', tel: 'Mau telepon siapa?' }[mode];
+        tanyaLanjut(tanya, j => mode === 'pesan' ? `kirim pesan ke ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `telepon ${j} lewat wa` : `telepon ${j}`);
+        return true;
+      }
       kontakBelumAda(nama, mode, isi);
       return true;
     }
@@ -3426,7 +3597,8 @@
     let detik = 0;
     for (const m of t.matchAll(/(\d+)\s*(jam|menit|detik)/g)) detik += Number(m[1]) * (m[2] === 'jam' ? 3600 : m[2] === 'menit' ? 60 : 1);
     if (/setengah jam/.test(t)) detik += 1800;
-    if (!detik || detik > 24 * 3600) { ucapkan('Timer berapa lama? Misalnya: timer 5 menit.', 'bingung'); return true; }
+    if (detik > 24 * 3600) { ucapkan('Timer paling lama 24 jam ya.', 'bingung'); return true; }
+    if (!detik) { tanyaLanjut('Timer berapa lama? Misalnya 5 menit.', j => `timer ${j}`); return true; }
     mulaiTimer(detik);
     ucapkan(`Oke, timer ${ucapDurasi(detik)} mulai.`, 'senang');
     if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
@@ -3542,6 +3714,11 @@
     return semuaRadio().find(r => r.nama.toLowerCase().replace(/[()]/g, '').split(/\s+/)
       .some(w => w.length >= 4 && !/^(radio|jakarta|suara|berita|musik|indonesia)$/.test(w) && t.includes(w)));
   }
+  // Nama stasiun untuk diucapkan: "Sonora, Elshinta, Suara Surabaya atau Dengerin Musik".
+  function daftarNamaRadio(atau) {
+    const n = semuaRadio().map(r => r.nama.replace(/\s*\(.*?\)/g, '').replace(/\s+(FM|Jakarta|Indonesia)\b/g, '').trim());
+    return n.length > 1 ? n.slice(0, -1).join(', ') + atau + n[n.length - 1] : n.join('');
+  }
   // Perintah stop pendek saat radio menyala ("stop", "matikan", "berhenti", "cukup") tanpa kata "radio".
   const KATA_STOP = /(matikan|hentikan|stop|berhenti|udahan|cukup|turn off|switch off|pause)/;
   function stopPendek(t) { return radioMain() && KATA_STOP.test(t) && t.trim().split(/\s+/).length <= 3; }
@@ -3569,7 +3746,14 @@
     let s = sebut;
     if (!s && /musik|lagu/.test(t)) s = daftar.find(r => /musik/i.test(r.nama));
     if (!s && /berita/.test(t)) s = daftar.find(r => /berita/i.test(r.nama));
-    if (!s) s = daftar.find(r => r.jenis === 'radio');
+    const TERSERAH = /(terserah|apa (saja|aja)|bebas|sembarang|yang mana (saja|aja))/;
+    if (!s && TERSERAH.test(t)) s = daftar.find(r => r.jenis === 'radio');
+    if (!s) {
+      // Lapis 2: stasiun belum disebut -> tanya; "terserah" = stasiun pertama.
+      tanyaLanjut('Mau radio apa? Ada ' + daftarNamaRadio(L(' atau ', ' or ')) + '.',
+        j => TERSERAH.test(j) ? 'putar radio terserah' : `putar radio ${j}`);
+      return true;
+    }
     ucapkan('Oke, aku putarkan ' + s.nama + '.', 'senang');
     setTimeout(() => putarRadio(s), 1800);                    // tunggu kalimat KiKo selesai
     return true;
@@ -3743,6 +3927,12 @@
         const m = t.match(/(?:call|phone|ring|dial)\s+([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:on|via|through|using|over|now|please)\b|$)/);
         if (m) nama = m[1];
       }
+      if (/^(on|via|someone|somebody|now|please|whatsapp|who)\b/.test(nama)) nama = '';
+      if (!nama) {
+        const tanya = { pesan: 'Who do you want to message?', vc: 'Who do you want to video call?', wa: 'Who do you want to call on WhatsApp?', tel: 'Who do you want to call?' }[mode];
+        tanyaLanjut(tanya, j => mode === 'pesan' ? `message ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `call ${j} on whatsapp` : `call ${j}`);
+        return true;
+      }
       kontakBelumAda(nama, mode, isi);
       return true;
     }
@@ -3769,7 +3959,8 @@
     if (/half an hour/.test(x)) { detik += 1800; x = x.replace(/half an hour/g, ' '); }
     for (const m of x.matchAll(new RegExp(KATA_ANGKA_EN + '\\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)', 'g')))
       detik += angkaEn(m[1]) * (/^h/.test(m[2]) ? 3600 : /^m/.test(m[2]) ? 60 : 1);
-    if (!detik || detik > 24 * 3600) { ucapkan('How long? For example: set a timer for 5 minutes.', 'bingung'); return true; }
+    if (detik > 24 * 3600) { ucapkan('Timers can be at most 24 hours.', 'bingung'); return true; }
+    if (!detik) { tanyaLanjut('How long? For example, 5 minutes.', j => `set a timer for ${j}`); return true; }
     mulaiTimer(detik);
     ucapkan(`Okay, ${ucapDurasi(detik)} timer started.`, 'senang');
     if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
@@ -3795,7 +3986,12 @@
     let st = sebut;
     if (!st && /news/.test(t)) st = daftar.find(r => /berita/i.test(r.nama));
     if (!st && /music|song/.test(t)) st = daftar.find(r => /musik/i.test(r.nama));
-    if (!st) st = daftar.find(r => r.jenis === 'radio');
+    const ANY = /(any|anything|whatever|you choose|your choice|doesn'?t matter)/;
+    if (!st && ANY.test(t)) st = daftar.find(r => r.jenis === 'radio');
+    if (!st) {
+      tanyaLanjut('Which station? I have ' + daftarNamaRadio(' or ') + '.', j => ANY.test(j) ? 'play the radio anything' : `play the radio ${j}`);
+      return true;
+    }
     ucapkan('Okay, playing ' + st.nama + '.', 'senang');
     setTimeout(() => putarRadio(st), 1800);
     return true;
@@ -3839,7 +4035,11 @@
     }
     if (/(remind me|set a reminder|create a reminder|add a reminder)/.test(t)) {
       const w = uraiWaktuEn(t);
-      if (!w) { ucapkan('When should I remind you? For example: remind me at 7 pm to take my medicine.', 'bingung'); return true; }
+      if (!w) {
+        tanyaLanjut('When should I remind you? For example, at 7 pm, or in 10 minutes.',
+          j => `${t} ${/^(at|in|every)\b/.test(j) ? j : /(minute|hour)/.test(j) ? 'in ' + j : 'at ' + j}`);
+        return true;
+      }
       const ulang = /(every day|everyday|each day|daily)/.test(t) ? 'harian' : 'sekali';
       const isi = isiPengingatEn(t, w.frasa);
       tambahPengingat(w.jam, isi, ulang, w.waktu);
@@ -3947,6 +4147,8 @@
   // di konsol, kikoUji('telepon mama') -> true kalau dijawab di HP.
   if (location.hostname === 'localhost') {
     window.kikoUji = teks => jawabLokal(teks);
+    // Uji jawaban Worker v7 tanpa AI: kikoUjiAksi({aksi:'radio_putar', target:'Suara Surabaya'}).
+    window.kikoUjiAksi = d => jalankanAksiAi(d);
     // Uji tanpa base: pura-pura terhubung lalu terima satu baris dari base, mis. "B,6.95".
     window.kikoUjiBase = baris => { ble.terhubung = true; terimaBaris(baris); return { persen: ble.persen, chip: document.getElementById('chipBase').textContent }; };
   }
