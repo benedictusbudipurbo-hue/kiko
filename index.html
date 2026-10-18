@@ -1626,7 +1626,12 @@
   //  supaya angkanya tidak anjlok mendadak di ujung. Versi Hemat (tanpa
   //  baterai) membaca 0 V -> dianggap tidak ada baterai.
   // ---------------------------------------------------------------------
-  const KURVA_BATERAI = [[6.4, 0], [6.8, 5], [7.2, 15], [7.4, 30], [7.6, 45], [7.8, 62], [8.0, 75], [8.2, 90], [8.4, 100]];
+  // 2026-10-18: kurva digeser. Charger 2S yang baru berhenti (LED biru) di +-8,1 V, dan saat KiKo
+  // menyala tegangan halus (firmware Ver 24) terbaca +-8,03 V. Dengan kurva lama (100 % = 8,4 V)
+  // baterai yang baru penuh hanya terbaca 72 %. Sekarang 8,05 V saat menyala = 100 %; bagian
+  // bawah tetap dekat kurva HG2 (7,2 V = 3,6 V/sel = 20 % -> peringatan "cas").
+  // Belum pasti: P+ saat saklar OFF langsung setelah penuh (8,1 atau 8,3-8,4 V?) -> setel ulang.
+  const KURVA_BATERAI = [[6.4, 0], [6.8, 5], [7.0, 10], [7.2, 20], [7.4, 38], [7.6, 58], [7.8, 78], [7.95, 92], [8.05, 100]];
   const BATERAI_LEMAH = 20, BATERAI_PULIH = 25;   // histeresis: muncul <= 20%, hilang > 25%
   function persenBaterai(v) {
     if (!(v > 3)) return null;
