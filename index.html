@@ -1652,13 +1652,14 @@
     else if (p > BATERAI_PULIH) { ble.lemahHitung = 0; ble.lemahDiumumkan = false; }
     const lemah = ble.lemahHitung >= 6;
     if (lemah || p > BATERAI_PULIH) el.hidden = !lemah;
-    document.getElementById('angkaBaterai').textContent = p + '%';
+    // 'KiKo' supaya tidak dikira baterai HP (wajahnya ada di HP)
+    document.getElementById('angkaBaterai').textContent = 'KiKo ' + p + '%';
     document.getElementById('isiIkonBaterai').style.width = Math.max(8, p) + '%';
     if (lemah && !ble.lemahDiumumkan && fase === 'hidup' && !ble.kritis) {
       ble.lemahDiumumkan = true;
       interaksi();
-      ucapkan(L(`Bateraiku tinggal ${p} persen. Aku mulai lapar nih, cas aku dong.`,
-                `My battery is down to ${p} percent. I'm getting hungry, please charge me.`), 'ngantuk');
+      ucapkan(L(`Baterai KiKo tinggal ${p} persen. KiKo mulai lapar nih, cas KiKo dong.`,
+                `KiKo's battery is down to ${p} percent. KiKo is getting hungry, please charge KiKo.`), 'ngantuk');
     }
   }
   // Jawaban suara "baterai kamu berapa?" (dipanggil jawabLokal / jawabLokalEn).
@@ -1668,7 +1669,7 @@
     const p = ble.persen;
     const cas = ble.cas ? L(', dan sekarang lagi di-cas', ", and I'm charging now") : '';
     const nada = p > 50 ? L('aman!', "I'm good!") : p > BATERAI_LEMAH ? L('masih cukup.', 'still enough.') : L('cas aku sebentar lagi ya.', 'please charge me soon.');
-    ucapkan(L(`Bateraiku ${p} persen${cas}, ${nada}`, `My battery is at ${p} percent${cas}, ${nada}`), p > BATERAI_LEMAH ? 'senang' : 'ngantuk');
+    ucapkan(L(`Baterai KiKo ${p} persen${cas}, ${nada}`, `KiKo's battery is at ${p} percent${cas}, ${nada}`), p > BATERAI_LEMAH ? 'senang' : 'ngantuk');
   }
   // Ver 12: kabel charger tercolok -> base mengunci roda. Wajah memberi tahu sekali,
   // joystick roda berhenti mengirim M. diam = tanpa ucapan (mis. saat terputus).
