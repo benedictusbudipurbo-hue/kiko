@@ -183,6 +183,13 @@
   .ikonBaterai { position: relative; width: 22px; height: 11px; border: 2px solid currentColor; border-radius: 3px; box-sizing: border-box; }
   .ikonBaterai::after { content: ''; position: absolute; right: -5px; top: 2px; width: 3px; height: 4px; border-radius: 0 2px 2px 0; background: currentColor; }
   .ikonBaterai > i { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 20%; background: currentColor; border-radius: 1px; }
+  /* Radio menyala: tombol stop sekali ketuk (2026-10-18; dengar otomatis mati saat radio main,
+     jadi tanpa tombol ini pengguna harus menekan mikrofon dulu untuk bilang "stop"). */
+  #tombolStopRadio {
+    pointer-events: auto; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--garis);
+    background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #tombolStopRadio[hidden] { display: none; }
   #teksTimer {
     padding: 4px 10px; border-radius: 10px; background: rgba(0,0,0,.6); color: #fff;
     font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
@@ -229,6 +236,7 @@
   <p id="teksCas" hidden aria-live="polite"></p>
   <p id="teksBaterai" hidden aria-live="polite"><span class="ikonBaterai" aria-hidden="true"><i id="isiIkonBaterai"></i></span><span id="angkaBaterai"></span></p>
   <p id="teksTimer" hidden aria-live="off"></p>
+  <button id="tombolStopRadio" type="button" hidden></button>
   <p id="jam" hidden aria-live="off"></p>
 </div>
 <div id="pita">
@@ -3141,18 +3149,32 @@
   const elKonfirmasiTeks = document.getElementById('konfirmasiTeks');
   const elKonfirmasiYa = document.getElementById('konfirmasiYa');
   let timerKonfirmasi = 0;
+  let aksiFungsi = null;   // 2026-10-18: tombol hijau juga bisa menjalankan fungsi (pemilih kontak HP)
   function tawarkanAksi(teks, label, href, tabBaru) {
     elKonfirmasiTeks.textContent = teks;
     elKonfirmasiYa.textContent = label;
-    elKonfirmasiYa.href = href;
-    if (tabBaru) { elKonfirmasiYa.target = '_blank'; elKonfirmasiYa.rel = 'noopener'; }
-    else { elKonfirmasiYa.removeAttribute('target'); elKonfirmasiYa.removeAttribute('rel'); }
+    if (typeof href === 'function') {
+      aksiFungsi = href; elKonfirmasiYa.href = '#';
+      elKonfirmasiYa.removeAttribute('target'); elKonfirmasiYa.removeAttribute('rel');
+    } else {
+      aksiFungsi = null; elKonfirmasiYa.href = href;
+      if (tabBaru) { elKonfirmasiYa.target = '_blank'; elKonfirmasiYa.rel = 'noopener'; }
+      else { elKonfirmasiYa.removeAttribute('target'); elKonfirmasiYa.removeAttribute('rel'); }
+    }
     elKonfirmasi.hidden = false;
     clearTimeout(timerKonfirmasi);
     timerKonfirmasi = setTimeout(tutupKonfirmasi, 30000);
   }
   function tutupKonfirmasi() { elKonfirmasi.hidden = true; clearTimeout(timerKonfirmasi); }
-  elKonfirmasiYa.addEventListener('click', () => setTimeout(tutupKonfirmasi, 300));
+  elKonfirmasiYa.addEventListener('click', e => {
+    if (aksiFungsi) {
+      // Dijalankan langsung di dalam ketukan: pemilih kontak Android butuh "aktivasi pengguna".
+      e.preventDefault();
+      const f = aksiFungsi; aksiFungsi = null; tutupKonfirmasi(); f();
+      return;
+    }
+    setTimeout(tutupKonfirmasi, 300);
+  });
   document.getElementById('konfirmasiBatal').addEventListener('click', () => { tutupKonfirmasi(); ekspresiSingkat('normal', 300); });
 
   // ---------- Kontak ----------
@@ -3211,38 +3233,113 @@
     return hasil;
   }
 
+  // ---- Aksi ke satu kontak (dipakai jawabTelepon / jawabTeleponEn / pemilih kontak HP) ----
+  // mode: 'pesan' (chat WA, isi opsional) | 'wa' (telepon lewat WA = buka chat) | 'tel' (telepon biasa).
+  function aksiKontak(k, mode, isi, awalan) {
+    interaksi();
+    const a = awalan ? awalan + ' ' : '';
+    if (mode === 'pesan') {
+      const href = `https://wa.me/${nomorWa(k.nomor)}` + (isi ? '?text=' + encodeURIComponent(isi) : '');
+      ucapkan(a + (isi ? L(`Kirim pesan ke ${k.nama}: ${isi}? Ketuk tombol hijau ya.`, `Send ${k.nama}: ${isi}? Tap the green button.`)
+                       : L(`Buka WhatsApp ${k.nama}? Ketuk tombol hijau ya.`, `Open WhatsApp with ${k.nama}? Tap the green button.`)), 'senang');
+      tawarkanAksi(isi ? L(`Pesan ke ${k.nama}: “${isi}”`, `Message to ${k.nama}: “${isi}”`) : L(`Buka chat WhatsApp ${k.nama}`, `Open WhatsApp chat with ${k.nama}`),
+        L('Buka WhatsApp', 'Open WhatsApp'), href, true);
+    } else if (mode === 'wa') {
+      ucapkan(a + L(`Aku bukakan WhatsApp ${k.nama}. Lalu tekan ikon telepon di WhatsApp ya.`, `I'll open WhatsApp with ${k.nama}. Then press the call icon in WhatsApp.`), 'senang');
+      tawarkanAksi(L(`Telepon ${k.nama} lewat WhatsApp: buka chat, lalu tekan ikon telepon.`, `Call ${k.nama} on WhatsApp: open the chat, then press the call icon.`),
+        L('Buka WhatsApp', 'Open WhatsApp'), `https://wa.me/${nomorWa(k.nomor)}`, true);
+    } else {
+      ucapkan(a + L(`Telepon ${k.nama}? Ketuk tombol hijau ya.`, `Call ${k.nama}? Tap the green button.`), 'senang');
+      tawarkanAksi(L(`Telepon ${k.nama} (${k.nomor})`, `Call ${k.nama} (${k.nomor})`), L('📞 Telepon', '📞 Call'), 'tel:' + nomorTel(k.nomor), false);
+    }
+    if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+  }
+
+  // Nomor yang diucapkan langsung ("telepon wa 0812 3456 7890"). Chrome menulis angka sebagai digit.
+  function nomorDiucapkan(t) {
+    const m = t.match(/(\+?\d[\d\s.-]{7,}\d)/);
+    if (!m) return null;
+    const d = m[1].replace(/[^\d+]/g, '');
+    const digit = d.replace('+', '');
+    if (digit.length < 9 || digit.length > 15 || !/^(\+|0|62|8)/.test(d)) return null;
+    return { nomor: d, sisa: t.slice(m.index + m[0].length).trim() };
+  }
+  const hurufBesar = s => s.replace(/\b[a-z]/g, c => c.toUpperCase());
+
+  // Pemilih kontak Android (Contact Picker API, Chrome Android). Pengguna memilih SATU kontak;
+  // KiKo hanya menerima kontak itu. Kontak disimpan ke daftar KiKo dengan nama yang diucapkan,
+  // jadi lain kali cukup sebut namanya.
+  const bisaPilihKontak = () => !!(navigator.contacts && navigator.contacts.select);
+  async function pilihKontakHp(namaUcap, mode, isi) {
+    try {
+      const [c] = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+      if (!c) return;
+      const tel = (c.tel || []).map(String).filter(x => x.replace(/\D/g, '').length >= 6);
+      if (!tel.length) { ucapkan(L('Kontak itu tidak punya nomor telepon.', 'That contact has no phone number.'), 'bingung'); return; }
+      const nomor = tel.find(x => /^(\+?62|0?8)/.test(x.replace(/[^\d+]/g, ''))) || tel[0];
+      const namaHp = (c.name && c.name[0]) || '';
+      const nama = namaUcap ? hurufBesar(namaUcap) : (namaHp || nomor);
+      kontak = kontak.filter(x => x.nama.toLowerCase() !== nama.toLowerCase());
+      kontak.push({ nama, nomor });
+      simpanKontak();
+      const awalan = namaHp && namaHp.toLowerCase() !== nama.toLowerCase()
+        ? L(`${namaHp} kusimpan sebagai ${nama}.`, `I saved ${namaHp} as ${nama}.`)
+        : L(`${nama} kusimpan di daftarku.`, `I saved ${nama} to my list.`);
+      aksiKontak({ nama, nomor }, mode, isi, awalan);
+    } catch (e) {
+      if (e && e.name !== 'AbortError') ucapkan(L('Daftar kontak HP tidak bisa dibuka.', "I couldn't open the phone's contacts."), 'bingung');
+    }
+  }
+  // Kontak belum terdaftar: tawarkan pemilih kontak HP, atau (tanpa dukungan) arahkan ke ATUR.
+  function kontakBelumAda(nama, mode, isi) {
+    const sebut = nama || L('itu', 'that person');
+    if (bisaPilihKontak()) {
+      ucapkan(L(`Aku belum punya nomor ${sebut}. Ketuk tombol hijau untuk memilih dari kontak HP.`,
+                `I don't have a number for ${sebut} yet. Tap the green button to pick from the phone's contacts.`), 'bingung');
+      tawarkanAksi(L(`Pilih ${nama ? hurufBesar(nama) : 'kontak'} dari kontak HP`, `Pick ${nama ? hurufBesar(nama) : 'a contact'} from the phone's contacts`),
+        L('📇 Pilih kontak', '📇 Pick contact'), () => pilihKontakHp(nama, mode, isi), false);
+    } else {
+      ucapkan(L(`Aku belum punya nomor ${sebut}. Tambahkan dulu di panel ATUR, bagian Telepon dan WhatsApp.`,
+                `I don't have a number for ${sebut} yet. Add it in the menu under Phone and WhatsApp.`), 'bingung');
+    }
+  }
+
   function jawabTelepon(t) {
     const pesan = /(kirim (pesan|wa|whatsapp|chat)|^(wa|whatsapp|chat)\b|pesan (ke|untuk|buat))/.test(t);
-    const lewatWa = /(lewat|pakai|via) (wa|whatsapp)|video ?call|\bvc\b/.test(t);
+    const lewatWa = /(lewat|pakai|via) (wa|whatsapp)|video ?call|\bvc\b|(telepon|telpon|telfon|tlp|hubungi) (wa|whatsapp)\b/.test(t);
     // "panggil" sengaja tidak dipakai: "panggil aku Budi" itu perkenalan, bukan telepon.
     const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call)\b/.test(t);
     if (!pesan && !telp) return false;
+    const mode = pesan ? 'pesan' : lewatWa ? 'wa' : 'tel';
     const k = cariKontak(t);
+    // Nomor diucapkan langsung, tanpa daftar.
+    const n = !k && nomorDiucapkan(t);
+    if (n) {
+      aksiKontak({ nama: n.nomor, nomor: n.nomor }, mode, mode === 'pesan' ? n.sisa.replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '') : '');
+      return true;
+    }
     // Kontak tidak dikenal dan kata kerjanya tidak di awal kalimat ("aku suka main
     // telepon") -> bukan perintah, teruskan ke AI.
     if (!k && !/^(tolong |kiko,? )?(telepon|telpon|telfon|tlp|hubungi|video ?call|kirim|wa|whatsapp|chat)\b/.test(t)) return false;
     if (!k) {
-      const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|call|ke|wa|whatsapp)\s+([a-z]+)/);
-      const nama = m ? m[1] : 'itu';
-      ucapkan(`Aku belum punya nomor ${nama}. Tambahkan dulu di panel ATUR, bagian Telepon dan WhatsApp.`, 'bingung');
+      let nama = '', isi = '';
+      if (mode === 'pesan') {
+        const m = t.match(/(?:\bke|\buntuk|\bbuat|^wa|^whatsapp|^chat)\s+([a-z]+)\s*(.*)$/);
+        if (m) { nama = m[1]; isi = m[2].replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim(); }
+      } else {
+        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|via|sekarang|dong|ya|pakai)\b|$)/);
+        if (m) nama = m[1];
+      }
+      kontakBelumAda(nama, mode, isi);
       return true;
     }
-    interaksi();
-    if (pesan) {
+    let isi = '';
+    if (mode === 'pesan') {
       // Isi pesan = kata-kata setelah nama kontak.
       const i = t.indexOf(k.nama.toLowerCase());
-      let isi = t.slice(i + k.nama.length).replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim();
-      const href = `https://wa.me/${nomorWa(k.nomor)}` + (isi ? '?text=' + encodeURIComponent(isi) : '');
-      ucapkan(isi ? `Kirim pesan ke ${k.nama}: ${isi}? Ketuk tombol hijau ya.` : `Buka WhatsApp ${k.nama}? Ketuk tombol hijau ya.`, 'senang');
-      tawarkanAksi(isi ? `Pesan ke ${k.nama}: “${isi}”` : `Buka chat WhatsApp ${k.nama}`, 'Buka WhatsApp', href, true);
-    } else if (lewatWa) {
-      ucapkan(`Aku bukakan WhatsApp ${k.nama}. Lalu tekan ikon telepon di WhatsApp ya.`, 'senang');
-      tawarkanAksi(`Telepon ${k.nama} lewat WhatsApp: buka chat, lalu tekan ikon telepon.`, 'Buka WhatsApp', `https://wa.me/${nomorWa(k.nomor)}`, true);
-    } else {
-      ucapkan(`Telepon ${k.nama}? Ketuk tombol hijau ya.`, 'senang');
-      tawarkanAksi(`Telepon ${k.nama} (${k.nomor})`, '📞 Telepon', 'tel:' + nomorTel(k.nomor), false);
+      isi = t.slice(i + k.nama.length).replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim();
     }
-    if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+    aksiKontak(k, mode, isi);
     return true;
   }
 
@@ -3393,7 +3490,14 @@
   });
 
   const elDaftarRadio = document.getElementById('daftarRadio');
+  const tombolStopRadio = document.getElementById('tombolStopRadio');
+  tombolStopRadio.addEventListener('click', e => { e.stopPropagation(); hentikanRadio(); });
   function tampilkanRadio() {
+    tombolStopRadio.hidden = !radio.stasiun;
+    if (radio.stasiun) {
+      tombolStopRadio.textContent = '⏹ ' + radio.stasiun.nama;
+      tombolStopRadio.setAttribute('aria-label', L('Hentikan radio ', 'Stop radio ') + radio.stasiun.nama);
+    }
     elDaftarRadio.textContent = '';
     for (const s of semuaRadio()) {
       const li = document.createElement('li');
@@ -3617,28 +3721,32 @@
     const lewatWa = /(on|via|through|using|over) whatsapp|video call/.test(t);
     const telp = /\b(call|phone|ring|dial)\b/.test(t) && !/\bcall me\b/.test(t);
     if (!pesan && !telp) return false;
+    const mode = pesan ? 'pesan' : lewatWa ? 'wa' : 'tel';
     const k = cariKontak(t);
-    if (!k && !/^(please |kiko,? )?(call|phone|ring|dial|send|message|text|whatsapp|video call)\b/.test(t)) return false;
-    if (!k) {
-      const m = t.match(/(?:call|phone|ring|dial|to|message|text|whatsapp)\s+([a-z]+)/);
-      ucapkan(`I don't have a number for ${m ? m[1] : 'that person'} yet. Add it in the menu under Phone and WhatsApp.`, 'bingung');
+    const n = !k && nomorDiucapkan(t);
+    if (n) {
+      aksiKontak({ nama: n.nomor, nomor: n.nomor }, mode, mode === 'pesan' ? n.sisa.replace(/^\s*(that|saying|:|,)\s*/, '') : '');
       return true;
     }
-    interaksi();
-    if (pesan) {
-      const i = t.indexOf(k.nama.toLowerCase());
-      const isi = t.slice(i + k.nama.length).replace(/^\s*(that|saying|:|,)\s*/, '').trim();
-      ucapkan(isi ? `Send ${k.nama}: ${isi}? Tap the green button.` : `Open WhatsApp with ${k.nama}? Tap the green button.`, 'senang');
-      tawarkanAksi(isi ? `Message to ${k.nama}: “${isi}”` : `Open WhatsApp chat with ${k.nama}`, 'Open WhatsApp',
-        `https://wa.me/${nomorWa(k.nomor)}` + (isi ? '?text=' + encodeURIComponent(isi) : ''), true);
-    } else if (lewatWa) {
-      ucapkan(`I'll open WhatsApp with ${k.nama}. Then press the call icon in WhatsApp.`, 'senang');
-      tawarkanAksi(`Call ${k.nama} on WhatsApp: open the chat, then press the call icon.`, 'Open WhatsApp', `https://wa.me/${nomorWa(k.nomor)}`, true);
-    } else {
-      ucapkan(`Call ${k.nama}? Tap the green button.`, 'senang');
-      tawarkanAksi(`Call ${k.nama} (${k.nomor})`, '📞 Call', 'tel:' + nomorTel(k.nomor), false);
+    if (!k && !/^(please |kiko,? )?(call|phone|ring|dial|send|message|text|whatsapp|video call)\b/.test(t)) return false;
+    if (!k) {
+      let nama = '', isi = '';
+      if (mode === 'pesan') {
+        const m = t.match(/(?:\bto|^message|^text|^whatsapp)\s+([a-z]+)\s*(.*)$/);
+        if (m) { nama = m[1]; isi = m[2].replace(/^\s*(that|saying|:|,)\s*/, '').trim(); }
+      } else {
+        const m = t.match(/(?:call|phone|ring|dial)\s+([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:on|via|through|using|over|now|please)\b|$)/);
+        if (m) nama = m[1];
+      }
+      kontakBelumAda(nama, mode, isi);
+      return true;
     }
-    if (ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+    let isi = '';
+    if (mode === 'pesan') {
+      const i = t.indexOf(k.nama.toLowerCase());
+      isi = t.slice(i + k.nama.length).replace(/^\s*(that|saying|:|,)\s*/, '').trim();
+    }
+    aksiKontak(k, mode, isi);
     return true;
   }
 
