@@ -3362,6 +3362,8 @@
     audioRadio.play().then(() => {
       elStatusRadio.textContent = L('Memutar: ', 'Playing: ') + s.nama;
     }).catch(err => {
+      // Dihentikan / ganti stasiun saat masih menyambung -> play() ditolak (AbortError): bukan gagal.
+      if (radio.stasiun !== s || (err && err.name === 'AbortError')) return;
       elStatusRadio.textContent = L('Gagal memutar ', 'Could not play ') + s.nama + ' (' + (err && err.name || err) + L('). Ketuk layar sekali lalu coba lagi.', '). Tap the screen once and try again.');
     });
     elStatusRadio.textContent = L('Menyambung ke ', 'Connecting to ') + s.nama + '…';
@@ -3426,24 +3428,36 @@
   });
   tampilkanRadio();
 
+  // Nama stasiun yang disebut di kalimat (kata nama >= 4 huruf, selain kata umum).
+  function stasiunDisebut(t) {
+    return semuaRadio().find(r => r.nama.toLowerCase().replace(/[()]/g, '').split(/\s+/)
+      .some(w => w.length >= 4 && !/^(radio|jakarta|suara|berita|musik|indonesia)$/.test(w) && t.includes(w)));
+  }
+  // Perintah stop pendek saat radio menyala ("stop", "matikan", "berhenti", "cukup") tanpa kata "radio".
+  const KATA_STOP = /(matikan|hentikan|stop|berhenti|udahan|cukup|turn off|switch off|pause)/;
+  function stopPendek(t) { return radioMain() && KATA_STOP.test(t) && t.trim().split(/\s+/).length <= 3; }
+
   function jawabRadio(t) {
-    const kataRadio = /(radio|musik|berita)/.test(t);
+    // 2026-10-18: nama stasiun saja ("nyalakan suara surabaya", "putar elshinta") juga dihitung.
+    const sebut = stasiunDisebut(t);
+    const kataRadio = /(radio|musik|berita)/.test(t) || !!sebut;
     if (radioMain() && /(kecilkan|pelankan|turunkan) (suara|volume)|suaranya (kecilkan|pelankan)/.test(t)) {
       radio.vol = Math.max(0.05, radio.vol - 0.2); volRadio.value = Math.round(radio.vol * 100); return true;
     }
     if (radioMain() && /(besarkan|kencangkan|keraskan|naikkan) (suara|volume)|suaranya (besarkan|kencangkan|keraskan)/.test(t)) {
       radio.vol = Math.min(1, radio.vol + 0.2); volRadio.value = Math.round(radio.vol * 100); return true;
     }
+    if (stopPendek(t)) { hentikanRadio(); ucapkan('Radio dimatikan.', 'normal'); return true; }
     if (!kataRadio) return false;
     if (/(matikan|hentikan|stop|berhenti|udahan|cukup)/.test(t)) {
       if (radio.stasiun) { hentikanRadio(); ucapkan('Radio dimatikan.', 'normal'); } else ucapkan('Radionya sudah mati.', 'normal');
       return true;
     }
     // Hanya kata perintah: "aku suka dengar musik" tidak boleh menyalakan radio.
-    if (!/(putar|nyalakan|setel|dengarkan|mau dengar|pasang|mainkan)/.test(t)) return false;
+    if (!/(putar|nyalakan|hidupkan|setel|dengarkan|mau dengar|pasang|mainkan|play)/.test(t)) return false;
     const daftar = semuaRadio();
-    // Nama stasiun yang disebut (kata pertama nama yang muncul di kalimat), lalu jenisnya.
-    let s = daftar.find(r => r.nama.toLowerCase().split(/\s+/).some(w => w.length >= 4 && !/^(radio|jakarta|suara)$/.test(w) && t.includes(w)));
+    // Nama stasiun yang disebut, lalu jenisnya.
+    let s = sebut;
     if (!s && /musik|lagu/.test(t)) s = daftar.find(r => /musik/i.test(r.nama));
     if (!s && /berita/.test(t)) s = daftar.find(r => /berita/i.test(r.nama));
     if (!s) s = daftar.find(r => r.jenis === 'radio');
@@ -3656,14 +3670,16 @@
     if (radioMain() && /(turn (it|the volume|the radio|the music) up|louder|volume up)/.test(t)) {
       radio.vol = Math.min(1, radio.vol + 0.2); volRadio.value = Math.round(radio.vol * 100); return true;
     }
-    if (!/(radio|music|news|station)/.test(t)) return false;
+    const sebut = stasiunDisebut(t);
+    if (stopPendek(t)) { hentikanRadio(); ucapkan('Radio off.', 'normal'); return true; }
+    if (!/(radio|music|news|station)/.test(t) && !sebut) return false;
     if (/(stop|turn off|switch off|pause)/.test(t)) {
       if (radio.stasiun) { hentikanRadio(); ucapkan('Radio off.', 'normal'); } else ucapkan('The radio is already off.', 'normal');
       return true;
     }
     if (!/(play|turn on|put on|start|switch on)/.test(t)) return false;
     const daftar = semuaRadio();
-    let st = daftar.find(r => r.nama.toLowerCase().split(/\s+/).some(w => w.length >= 4 && !/^(radio|jakarta|suara)$/.test(w) && t.includes(w)));
+    let st = sebut;
     if (!st && /news/.test(t)) st = daftar.find(r => /berita/i.test(r.nama));
     if (!st && /music|song/.test(t)) st = daftar.find(r => /musik/i.test(r.nama));
     if (!st) st = daftar.find(r => r.jenis === 'radio');

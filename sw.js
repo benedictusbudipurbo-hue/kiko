@@ -8,7 +8,7 @@
 //    disentuh: tetap lewat jaringan biasa.
 //  Naikkan VERSI kalau daftar FILE berubah.
 // =====================================================================
-const VERSI = 'kiko-v1';
+const VERSI = 'kiko-v2';
 const FILE = ['./', './index.html', './manifest.json', './ikon-192.png', './ikon-512.png'];
 
 self.addEventListener('install', e => {
@@ -27,7 +27,10 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    // 2026-10-18: cache 'no-cache' = selalu tanya GitHub dulu (jawaban 304 kecil kalau tidak
+    // berubah). Tanpa ini HP memakai salinan HTTP sampai 10 menit (GitHub Pages max-age=600),
+    // sehingga index.html yang baru di-upload belum terpakai saat KiKo dibuka ulang.
+    fetch(e.request, { cache: 'no-cache' })
       .then(jawab => {
         if (jawab.ok) {
           const salinan = jawab.clone();
