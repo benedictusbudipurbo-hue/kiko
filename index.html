@@ -3183,6 +3183,9 @@
       contoh: L(['"Timer 5 menit"', '"Sisa timer berapa?"', '"Batalkan timer"'], ['"Set a timer for 5 minutes"', '"How much time is left?"', '"Cancel the timer"']) });
     if (fitur.cuaca) B.push({ k: 'cuaca', judul: L('Cuaca', 'Weather'), bisa: L('memberi tahu cuaca', 'tell you the weather'),
       contoh: L(['"Cuaca hari ini"', '"Besok hujan nggak?"'], ['"What\'s the weather?"', '"Will it rain tomorrow?"']) });
+    B.push({ k: 'ekspresi', judul: L('Ekspresi', 'Expressions'), bisa: L('menunjukkan ekspresi', 'show my expressions'),
+      contoh: L(['"Coba senyum" / "Tunjukkan wajah marah"', '"Tahan ekspresi sedih" lalu "kembali normal"', '"Tunjukkan semua ekspresi" (uji semuanya, "stop" untuk berhenti)'],
+                ['"Show me happy" / "Make an angry face"', '"Hold a sad face", then "back to normal"', '"Show all expressions" (test them all, "stop" to end)']) });
     B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
       contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
                 ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
@@ -3223,16 +3226,90 @@
       ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
       : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
     const topik = bahasa === 'en'
-      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather)/)
-      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca)/);
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah)/);
     if (topik) {
       const w = topik[2];
       const k = /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
-              : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : 'telepon';
+              : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : /ekspresi|wajah|expression|face/.test(w) ? 'ekspresi' : 'telepon';
       if (tampilkanBantuan(k)) return true;
     }
     if (!umum.test(t)) return false;
     return tampilkanBantuan(null);
+  }
+
+  // ---- Perintah ekspresi lewat suara (2026-10-18/19, untuk menguji tiap ekspresi + pose leher) ----
+  // "coba senyum", "tunjukkan wajah marah", "kayak orang ngantuk", "tahan ekspresi sedih",
+  // "tunjukkan semua ekspresi"; EN "show me happy", "make an angry face", "show all expressions".
+  // Butuh kata perintah (coba/tunjukkan/ekspresi/wajah/…): "aku sedih" tetap diteruskan ke AI.
+  // Ekspresi dikirim ke base sebagai E,<nama> lewat jalur biasa, jadi leher ikut berpose.
+  const SINONIM_EKSPRESI = [
+    ['senang', /\b(senang|senyum|tersenyum|gembira|bahagia|happy|smile|smiling)\b/],
+    ['tertawa', /\b(tertawa|ketawa|tawa|ngakak|laugh|laughing)\b/],
+    ['kaget', /\b(kaget|terkejut|kejut|surprised?|shocked)\b/],
+    ['ngantuk', /\b(ngantuk|mengantuk|sleepy)\b/],
+    ['sedih', /\b(sedih|nangis|menangis|sad|crying)\b/],
+    ['marah', /\b(marah|galak|ngambek|angry|mad)\b/],
+    ['curiga', /\b(curiga|suspicious)\b/],
+    ['sayang', /\b(sayang|cinta|jatuh cinta|love|loving|in love)\b/],
+    ['bingung', /\b(bingung|confused|puzzled)\b/],
+    ['tidur', /\b(tidur|bobo|asleep|sleeping)\b/],
+    ['normal', /\b(normal|biasa|netral|neutral)\b/],
+  ];
+  const PEMICU_EKSPRESI = /\b(coba|cobain|tunjukkan|tunjukin|tampilkan|perlihatkan|pasang|bikin|buat|pura-pura|kayak|seperti|gaya|tahan|ekspresi|wajah|muka|mimik|show|make|do|act|pretend|look|face|expression)\b/;
+  const tes = { aktif: false, token: 0 };
+  function namaEkspresi(n) { return L(EKSPRESI[n].label, LABEL_EN[n] || EKSPRESI[n].label); }
+  function tunggu(ms) { return new Promise(r => setTimeout(r, ms)); }
+  async function tungguSelesaiBicara(maks = 8000) {
+    const akhir = Date.now() + maks;
+    while ((ai.bicara || (window.speechSynthesis && speechSynthesis.speaking)) && Date.now() < akhir) await tunggu(150);
+  }
+  async function tunjukkanSemuaEkspresi() {
+    tes.aktif = true;
+    ucapkan(L('Oke, aku tunjukkan semua ekspresiku.', "Okay, here are all my expressions."), 'senang');
+    await tungguSelesaiBicara();
+    for (const [i, n] of URUTAN.entries()) {
+      if (!tes.aktif) return;
+      interaksi();
+      ucapkan(namaEkspresi(n), n);
+      tampilTeks(`${i + 1}/${URUTAN.length} · ${namaEkspresi(n)}`, 3500);
+      await tungguSelesaiBicara();
+      ekspresiSingkat(n, 2600);                 // tahan setelah bicara supaya leher sempat berpose
+      await tunggu(2600);
+    }
+    tes.aktif = false;
+    ucapkan(L('Selesai! Itu semua ekspresiku.', "Done! Those are all my expressions."), 'senang');
+  }
+  function jawabEkspresi(t) {
+    if (tes.aktif && /\b(stop|berhenti|cukup|udah|sudah|selesai|batal)\b/.test(t)) {
+      tes.aktif = false; ucapkan(L('Oke, berhenti.', 'Okay, stopping.'), 'normal'); return true;
+    }
+    if (/\b(semua|all)\b/.test(t) && /\b(ekspresi|ekspresimu|wajah|muka|expressions?|faces?)\b/.test(t)
+        && /\b(tunjukkan|tunjukin|tampilkan|perlihatkan|coba|show|play|demo|test|tes|uji)\b/.test(t)) {
+      if (!tes.aktif) tunjukkanSemuaEkspresi();
+      return true;
+    }
+    if (/\b(kembali normal|normal lagi|back to normal)\b/.test(t)) {
+      tes.token++; sementara = null; moodManual = null; tandaiEkspresi();
+      ucapkan(L('Oke, aku normal lagi.', "Okay, I'm back to normal."), 'normal'); return true;
+    }
+    if (!PEMICU_EKSPRESI.test(t)) return false;
+    if (/\b(telepon|telpon|telfon|hubungi|wa|whatsapp|call|phone|message|pesan|ingatkan|remind|timer)\b/.test(t)) return false;   // "coba telepon sayang" tetap telepon
+    const cocok = SINONIM_EKSPRESI.find(([, re]) => re.test(t));
+    if (!cocok) return false;
+    const n = cocok[0];
+    const token = ++tes.token;   // perintah baru membatalkan penahan ekspresi sebelumnya
+    interaksi();
+    if (/\b(tahan|terus|seterusnya|keep|hold|stay)\b/.test(t)) {
+      // Mode uji: ekspresi bertahan sampai "kembali normal" (sama seperti memilih di panel).
+      pilihEkspresi(n);
+      ucapkan(L(`Ini wajah ${namaEkspresi(n).toLowerCase()}ku. Bilang "kembali normal" kalau sudah.`,
+                `This is my ${namaEkspresi(n).toLowerCase()} face. Say "back to normal" when you're done.`), n);
+      return true;
+    }
+    ucapkan(L(`Ini wajah ${namaEkspresi(n).toLowerCase()}ku!`, `This is my ${namaEkspresi(n).toLowerCase()} face!`), n);
+    tungguSelesaiBicara().then(() => { if (tes.token === token) ekspresiSingkat(n, 5000); });   // tahan 5 dtk setelah bicara
+    return true;
   }
 
   function jawabLokalInti(teks) {
@@ -3269,6 +3346,7 @@
       return true;
     }
     if (/baterai/.test(t) && /(berapa|sisa|masih|tinggal|level|habis|penuh|cukup)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabEkspresi(t)) return true;                        // "coba senyum", "tunjukkan semua ekspresi"
     if (jawabAsisten(t)) return true;                         // telepon/WA, timer, radio, cuaca
     if (/(jam|pukul) berapa/.test(t)) {
       const d = new Date();
@@ -4050,6 +4128,7 @@
       return true;
     }
     if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabEkspresi(t)) return true;                        // "show me happy", "show all expressions"
     if (fitur.telepon && jawabTeleponEn(t)) return true;
     if (fitur.timer && jawabTimerEn(t)) return true;
     if (fitur.radio && jawabRadioEn(t)) return true;
@@ -4149,6 +4228,8 @@
     window.kikoUji = teks => jawabLokal(teks);
     // Uji jawaban Worker v7 tanpa AI: kikoUjiAksi({aksi:'radio_putar', target:'Suara Surabaya'}).
     window.kikoUjiAksi = d => jalankanAksiAi(d);
+    // Ekspresi yang sedang tampil (uji perintah ekspresi): kikoMood() -> 'senang' dsb.
+    window.kikoMood = () => moodSaatIni(performance.now());
     // Uji tanpa base: pura-pura terhubung lalu terima satu baris dari base, mis. "B,6.95".
     window.kikoUjiBase = baris => { ble.terhubung = true; terimaBaris(baris); return { persen: ble.persen, chip: document.getElementById('chipBase').textContent }; };
   }
