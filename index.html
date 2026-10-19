@@ -3821,7 +3821,8 @@
     // "panggil" sengaja tidak dipakai: "panggil aku Budi" itu perkenalan, bukan telepon.
     const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\b/.test(t);
     if (!pesan && !telp) return false;
-    const mode = pesan ? 'pesan' : /video ?call|\bvc\b/.test(t) ? 'vc' : lewatWa ? 'wa' : 'tel';
+    // 2026-10-19 (pengguna: "hilangkan telepon tanpa WA, hanya telepon via WA"): semua telepon lewat WhatsApp.
+    const mode = pesan ? 'pesan' : /video ?call|\bvc\b/.test(t) ? 'vc' : 'wa';   // dulu: lewatWa ? 'wa' : 'tel'
     const k = cariKontak(t);
     // Nomor diucapkan langsung, tanpa daftar.
     const n = !k && nomorDiucapkan(t);
@@ -4253,7 +4254,8 @@
     const lewatWa = /(on|via|through|using|over) whatsapp|video call/.test(t);
     const telp = /\b(call|phone|ring|dial)\b/.test(t) && !/\bcall me\b/.test(t);
     if (!pesan && !telp) return false;
-    const mode = pesan ? 'pesan' : /video ?call/.test(t) ? 'vc' : lewatWa ? 'wa' : 'tel';
+    // 2026-10-19 (pengguna): semua telepon lewat WhatsApp, tidak ada telepon biasa lagi.
+    const mode = pesan ? 'pesan' : /video ?call/.test(t) ? 'vc' : 'wa';   // dulu: lewatWa ? 'wa' : 'tel'
     const k = cariKontak(t);
     const n = !k && nomorDiucapkan(t);
     if (n) {
