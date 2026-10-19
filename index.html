@@ -108,6 +108,19 @@
   label.saklar { display: flex; gap: 10px; align-items: center; font-size: 14px; cursor: pointer; }
   label.saklar input { width: 18px; height: 18px; accent-color: var(--mata); }
   .petunjuk { font-size: 12px; color: var(--redup); line-height: 1.6; margin: 0; }
+  /* "Kenali KiKo": daftar uji di dalam ATUR (sama isinya dengan bab 5 manual) */
+  .daftar-uji { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .daftar-uji li { display: grid; grid-template-columns: 22px 1fr auto; gap: 4px 10px; align-items: center;
+    padding: 8px 10px; border: 1px solid var(--garis); border-radius: 10px; }
+  .daftar-uji li.lulus { border-color: var(--mata); }
+  .daftar-uji input { width: 18px; height: 18px; accent-color: var(--mata); margin: 0; }
+  .daftar-uji .judul-uji { font-size: 14px; }
+  .daftar-uji .judul-uji b { font-weight: 600; }
+  .daftar-uji .ket-uji { grid-column: 2 / 4; font-size: 12px; color: var(--redup); line-height: 1.5; }
+  .daftar-uji .ket-uji q { color: var(--teks); }
+  .daftar-uji .coba-uji { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--mata); background: transparent; color: var(--mata); min-width: 44px; min-height: 32px; }
+  .daftar-uji .coba-uji:focus-visible { outline: 2px solid var(--mata); outline-offset: 2px; }
 
   /* ---------- Ngobrol: tombol mikrofon & teks ---------- */
   /* Mikrofon di pojok kanan bawah: dulu di tengah bawah dan menutupi mulut kucing.
@@ -190,6 +203,23 @@
     background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   #tombolStopRadio[hidden] { display: none; }
+  /* ---------- Mode nonton YouTube (2026-10-19) ----------
+     Video memenuhi layar di belakang; wajah KiKo diperkecil ke pojok kiri atas (CSS transform,
+     resolusi kanvas tetap, jadi kode gambar tidak berubah) dan ikut "menonton". Tombol tutup
+     di #sudut (pojok kiri bawah), seperti tombol stop radio. */
+  #nonton { position: fixed; inset: 0; background: #000; display: none; }
+  #nonton iframe, #nonton > div { width: 100%; height: 100%; border: 0; display: block; }
+  body.nonton #nonton { display: block; }
+  body.nonton #wajah {
+    transform: scale(.28); transform-origin: calc(12px + env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-top, 0px));
+    pointer-events: none;   /* tanpa kotak: hanya dua mata mengambang (lihat hanyaMata di bingkai) */
+  }
+  body.nonton #pratinjauKamera { display: none; }
+  #tombolTutupYt {
+    pointer-events: auto; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--garis);
+    background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #tombolTutupYt[hidden] { display: none; }
   /* Kartu bantuan "kamu bisa apa?" (2026-10-18): di pita bawah, ketuk untuk menutup. */
   #kartuBantuan { pointer-events: auto; text-align: left; font-size: 13px; line-height: 1.35; max-width: min(560px, 92vw); cursor: pointer; }
   #kartuBantuan[hidden] { display: none; }
@@ -220,6 +250,7 @@
   }
 </style>
 
+<div id="nonton" aria-label="Video YouTube"><div id="ytPemutar"></div></div>
 <canvas id="wajah" aria-label="Wajah KiKo: dua mata animasi. Ketuk, ketuk dua kali, atau tahan untuk berinteraksi."></canvas>
 
 <div id="pasang">
@@ -241,6 +272,7 @@
   <p id="teksBaterai" hidden aria-live="polite"><span class="ikonBaterai" aria-hidden="true"><i id="isiIkonBaterai"></i></span><span id="angkaBaterai"></span></p>
   <p id="teksTimer" hidden aria-live="off"></p>
   <button id="tombolStopRadio" type="button" hidden></button>
+  <button id="tombolTutupYt" class="tombolSudut" type="button" hidden>✕ YouTube</button>
   <p id="jam" hidden aria-live="off"></p>
 </div>
 <div id="pita">
@@ -276,6 +308,16 @@
     <div class="baris" style="justify-content:flex-start" id="pilihBahasa">
       <button class="pilih" type="button" data-bahasa="id" aria-pressed="true">Indonesia</button>
       <button class="pilih" type="button" data-bahasa="en" aria-pressed="false">English</button>
+    </div>
+  </div>
+
+  <div class="bagian">
+    <h2 data-en="Get to know KiKo (try it yourself)">Kenali KiKo (coba sendiri)</h2>
+    <p class="petunjuk" data-en="Say the example sentence to KiKo, or tap ▶ and KiKo shows it by itself. Tick the box when it works.">Ucapkan contoh kalimatnya ke KiKo, atau ketuk ▶ supaya KiKo memperagakannya sendiri. Centang kalau berhasil.</p>
+    <p class="petunjuk" id="statusUji" role="status"></p>
+    <ol id="daftarUji" class="daftar-uji"></ol>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolUjiKosong" type="button" data-en="Clear ticks">Kosongkan centang</button>
     </div>
   </div>
 
@@ -415,6 +457,19 @@
     <input id="volRadio" type="range" min="0" max="100" step="5" value="70">
     <p class="petunjuk" id="statusRadio" role="status">Mati.</p>
     <p class="petunjuk" data-en="Say: &quot;play the radio&quot;, &quot;play radio Suara Surabaya&quot;, &quot;play the news&quot;, &quot;play some music&quot;, &quot;stop the radio&quot;, &quot;turn it down&quot;, &quot;turn it up&quot;. Streams must be https. While the radio plays, automatic listening pauses and the radio is turned down while KiKo listens or speaks. With dance mode on, KiKo dances along.">Bilang: "putar radio", "putar radio Suara Surabaya", "putar berita", "putar musik", "matikan radio", "kecilkan suara", "besarkan suara". Stream harus https. Selama radio menyala, dengar otomatis istirahat dan suara radio dikecilkan saat KiKo mendengar/bicara. Kalau mode menari nyala, KiKo ikut menari.</p>
+  </div>
+
+  <div class="bagian">
+    <h2 data-en="Watch YouTube">Nonton YouTube</h2>
+    <div class="baris" style="justify-content:flex-start;align-items:center">
+      <input class="isian" id="ytLink" type="url" inputmode="url" placeholder="Link YouTube (youtu.be/…)" data-en-ph="YouTube link (youtu.be/…)" aria-label="Link video YouTube" autocomplete="off" spellcheck="false" style="flex:1;min-width:12em;width:auto">
+      <button class="tombol" id="tombolYtTempel" type="button" data-en="Paste">Tempel</button>
+      <button class="tombol utama" id="tombolYtPutar" type="button" data-en="Watch">Tonton</button>
+    </div>
+    <label class="saklar"><input type="checkbox" id="cekYtJeda" checked> <span data-en="Pause when nobody is watching, resume when you come back (needs Face tracking)">Jeda saat tidak ada yang menonton, lanjut saat kembali (butuh Pelacakan wajah)</span></label>
+    <p class="petunjuk" id="statusYt" role="status">Belum ada video.</p>
+    <ul class="daftar" id="daftarYt"></ul>
+    <p class="petunjuk" data-en="Easiest: in the YouTube app tap Share → KiKo (KiKo must be installed as an app). Or copy the link, then tap Paste. Say: &quot;watch YouTube&quot; (last video), &quot;pause&quot;, &quot;continue&quot;, &quot;close YouTube&quot;. KiKo watches with you from the corner and turns its head toward you. Viu/WeTV/Netflix can't be shown inside KiKo; use split screen.">Paling mudah: di aplikasi YouTube ketuk Bagikan → KiKo (KiKo harus terpasang sebagai aplikasi). Atau salin link, lalu ketuk Tempel. Bilang: "nonton youtube" (video terakhir), "jeda", "lanjut", "tutup youtube". KiKo ikut menonton dari pojok dan menoleh ke arah Anda. Viu/WeTV/Netflix tidak bisa diputar di dalam KiKo; pakai layar terpisah (split screen).</p>
   </div>
 
   <div class="bagian">
@@ -1236,13 +1291,31 @@
   //  LOOP UTAMA
   // =====================================================================
   let waktuLalu = performance.now();
+  // Bayangan lembut di belakang tiap mata (mode nonton: kanvas bening di atas video).
+  function gambarHaloMata(dyTambah) {
+    for (const arah of [-1, 1]) {
+      const cx = W / 2 + arah * 0.47 * U, cy = H / 2 + dyTambah * U;
+      const g = ctx.createRadialGradient(cx, cy, 0.1 * U, cx, cy, 0.42 * U);
+      g.addColorStop(0, 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(cx, cy, 0.42 * U, 0.3 * U, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   function bingkai(now) {
     const dt = Math.min(0.05, (now - waktuLalu) / 1000);
     waktuLalu = now;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = gaya !== 'robot' ? kulit.latar : '#000';
-    ctx.fillRect(0, 0, kanvas.width, kanvas.height);
+    // Mode nonton YouTube (pengguna 2026-10-19: "hanya tampilan mata tanpa background, lebih
+    // elegan"): kanvas dibiarkan bening, wajah tanpa kulit/corak/hidung/alis, cuma dua mata
+    // mengambang di atas video dengan bayangan lembut supaya tetap terbaca di adegan terang.
+    const hanyaMata = document.body.classList.contains('nonton');
+    if (hanyaMata) ctx.clearRect(0, 0, kanvas.width, kanvas.height);
+    else {
+      ctx.fillStyle = gaya !== 'robot' ? kulit.latar : '#000';
+      ctx.fillRect(0, 0, kanvas.width, kanvas.height);
+    }
 
     if (fase === 'memuat') {
       const p = (now - mulaiMuat) / 1500;
@@ -1297,12 +1370,16 @@
 
     const kedipan = nilaiKedip(now, mood);
     perbaruiTataWajah();
+    if (hanyaMata) { aturTransformWajah(ctx); gambarHaloMata(dyTambah); ctx.setTransform(1, 0, 0, 1, 0, 0); }
     if (gaya !== 'robot') {
       aturTransformWajah(ctx);
-      if (gaya === 'kucing') gambarPolaKucing(dyTambah);
+      if (gaya === 'kucing' && !hanyaMata) gambarPolaKucing(dyTambah);
+      const alisLama = pakaiAlis;
+      if (hanyaMata) pakaiAlis = false;
       gambarMataRealistis('kiri', mata.kiri.cur, kedipan, now, dyTambah);
       gambarMataRealistis('kanan', mata.kanan.cur, kedipan, now, dyTambah);
-      if (gaya === 'kucing') gambarWajahKucing(mood, now, dyTambah);
+      pakaiAlis = alisLama;
+      if (gaya === 'kucing' && !hanyaMata) gambarWajahKucing(mood, now, dyTambah);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
       lctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1838,6 +1915,7 @@
 
   // Kembali ke layar "PASANG HP KE KIKO" dengan mata tertidur (seperti Looi).
   function keLayarPasang(pesan) {
+    if (nonton.aktif) tutupYoutube();        // base terputus / HP diangkat: video ikut ditutup
     fase = 'pasang';
     setTimeout(nyalakanNfcLagi, 500);
     tutupPanel();
@@ -2431,7 +2509,7 @@
     const adaWajah = wajah.ada;
     if (adaWajah && !wajahTadi) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = now + 800; }   // orang baru datang
     wajahTadi = adaWajah;
-    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden || modeMalamAktif() || tari.mik || radioMain()) return;
+    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden || modeMalamAktif() || tari.mik || radioMain() || videoMain()) return;
     if (!adaWajah || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
     mulaiDengar(true);
   }, 300);
@@ -3176,6 +3254,9 @@
     if (fitur.radio) B.push({ k: 'radio', judul: 'Radio', bisa: L('memutar radio', 'play the radio'),
       contoh: L(['"Putar radio" (aku tanya stasiunnya)', '"Nyalakan Suara Surabaya"', '"Stop", atau tombol ⏹ di pojok'],
                 ['"Play the radio" (I\'ll ask which one)', '"Play Suara Surabaya"', '"Stop", or the ⏹ button in the corner']) });
+    B.push({ k: 'youtube', judul: 'YouTube', bisa: L('menemani nonton YouTube', 'watch YouTube with you'),
+      contoh: L(['Aplikasi YouTube: Bagikan → KiKo', '"Nonton youtube" (video terakhir)', '"Jeda" / "Lanjut" / "Tutup youtube"'],
+                ['YouTube app: Share → KiKo', '"Watch YouTube" (last video)', '"Pause" / "Continue" / "Close YouTube"']) });
     B.push({ k: 'pengingat', judul: L('Pengingat', 'Reminders'), bisa: L('membuat pengingat', 'set reminders'),
       contoh: L(['"Ingatkan aku jam 7 malam minum obat"', '"Ingatkan aku 10 menit lagi angkat jemuran"', '"Setiap hari jam 6 pagi ingatkan aku olahraga"', '"Pengingat apa saja?"'],
                 ['"Remind me at 7 pm to take my medicine"', '"Remind me in 10 minutes to check the oven"', '"Remind me every day at 6 am to exercise"', '"What are my reminders?"']) });
@@ -3226,11 +3307,11 @@
       ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
       : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
     const topik = bahasa === 'en'
-      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?)/)
-      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah)/);
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton)/);
     if (topik) {
       const w = topik[2];
-      const k = /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
+      const k = /youtube|yutub|nonton|watch/.test(w) ? 'youtube' : /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
               : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : /ekspresi|wajah|expression|face/.test(w) ? 'ekspresi' : 'telepon';
       if (tampilkanBantuan(k)) return true;
     }
@@ -3709,6 +3790,7 @@
   function radioMain() { return !!radio.stasiun && !audioRadio.paused; }
 
   function putarRadio(s) {
+    if (nonton.aktif) tutupYoutube();          // radio dan video jangan bersuara bersamaan
     radio.stasiun = s;
     audioRadio.src = s.url;
     audioRadio.play().then(() => {
@@ -4129,6 +4211,7 @@
     }
     if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
     if (jawabEkspresi(t)) return true;                        // "show me happy", "show all expressions"
+    if (jawabNontonEn(t)) return true;
     if (fitur.telepon && jawabTeleponEn(t)) return true;
     if (fitur.timer && jawabTimerEn(t)) return true;
     if (fitur.radio && jawabRadioEn(t)) return true;
@@ -4228,14 +4311,319 @@
     window.kikoUji = teks => jawabLokal(teks);
     // Uji jawaban Worker v7 tanpa AI: kikoUjiAksi({aksi:'radio_putar', target:'Suara Surabaya'}).
     window.kikoUjiAksi = d => jalankanAksiAi(d);
+    // Uji pengurai link YouTube: kikoUraiYt('https://youtu.be/ID?t=90') -> {id, list, mulai}.
+    window.kikoUraiYt = s => uraiYt(s);
+    window.kikoNonton = () => { let st = null; try { st = nonton.pemutar && nonton.pemutar.getPlayerState(); } catch (_) {} return { aktif: nonton.aktif, siap: nonton.siap, st, tunda: !!nonton.tunda, radio: radioMain(), stasiun: radio.stasiun && radio.stasiun.nama }; };
     // Ekspresi yang sedang tampil (uji perintah ekspresi): kikoMood() -> 'senang' dsb.
     window.kikoMood = () => moodSaatIni(performance.now());
     // Uji tanpa base: pura-pura terhubung lalu terima satu baris dari base, mis. "B,6.95".
     window.kikoUjiBase = baris => { ble.terhubung = true; terimaBaris(baris); return { persen: ble.persen, chip: document.getElementById('chipBase').textContent }; };
   }
 
+  // =====================================================================
+  //  MODE NONTON YOUTUBE (2026-10-19, permintaan pengguna "buat mode nonton youtube")
+  //  Video diputar lewat pemutar resmi YouTube (IFrame API, youtube-nocookie) memenuhi layar;
+  //  wajah KiKo mengecil ke pojok kiri atas dan tetap hidup, kamera tetap mengikuti wajah
+  //  penonton, jadi kepala KiKo menoleh ke penonton seperti teman nonton. Ini hanya mungkin
+  //  karena video dan KiKo ada di halaman yang SAMA (Android hanya memberi kamera ke satu
+  //  aplikasi di depan). Viu/WeTV/Netflix tidak bisa disematkan (DRM / larangan embed).
+  //  Masuk: Bagikan dari aplikasi YouTube ke KiKo (share_target di manifest.json -> ?tautan=),
+  //  tempel link di ATUR, atau suara "nonton youtube" (video terakhir, dari posisi terakhir).
+  //  Jeda otomatis: tidak ada wajah > 10 s (butuh Pelacakan wajah) -> jeda; wajah kembali -> lanjut.
+  //  Dengar otomatis istirahat selama video main (suara video jangan dijawab KiKo); suara video
+  //  dikecilkan saat mikrofon ditekan atau KiKo bicara. Cari video lewat suara belum ada (butuh
+  //  kunci YouTube Data API di Worker; repo web publik, jadi kunci tidak boleh di sini).
+  // =====================================================================
+  const nonton = { aktif: false, pemutar: null, siap: false, v: null, dijedaKiKo: false, hilangSejak: 0, vol: 100, janjiApi: null, tunda: null };
+  const elStatusYt = document.getElementById('statusYt');
+  const elDaftarYt = document.getElementById('daftarYt');
+  const elYtLink = document.getElementById('ytLink');
+  const cekYtJeda = document.getElementById('cekYtJeda');
+  const tombolTutupYt = document.getElementById('tombolTutupYt');
+  let riwayatYt = [];
+  try {
+    const r = JSON.parse(localStorage.getItem('kiko.yt.riwayat') || '[]');
+    if (Array.isArray(r)) riwayatYt = r.filter(x => x && (typeof x.id === 'string' || typeof x.list === 'string')).slice(0, 8);
+    cekYtJeda.checked = localStorage.getItem('kiko.yt.jeda') !== '0';
+  } catch (_) {}
+  cekYtJeda.addEventListener('change', () => { try { localStorage.setItem('kiko.yt.jeda', cekYtJeda.checked ? '1' : '0'); } catch (_) {} });
+  function simpanRiwayatYt() { try { localStorage.setItem('kiko.yt.riwayat', JSON.stringify(riwayatYt)); } catch (_) {} }
+
+  // Link -> {id, list, mulai}. Menerima youtu.be/ID, watch?v=, shorts/, live/, embed/, music.youtube,
+  // ID 11 huruf saja, playlist (list=), dan waktu mulai t=90 / t=1m30s / start=90.
+  function uraiYt(s) {
+    if (!s) return null;
+    s = String(s).trim();
+    const m = s.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#\s]*&)?v=|shorts\/|live\/|embed\/|v\/))([A-Za-z0-9_-]{11})/);
+    let id = m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(s) ? s : null);
+    const l = s.match(/[?&]list=([A-Za-z0-9_-]{10,})/);
+    const list = l ? l[1] : null;
+    if (!id && !list) return null;
+    let mulai = 0;
+    const t = s.match(/[?&#](?:t|start)=(?:(\d+)h)?(?:(\d+)m)?(\d+)s?\b/);
+    if (t) mulai = (Number(t[1] || 0) * 3600) + (Number(t[2] || 0) * 60) + Number(t[3] || 0);
+    return { id, list, mulai };
+  }
+  function muatApiYt() {
+    if (window.YT && window.YT.Player) return Promise.resolve();
+    if (nonton.janjiApi) return nonton.janjiApi;
+    nonton.janjiApi = new Promise((ok, gagal) => {
+      const lama = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (typeof lama === 'function') lama(); ok(); };
+      const sc = document.createElement('script');
+      sc.src = 'https://www.youtube.com/iframe_api';
+      sc.onerror = () => { nonton.janjiApi = null; gagal(new Error('muat')); };
+      document.head.append(sc);
+      setTimeout(() => { if (!(window.YT && window.YT.Player)) { nonton.janjiApi = null; gagal(new Error('waktu')); } }, 12000);
+    });
+    return nonton.janjiApi;
+  }
+  function videoMain() {
+    try { return nonton.aktif && nonton.siap && nonton.pemutar.getPlayerState() === 1; } catch (_) { return false; }
+  }
+  async function putarYoutube(v, posisi) {
+    if (!v) return false;
+    if (fase !== 'hidup') {               // mis. dibagikan dari YouTube sebelum base tersambung
+      nonton.tunda = { v, posisi };
+      elStatusYt.textContent = L('Video siap. Hubungkan base dulu, nanti langsung diputar.', 'Video ready. Connect the base first; it will play right away.');
+      return true;
+    }
+    if (radioMain()) hentikanRadio();
+    elStatusYt.textContent = L('Memuat pemutar YouTube…', 'Loading the YouTube player…');
+    try { await muatApiYt(); } catch (_) {
+      elStatusYt.textContent = L('Pemutar YouTube tidak bisa dimuat. Cek internet (tidak jalan di link artifact).', 'The YouTube player could not load. Check the internet (it does not work in the artifact link).');
+      ucapkan(L('Maaf, YouTube-nya tidak bisa dibuka.', "Sorry, I couldn't open YouTube."), 'sedih');
+      return true;
+    }
+    nonton.v = v; nonton.dijedaKiKo = false; nonton.hilangSejak = 0;
+    nonton.aktif = true;
+    document.body.classList.add('nonton');
+    tombolTutupYt.hidden = false;
+    const mulai = Math.max(0, Math.floor(posisi || v.mulai || 0));
+    if (nonton.pemutar && nonton.siap) {
+      if (v.id) nonton.pemutar.loadVideoById({ videoId: v.id, startSeconds: mulai });
+      else nonton.pemutar.loadPlaylist({ list: v.list, listType: 'playlist' });
+    } else {
+      const vars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, start: mulai, hl: bahasa };
+      if (v.list) { vars.list = v.list; if (!v.id) vars.listType = 'playlist'; }
+      nonton.pemutar = new YT.Player('ytPemutar', {
+        host: 'https://www.youtube-nocookie.com', videoId: v.id || undefined, playerVars: vars,
+        events: {
+          onReady: e => { nonton.siap = true; e.target.setVolume(nonton.vol); e.target.playVideo(); },
+          onStateChange: saatStatusYt,
+          onError: saatGalatYt
+        }
+      });
+    }
+    ekspresiSingkat('senang', 2500);
+    return true;
+  }
+  function saatStatusYt(e) {
+    if (e.data === 1) {                           // PLAYING
+      const d = (nonton.pemutar.getVideoData && nonton.pemutar.getVideoData()) || {};
+      const id = d.video_id || (nonton.v && nonton.v.id);
+      const judul = d.title || L('Video YouTube', 'YouTube video');
+      elStatusYt.textContent = L('Memutar: ', 'Playing: ') + judul;
+      if (id) {
+        riwayatYt = riwayatYt.filter(x => x.id !== id);
+        riwayatYt.unshift({ id, list: nonton.v && nonton.v.list || null, judul, posisi: Math.floor(nonton.pemutar.getCurrentTime() || 0), waktu: Date.now() });
+        riwayatYt = riwayatYt.slice(0, 8); simpanRiwayatYt(); tampilkanRiwayatYt();
+      }
+    } else if (e.data === 0) {                    // ENDED (playlist: hanya di akhir daftar)
+      elStatusYt.textContent = L('Videonya selesai.', 'The video has ended.');
+      if (riwayatYt[0]) { riwayatYt[0].posisi = 0; simpanRiwayatYt(); }
+      ekspresiSingkat('senang', 3000);
+    }
+  }
+  function saatGalatYt(e) {
+    const v = nonton.v || {};
+    const kunci = e.data === 101 || e.data === 150;   // pemilik video melarang diputar di luar YouTube
+    tutupYoutube();
+    if (kunci && v.id) {
+      ucapkan(L('Video ini hanya boleh diputar di aplikasi YouTube.', 'This video can only be played in the YouTube app.'), 'sedih');
+      tawarkanAksi(L('Buka video ini di YouTube?', 'Open this video in YouTube?'), L('Buka YouTube', 'Open YouTube'), 'https://www.youtube.com/watch?v=' + v.id, true);
+    } else {
+      ucapkan(L('Maaf, videonya tidak bisa diputar.', "Sorry, that video won't play."), 'sedih');
+    }
+    elStatusYt.textContent = L('Gagal memutar (kode ', 'Could not play (code ') + e.data + ').';
+  }
+  function tutupYoutube() {
+    if (nonton.pemutar && nonton.siap) {
+      try {
+        const id = nonton.pemutar.getVideoData().video_id;
+        const r = riwayatYt.find(x => x.id === id);
+        if (r && nonton.pemutar.getPlayerState() !== 0) { r.posisi = Math.floor(nonton.pemutar.getCurrentTime() || 0); simpanRiwayatYt(); }
+      } catch (_) {}
+    }
+    try { if (nonton.pemutar) nonton.pemutar.destroy(); } catch (_) {}
+    nonton.pemutar = null; nonton.siap = false; nonton.aktif = false; nonton.dijedaKiKo = false;
+    // destroy() membuang iframe; siapkan lagi wadahnya untuk video berikutnya
+    if (!document.getElementById('ytPemutar')) { const d = document.createElement('div'); d.id = 'ytPemutar'; document.getElementById('nonton').append(d); }
+    document.body.classList.remove('nonton');
+    tombolTutupYt.hidden = true;
+    elStatusYt.textContent = riwayatYt.length ? L('Ditutup. Bilang "nonton youtube" untuk melanjutkan.', 'Closed. Say "watch YouTube" to continue.') : L('Belum ada video.', 'No video yet.');
+    terakhirInteraksi = performance.now();
+  }
+  tombolTutupYt.addEventListener('click', e => { e.stopPropagation(); tutupYoutube(); });
+  function lanjutTerakhirYt() {
+    const r = riwayatYt[0];
+    if (!r) return false;
+    return putarYoutube({ id: r.id, list: r.list, mulai: 0 }, r.posisi);
+  }
+  function tampilkanRiwayatYt() {
+    elDaftarYt.textContent = '';
+    for (const r of riwayatYt) {
+      const li = document.createElement('li');
+      const sp = document.createElement('span');
+      const mnt = Math.floor((r.posisi || 0) / 60), dtk = (r.posisi || 0) % 60;
+      sp.textContent = r.judul + (r.posisi > 5 ? ` (${mnt}:${String(dtk).padStart(2, '0')})` : '');
+      const b = document.createElement('button');
+      b.className = 'tombol'; b.type = 'button'; b.textContent = L('Tonton', 'Watch');
+      b.addEventListener('click', () => { tutupPanel(); putarYoutube({ id: r.id, list: r.list, mulai: 0 }, r.posisi); });
+      const h = document.createElement('button');
+      h.className = 'tombol'; h.type = 'button'; h.textContent = L('Hapus', 'Delete');
+      h.addEventListener('click', () => { riwayatYt = riwayatYt.filter(x => x !== r); simpanRiwayatYt(); tampilkanRiwayatYt(); });
+      li.append(sp, b, h);
+      elDaftarYt.append(li);
+    }
+  }
+  tampilkanRiwayatYt();
+  function putarDariIsian() {
+    const v = uraiYt(elYtLink.value);
+    if (!v) { elStatusYt.textContent = L('Itu bukan link YouTube. Contoh: https://youtu.be/…', "That isn't a YouTube link. Example: https://youtu.be/…"); return; }
+    elYtLink.value = '';
+    tutupPanel();
+    putarYoutube(v);
+  }
+  document.getElementById('tombolYtPutar').addEventListener('click', putarDariIsian);
+  elYtLink.addEventListener('keydown', e => { if (e.key === 'Enter') putarDariIsian(); });
+  document.getElementById('tombolYtTempel').addEventListener('click', async () => {
+    try {
+      const t = await navigator.clipboard.readText();
+      elYtLink.value = t.trim();
+      if (uraiYt(t)) putarDariIsian();
+      else elStatusYt.textContent = L('Isi papan klip bukan link YouTube.', 'The clipboard does not hold a YouTube link.');
+    } catch (_) {
+      elStatusYt.textContent = L('Tidak bisa membaca papan klip. Tahan kotak link lalu pilih Tempel.', "Can't read the clipboard. Long-press the link box and choose Paste.");
+      elYtLink.focus();
+    }
+  });
+  // Volume video dikecilkan saat KiKo mendengar / bicara (seperti radio).
+  setInterval(() => {
+    if (!nonton.siap || !nonton.pemutar) return;
+    const target = Math.round(nonton.vol * ((ai.tahap === 'dengar' || ai.bicara) ? 0.2 : 1));
+    try { if (Math.abs(nonton.pemutar.getVolume() - target) > 1) nonton.pemutar.setVolume(target); } catch (_) {}
+  }, 250);
+  // Jeda otomatis saat penonton pergi, lanjut saat kembali; simpan posisi tiap 5 s.
+  let detikSimpanYt = 0;
+  setInterval(() => {
+    if (!nonton.aktif || !nonton.siap) return;
+    const now = performance.now();
+    let st = -1;
+    try { st = nonton.pemutar.getPlayerState(); } catch (_) { return; }
+    if (st === 1) terakhirInteraksi = now;          // jangan mengantuk/tidur selama nonton
+    if (st === 1 && ++detikSimpanYt >= 5 && riwayatYt[0]) {
+      detikSimpanYt = 0;
+      try { riwayatYt[0].posisi = Math.floor(nonton.pemutar.getCurrentTime() || 0); simpanRiwayatYt(); } catch (_) {}
+    }
+    if (!cekYtJeda.checked || !cekWajah.checked) { nonton.hilangSejak = 0; return; }
+    if (wajah.ada) {
+      nonton.hilangSejak = 0;
+      if (nonton.dijedaKiKo && st === 2) {
+        nonton.dijedaKiKo = false;
+        nonton.pemutar.playVideo();
+        ekspresiSingkat('senang', 2000);
+        tampilTeks(L('Kamu kembali! Lanjut ya.', "You're back! Let's continue."), 2500);
+      }
+    } else if (st === 1) {
+      if (!nonton.hilangSejak) nonton.hilangSejak = now;
+      else if (now - nonton.hilangSejak > 10000) {
+        nonton.pemutar.pauseVideo();
+        nonton.dijedaKiKo = true;
+        ekspresiSingkat('ngantuk', 3000);
+        tampilTeks(L('Aku jeda dulu ya, nanti lanjut kalau kamu kembali.', "I'll pause it; we'll continue when you're back."), 4000);
+        elStatusYt.textContent = L('Dijeda: tidak ada yang menonton.', 'Paused: nobody is watching.');
+      }
+    }
+  }, 1000);
+  // Dibagikan dari aplikasi lain (share_target) sebelum wajah hidup: putar begitu siap.
+  setInterval(() => {
+    if (nonton.tunda && fase === 'hidup') { const t = nonton.tunda; nonton.tunda = null; putarYoutube(t.v, t.posisi); }
+  }, 1000);
+  function terimaBagikan(u) {
+    try {
+      const q = u.searchParams;
+      const isi = [q.get('tautan'), q.get('teks'), q.get('judul')].filter(Boolean).join(' ');
+      if (!isi) return false;
+      const v = uraiYt(isi);
+      if (!v) { elStatusYt.textContent = L('Yang dibagikan bukan video YouTube.', 'What was shared is not a YouTube video.'); return true; }
+      if (fase === 'hidup') putarYoutube(v); else { nonton.tunda = { v, posisi: 0 }; }
+      return true;
+    } catch (_) { return false; }
+  }
+  try {
+    if (terimaBagikan(new URL(location.href))) history.replaceState(null, '', location.pathname);
+  } catch (_) {}
+
+  function jawabNonton(t) {
+    const kataYt = /(youtube|yutub|you tube|yutup|yt\b)/.test(t);
+    if (nonton.aktif) {
+      if (/(tutup|keluar|udahan|selesai|berhenti|stop|matikan)\b.*(nonton|youtube|yutub|video)|^(tutup|keluar)$/.test(t)) {
+        tutupYoutube(); ucapkan('Oke, nontonnya selesai.', 'normal'); return true;
+      }
+      const pendek = t.trim().split(/\s+/).length <= 3;
+      if (pendek && /^(jeda|pause|tunggu|tahan|stop|berhenti|diam dulu)/.test(t.trim())) {
+        try { nonton.pemutar.pauseVideo(); } catch (_) {}
+        nonton.dijedaKiKo = false; ucapkan('Oke, dijeda.', 'normal'); return true;
+      }
+      if (pendek && /^(lanjut|lanjutkan|terus|terusin|putar lagi|play|mainkan)/.test(t.trim())) {
+        try { nonton.pemutar.playVideo(); } catch (_) {}
+        return true;
+      }
+      if (/(ulang|dari awal|mulai lagi)/.test(t) && /(video|awal|ulang)/.test(t) && pendek) {
+        try { nonton.pemutar.seekTo(0, true); nonton.pemutar.playVideo(); } catch (_) {}
+        return true;
+      }
+      if (/(kecilkan|pelankan|turunkan) (suara|volume)|suaranya (kecilkan|pelankan)/.test(t)) { nonton.vol = Math.max(10, nonton.vol - 20); return true; }
+      if (/(besarkan|kencangkan|keraskan|naikkan) (suara|volume)|suaranya (besarkan|kencangkan|keraskan)/.test(t)) { nonton.vol = Math.min(100, nonton.vol + 20); return true; }
+    }
+    if (!kataYt && !/^(nonton|lanjut nonton|lanjutkan nonton)\b/.test(t.trim())) return false;
+    if (kataYt && /(cari|carikan|search)/.test(t)) {
+      ucapkan('Aku belum bisa mencari video. Buka aplikasi YouTube, pilih videonya, lalu Bagikan ke KiKo ya.', 'bingung');
+      return true;
+    }
+    const v = uraiYt(t);
+    if (v) { putarYoutube(v); return true; }
+    if (/(nonton|tonton|putar|buka|lanjut|setel|nyalakan|lihat)/.test(t) || !kataYt) {
+      if (lanjutTerakhirYt()) { ucapkan(`Oke, lanjut nonton ${riwayatYt[0].judul}.`, 'senang'); return true; }
+      ucapkan('Belum ada video. Buka aplikasi YouTube, pilih videonya, lalu Bagikan ke KiKo. Atau tempel linknya di ATUR, bagian Nonton YouTube.', 'normal');
+      return true;
+    }
+    return false;
+  }
+  function jawabNontonEn(t) {
+    const kataYt = /(youtube|you tube|\byt\b)/.test(t);
+    if (nonton.aktif) {
+      if (/(close|exit|stop|quit|end|turn off)\b.*(youtube|video|watching)/.test(t)) { tutupYoutube(); ucapkan("Okay, we're done watching.", 'normal'); return true; }
+      const pendek = t.trim().split(/\s+/).length <= 3;
+      if (pendek && /^(pause|wait|hold on|stop)/.test(t.trim())) { try { nonton.pemutar.pauseVideo(); } catch (_) {} nonton.dijedaKiKo = false; ucapkan('Okay, paused.', 'normal'); return true; }
+      if (pendek && /^(continue|resume|play|go on|keep going)/.test(t.trim())) { try { nonton.pemutar.playVideo(); } catch (_) {} return true; }
+      if (pendek && /(start over|from the (start|beginning)|restart)/.test(t)) { try { nonton.pemutar.seekTo(0, true); nonton.pemutar.playVideo(); } catch (_) {} return true; }
+      if (/(turn (it|the volume|the video) down|lower the volume|quieter|volume down)/.test(t)) { nonton.vol = Math.max(10, nonton.vol - 20); return true; }
+      if (/(turn (it|the volume|the video) up|louder|volume up)/.test(t)) { nonton.vol = Math.min(100, nonton.vol + 20); return true; }
+    }
+    if (!kataYt) return false;
+    if (/(search|find|look for)/.test(t)) { ucapkan("I can't search for videos yet. Open the YouTube app, pick a video, then Share it to KiKo.", 'bingung'); return true; }
+    const v = uraiYt(t);
+    if (v) { putarYoutube(v); return true; }
+    if (lanjutTerakhirYt()) { ucapkan(`Okay, let's continue ${riwayatYt[0].judul}.`, 'senang'); return true; }
+    ucapkan('No video yet. Open the YouTube app, pick a video, then Share it to KiKo. Or paste the link in the menu under Watch YouTube.', 'normal');
+    return true;
+  }
+
   // Urutan: telepon dulu (kalimat "kirim pesan ke Mama ... timer" tetap jadi pesan).
   function jawabAsisten(t) {
+    if (jawabNonton(t)) return true;
     if (fitur.telepon && jawabTelepon(t)) return true;
     if (fitur.timer && jawabTimer(t)) return true;
     if (fitur.radio && jawabRadio(t)) return true;
@@ -4278,7 +4666,12 @@
   // jendela yang sama (launch_handler focus-existing) dan mengirim URL-nya ke sini.
   if ('launchQueue' in window) {
     window.launchQueue.setConsumer(p => {
-      try { if (p && p.targetURL && new URL(p.targetURL).searchParams.get('nfc') === '1') saatDitempel('nfc-buka'); } catch (_) {}
+      try {
+        if (!p || !p.targetURL) return;
+        const u = new URL(p.targetURL);
+        if (u.searchParams.get('nfc') === '1') saatDitempel('nfc-buka');
+        else terimaBagikan(u);              // "Bagikan → KiKo" dari aplikasi YouTube saat KiKo sudah terbuka
+      } catch (_) {}
     });
   }
 
@@ -4295,6 +4688,104 @@
   //  Elemen HTML dengan data-en / data-en-ph diganti teksnya; teks Indonesia
   //  aslinya disimpan di data-id. Teks yang dibuat JS digambar ulang.
   // =====================================================================
+  // ---- "Kenali KiKo (coba sendiri)" di ATUR (2026-10-19) ----
+  // Pengguna: pemilik tidak perlu membaca manual dulu; daftar uji yang sama dengan bab 5
+  // manual ada di dalam KiKo. Tombol ▶ menutup panel lalu menjalankan contoh kalimatnya
+  // lewat jalur yang sama dengan suara (tanyaKiKo -> jawabLokal / AI), jadi yang diuji
+  // benar-benar fitur aslinya. Uji fisik (elus, wajah, dudukan, menari) hanya petunjuk.
+  // Centang disimpan per HP di localStorage kiko.uji.<kunci>.
+  const DAFTAR_UJI = [
+    { k: 'bangun', n: ['Bangun', 'Wake up'], cara: ['Saklar ON, buka KiKo, tempel HP ke dudukan', 'Switch ON, open KiKo, put the phone in the cradle'],
+      hasil: ['Lampu depan redup tetap, wajah bangun dan menyapa', 'Front light dim and steady, the face wakes and greets you'] },
+    { k: 'bantuan', n: ['Bantuan', 'Help'], ucap: ['Kamu bisa apa?', 'What can you do?'],
+      hasil: ['KiKo menyebut kemampuannya, kartu contoh muncul di bawah wajah', 'KiKo lists what it can do, an example card appears under the face'] },
+    { k: 'ekspresi', n: ['Ekspresi', 'Expression'], ucap: ['Coba senyum', 'Show me happy'],
+      hasil: ['Mata berubah sesuai perintah, kepala ikut berpose', 'The eyes change as asked, the head poses too'] },
+    { k: 'semua', n: ['Semua ekspresi', 'All expressions'], ucap: ['Tunjukkan semua ekspresi', 'Show all expressions'],
+      hasil: ['11 ekspresi berganti sambil disebut namanya ("stop" untuk berhenti)', '11 expressions in turn, each named ("stop" to end)'] },
+    { k: 'wajah', n: ['Ikuti wajah', 'Follow your face'], cara: ['Geser kepala Anda pelan ke kiri lalu ke kanan (Pelacakan wajah ON)', 'Move your head slowly left, then right (Face tracking ON)'],
+      hasil: ['Mata melirik dulu, lalu kepala KiKo menoleh mengikuti', 'The eyes glance first, then KiKo turns its head to follow'] },
+    { k: 'ngobrol', n: ['Ngobrol', 'Chat'], ucap: ['Halo KiKo, apa kabar?', 'Hi KiKo, how are you?'],
+      hasil: ['KiKo menjawab dengan suara dan ekspresi (butuh alamat Worker)', 'KiKo answers with voice and expression (needs the Worker address)'] },
+    { k: 'elus', n: ['Elusan', 'Petting'], cara: ['Elus area elus di atas base', 'Stroke the touch area on top of the base'],
+      hasil: ['Lampu berkedip singkat, wajah senang; elus terus: sayang', 'The light blinks, the face is happy; keep stroking: loving'] },
+    { k: 'tanya', n: ['Bertanya balik', 'Asks back'], ucap: ['Putar radio', 'Play the radio'],
+      hasil: ['KiKo bertanya "Mau radio apa?"; jawab misalnya "Suara Surabaya"', 'KiKo asks which station; answer e.g. "Suara Surabaya"'] },
+    { k: 'radio', n: ['Radio stop', 'Radio stop'], ucap: ['Matikan radio', 'Stop the radio'],
+      hasil: ['Radio mati (bisa juga "stop" atau ketuk ⏹ di pojok kiri bawah)', 'The radio stops (or say "stop", or tap ⏹ bottom left)'] },
+    { k: 'timer', n: ['Timer', 'Timer'], ucap: ['Timer 1 menit', 'Set a timer for 1 minute'],
+      hasil: ['Hitung mundur di pojok kiri bawah, bunyi saat habis', 'Countdown bottom left, beeps when done'] },
+    { k: 'ingat', n: ['Pengingat', 'Reminder'], ucap: ['Ingatkan aku 2 menit lagi minum air', 'Remind me in 2 minutes to drink water'],
+      hasil: ['2 menit kemudian KiKo memanggil dan mengingatkan', 'After 2 minutes KiKo calls you and reminds you'] },
+    { k: 'cuaca', n: ['Cuaca', 'Weather'], ucap: ['Besok hujan nggak?', 'Will it rain tomorrow?'],
+      hasil: ['Cuaca, suhu dan peluang hujan (kota diatur di bagian Cuaca)', 'Weather, temperature and rain chance (set the city under Weather)'] },
+    { k: 'wa', n: ['Telepon WA', 'WhatsApp call'], ucap: ['Telepon WA', 'Call on WhatsApp'],
+      hasil: ['KiKo bertanya siapa; sebut nama. Nama baru: 📇 Pilih kontak sekali, lalu tombol hijau Buka WhatsApp', 'KiKo asks who; say a name. New name: 📇 Pick contact once, then the green Open WhatsApp button'] },
+    { k: 'vc', n: ['Video call', 'Video call'], ucap: ['Video call', 'Video call'],
+      hasil: ['Seperti di atas; di WhatsApp tekan ikon kamera', 'As above; in WhatsApp press the camera icon'] },
+    { k: 'internet', n: ['Internet', 'Internet'], ucap: ['Apa itu Denmark Open?', 'What is the Denmark Open?'],
+      hasil: ['Jawaban dari Wikipedia atau berita, dengan sumbernya', 'An answer from Wikipedia or the news, with its source'] },
+    { k: 'baterai', n: ['Baterai', 'Battery'], ucap: ['Baterai kamu berapa?', 'How much battery do you have?'],
+      hasil: ['"Baterai KiKo … persen"', '"KiKo\'s battery is … percent"'] },
+    { k: 'youtube', n: ['Nonton YouTube', 'Watch YouTube'], ucap: ['Nonton youtube', 'Watch YouTube'],
+      hasil: ['Video terakhir lanjut; KiKo kecil di pojok ikut menonton. Video baru: aplikasi YouTube → Bagikan → KiKo', 'The last video continues; small KiKo in the corner watches along. New video: YouTube app → Share → KiKo'] },
+    { k: 'menari', n: ['Menari', 'Dance'], cara: ['Nyalakan "Menari ikut musik" di bawah, putar lagu di dekat KiKo', 'Turn on "Dance to music" below, play a song near KiKo'],
+      hasil: ['Mata dan kepala bergoyang ikut ketukan', 'Eyes and head move to the beat'] },
+    { k: 'dudukan', n: ['Dudukan HP', 'Phone cradle'], cara: ['Angkat HP, lalu pasang lagi', 'Lift the phone out, then put it back'],
+      hasil: ['Wajah tidur saat diangkat, bangun lagi saat dipasang', 'The face sleeps when lifted, wakes again when put back'] }
+  ];
+  const elDaftarUji = document.getElementById('daftarUji');
+  const elStatusUji = document.getElementById('statusUji');
+  function ujiLulus(k) { try { return localStorage.getItem('kiko.uji.' + k) === '1'; } catch (_) { return false; } }
+  function hitungUji() {
+    const n = DAFTAR_UJI.filter(u => ujiLulus(u.k)).length;
+    elStatusUji.textContent = L(`${n} dari ${DAFTAR_UJI.length} sudah dicoba.`, `${n} of ${DAFTAR_UJI.length} tried.`);
+  }
+  function bangunDaftarUji() {
+    const id = bahasa === 'en' ? 1 : 0;
+    elDaftarUji.textContent = '';
+    DAFTAR_UJI.forEach((u, i) => {
+      const li = document.createElement('li');
+      if (ujiLulus(u.k)) li.classList.add('lulus');
+      const cek = document.createElement('input');
+      cek.type = 'checkbox'; cek.checked = ujiLulus(u.k);
+      cek.setAttribute('aria-label', L('Berhasil: ', 'Works: ') + u.n[id]);
+      cek.addEventListener('change', () => {
+        try { cek.checked ? localStorage.setItem('kiko.uji.' + u.k, '1') : localStorage.removeItem('kiko.uji.' + u.k); } catch (_) {}
+        li.classList.toggle('lulus', cek.checked); hitungUji();
+      });
+      const judul = document.createElement('span');
+      judul.className = 'judul-uji';
+      const b = document.createElement('b'); b.textContent = `${i + 1}. ${u.n[id]}`;
+      judul.append(b);
+      li.append(cek, judul);
+      if (u.ucap) {
+        const tb = document.createElement('button');
+        tb.type = 'button'; tb.className = 'coba-uji'; tb.textContent = '▶';
+        tb.setAttribute('aria-label', L('Coba: ', 'Try: ') + u.ucap[id]);
+        tb.addEventListener('click', () => cobaUji(u.ucap[id]));
+        li.append(tb);
+      } else li.append(document.createElement('span'));
+      const ket = document.createElement('span');
+      ket.className = 'ket-uji';
+      if (u.ucap) { const q = document.createElement('q'); q.textContent = u.ucap[id]; ket.append(L('Ucapkan ', 'Say '), q, ' → '); }
+      else ket.append(u.cara[id] + ' → ');
+      ket.append(u.hasil[id]);
+      li.append(ket);
+      elDaftarUji.append(li);
+    });
+    hitungUji();
+  }
+  function cobaUji(kalimat) {
+    if (fase !== 'hidup') { elStatusUji.textContent = L('Hidupkan wajah KiKo dulu (hubungkan base), lalu coba lagi.', 'Wake KiKo\'s face first (connect the base), then try again.'); return; }
+    tutupPanel();
+    setTimeout(() => tanyaKiKo(kalimat), 350);
+  }
+  document.getElementById('tombolUjiKosong').addEventListener('click', () => {
+    DAFTAR_UJI.forEach(u => { try { localStorage.removeItem('kiko.uji.' + u.k); } catch (_) {} });
+    bangunDaftarUji();
+  });
+
   const LABEL_EN = { normal: 'Normal', senang: 'Happy', kaget: 'Surprised', ngantuk: 'Sleepy', sedih: 'Sad', marah: 'Angry',
     curiga: 'Suspicious', sayang: 'Loving', tidur: 'Asleep', tertawa: 'Laughing', bingung: 'Confused' };
   const JENIS_EN = { oranye: 'Orange tabby', abu: 'Grey tabby', hitam: 'Black', calico: 'Calico', siam: 'Siamese', ganjil: 'Odd-eyed white' };
@@ -4329,6 +4820,7 @@
     tombolLupa.textContent = L('Lupakan semua', 'Forget everything');
     document.getElementById('tombolSetir').textContent = elSetir.hidden ? L('Tampilkan setir', 'Show joystick') : L('Sembunyikan setir', 'Hide joystick');
     elTeksCas.textContent = L('⚡ Di-cas', '⚡ Charging');
+    bangunDaftarUji();
   }
   document.querySelectorAll('#pilihBahasa .pilih').forEach(b => b.addEventListener('click', () => {
     bahasa = b.dataset.bahasa === 'en' ? 'en' : 'id';

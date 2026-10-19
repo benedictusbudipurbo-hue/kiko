@@ -12,6 +12,11 @@
   "theme_color": "#000000",
   "lang": "id",
   "launch_handler": { "client_mode": ["focus-existing", "auto"] },
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "judul", "text": "teks", "url": "tautan" }
+  },
   "icons": [
     { "src": "ikon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "ikon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
