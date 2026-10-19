@@ -2427,7 +2427,7 @@
   }
 
   function aturTahap(t) {
-    ai.tahap = t; perbaruiTombolBicara();
+    ai.tahap = t; ai.mulaiTahap = performance.now(); perbaruiTombolBicara();
     if (t === 'diam' && tari.jeda) {
       tari.jeda = false;
       setTimeout(() => { if (cekMenari.checked && !tari.mik && ai.tahap === 'diam') mulaiTari(); }, 1500);
@@ -2440,7 +2440,15 @@
   function mulaiDengar(otomatis = false) {
     if (!ai.url || fase !== 'hidup') return;
     if (!SR) { statusAi(L('Pengenal suara tidak tersedia. Pakai Chrome Android.', 'Speech recognition is not available. Use Chrome on Android.')); tampilTeks(L('Pengenal suara tidak tersedia di browser ini.', 'Speech recognition is not available in this browser.'), 4000); return; }
-    if (ai.tahap !== 'diam') return;
+    // 2026-10-19 (pengguna: mic tampil tapi kata-kata tidak muncul, Chrome di Xiaomi): kalau sesi
+    // dengar sebelumnya "macet" (onend tidak pernah datang), tombol mic dulu diam saja tanpa pesan.
+    // Sekarang ketukan tombol membatalkan sesi lama dan mulai lagi; sesi 'pikir' > 20 s dilepas.
+    if (ai.tahap !== 'diam') {
+      if (otomatis) return;
+      if (ai.tahap === 'dengar') { const lama = ai.pengenal; ai.pengenal = null; try { if (lama) lama.abort(); } catch (_) {} aturTahap('diam'); }
+      else if (ai.tahap === 'pikir' && performance.now() - (ai.mulaiTahap || 0) > 20000) aturTahap('diam');
+      else return;
+    }
     if (otomatis && ai.bicara) return;
     if (window.speechSynthesis) speechSynthesis.cancel();      // tombol: memotong KiKo yang sedang bicara
     if (!otomatis) interaksi();
@@ -2450,6 +2458,8 @@
     if (tari.mik) { tari.jeda = true; hentikanTari(L('Istirahat sebentar: mikrofon dipakai ngobrol.', 'Paused: the microphone is being used for chat.')); }
 
     const r = new SR();
+    ai.pengenal = r;
+    let adaGalat = false;
     r.lang = L('id-ID', 'en-US');
     r.interimResults = false;
     r.maxAlternatives = 1;
@@ -2463,7 +2473,9 @@
       }
     };
     r.onerror = e => {
+      if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
       if (otomatis && (e.error === 'no-speech' || e.error === 'aborted')) return;   // sunyi itu normal
+      adaGalat = true;
       const pesan = e.error === 'not-allowed' ? L('Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.', 'Microphone permission denied. Allow the microphone for this site in Chrome.') :
                     e.error === 'no-speech' ? L('Tidak terdengar suara. Coba lagi.', "I didn't hear anything. Try again.") :
                     e.error === 'network' ? L('Pengenal suara butuh internet.', 'Speech recognition needs the internet.') :
@@ -2476,8 +2488,16 @@
       statusAi(pesan);
     };
     r.onend = () => {
+      if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
+      ai.pengenal = null;
       if (dapat) return;                                        // tanyaKiKo yang melanjutkan
       aturTahap('diam');
+      // Chrome Android kadang mengakhiri sesi tanpa hasil DAN tanpa galat: dulu teks "Mendengarkan…"
+      // hilang begitu saja dan pengguna tidak tahu kenapa.
+      if (!otomatis && !adaGalat) {
+        const p = L('Tidak terdengar. Ketuk mic, tunggu "Mendengarkan…", lalu langsung bicara.', 'Nothing heard. Tap the mic, wait for "Listening…", then speak right away.');
+        tampilTeks(p, 4000); statusAi(p);
+      }
       if (otomatis) {
         // Sesi sunyi: tunggu makin lama sebelum mendengar lagi, supaya Chrome
         // tidak berbunyi "bip" mulai-dengar terus-menerus saat tidak ada yang bicara.
@@ -2489,8 +2509,21 @@
     aturTahap('dengar');
     tampilTeks(otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…'));
     if (!otomatis) ekspresiSingkat('normal', 100);
-    try { r.start(); } catch (_) { aturTahap('diam'); }
+    try { r.start(); } catch (err) {
+      ai.pengenal = null; aturTahap('diam');
+      if (!otomatis) { const p = L('Pengenal suara tidak bisa mulai: ', 'Speech recognition could not start: ') + (err && err.name || err); tampilTeks(p, 4000); statusAi(p); }
+    }
   }
+  // Penjaga: sesi dengar > 15 s atau tunggu jawaban > 30 s dianggap macet, dilepas supaya mic bisa dipakai lagi.
+  setInterval(() => {
+    const lama = performance.now() - (ai.mulaiTahap || 0);
+    if (ai.tahap === 'dengar' && lama > 15000) { const r = ai.pengenal; ai.pengenal = null; try { if (r) r.abort(); } catch (_) {} aturTahap('diam'); }
+    else if (ai.tahap === 'pikir' && lama > 30000) {
+      aturTahap('diam');
+      const p = L('Jawaban terlalu lama. Cek internet / alamat Worker, lalu coba lagi.', 'The answer took too long. Check the internet / Worker address, then try again.');
+      tampilTeks(p, 4000); statusAi(p);
+    }
+  }, 2000);
 
   // ---------- Mode "Lihat KiKo = bicara" ----------
   // Selama pelacakan wajah melihat seseorang, KiKo mendengar sendiri. Jeda
