@@ -2240,16 +2240,19 @@
     const dt = hidup.waktuLalu ? Math.min(200, now - hidup.waktuLalu) : 0;
     hidup.waktuLalu = now;
     if (!cekGerakHidup.checked || kurangGerak) return 0;
-    const [T, A, bias] = gayaNapas(moodSaatIni(now));
+    // 2026-10-19 (pengguna: "kiko agak sulit mendengar dibanding dulu"): napas membuat servo tilt
+    // terus bergerak dan berdengung tepat di sebelah mikrofon HP. Selama mendengar, posisi dibekukan
+    // (KiKo "diam memperhatikan"); napas lanjut lagi setelahnya.
+    if (ai.tahap === 'dengar') return hidup.terakhir || 0;
     hidup.fase += dt / hidup.periode * 2 * Math.PI;
     if (hidup.fase > 2 * Math.PI) { hidup.fase -= 2 * Math.PI; hidup.periode = T * acak(0.8, 1.2); }   // (6)
     let tilt = A * Math.sin(hidup.fase) + bias;                                                         // (2)(5)
-    hidup.dengar += ((ai.tahap === 'dengar' ? 1 : 0) - hidup.dengar) * Math.min(1, dt / 400);
-    tilt += 3 * hidup.dengar;                                                                           // (3)
+    // (3) pose mendengar = diam memperhatikan (dibekukan di atas), tanpa gerak mendongak.
     if (ai.bicara) {                                                                                    // (4)
       if (now > hidup.anggukBerikut) { hidup.anggukSampai = now + 420; hidup.anggukAmp = -acak(1.8, 3); hidup.anggukBerikut = now + acak(1500, 3000); }
     } else hidup.anggukBerikut = Math.max(hidup.anggukBerikut, now + 600);
     if (now < hidup.anggukSampai) tilt += hidup.anggukAmp * Math.sin(Math.PI * (1 - (hidup.anggukSampai - now) / 420));
+    hidup.terakhir = tilt;
     return tilt;
   }
 
@@ -2710,6 +2713,7 @@
       simpanIngatanBaru(data.nama, data.ingat);
       // Worker v7: AI menebak maksud perintah ("aku pengen dengerin radio Surabaya dong").
       // Kalau HP bisa menjalankannya, fitur HP yang bicara; kalau tidak, ucapkan jawaban AI.
+      if (data.aksi === 'telepon' && /\b(wa|whatsapp|watsap|wasap)\b/i.test(teks)) data.aksi = 'telepon_wa';   // AI kadang lupa "lewat WA"
       if (data.aksi && jalankanAksiAi(data)) return;
       ucapkan(data.teks, data.ekspresi);
       // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
@@ -3308,7 +3312,27 @@
       if (lengkap && jawabLokalInti(lengkap)) return true;
     }
     if (jawabBantuan(t)) return true;
-    return jawabLokalInti(teks);
+    if (jawabLokalInti(teks)) return true;
+    // 2026-10-19 (video 21:11: "Kiko saya mau telepon ... pakai WhatsApp" diteruskan ke AI, yang hanya
+    // menangkap "telepon" lalu bertanya "Mau telepon siapa?" tanpa WhatsApp): pembuka kalimat dibuang,
+    // lalu dicoba lagi HANYA kalau sisanya diawali kata perintah (supaya "aku mau tidur" tetap ke AI).
+    const rapi = rapikanAwal(t);
+    if (rapi !== t && /^(telepon|telpon|telfon|tlp|hubungi|video ?call|vc|kirim|wa|whatsapp|putar|nyalakan|hidupkan|matikan|ingatkan|timer|setel|pasang|nonton|tonton|call|phone|message|play|turn|remind|set|watch)\b/.test(rapi)) {
+      return jawabLokalInti(rapi);
+    }
+    return false;
+  }
+  function rapikanAwal(t) {
+    let u = t.replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim(), lama;
+    do {
+      lama = u;
+      u = u.replace(/^(hai|halo|hei|hey|hi|hello|eh|oke|ok|okay|ya|nah)\s+/, '')
+           .replace(/^kiko\s+/, '')
+           .replace(/^(tolong|coba|bisa|bisakah|mohon|ayo|please|can you|could you|would you)\s+/, '')
+           .replace(/^(saya|aku|gue|gw|i)\s+(mau|ingin|pengen|pengin|minta|perlu|butuh|want to|wanna|need to|would like to)\s+/, '')
+           .replace(/^(kamu|kiko)\s+(bisa|tolong)\s+/, '');
+    } while (u !== lama);
+    return u;
   }
 
   // ---- Lapis 1: maksud dari AI (Worker v7) -> kalimat baku -> pengurai yang sama ----
@@ -3793,7 +3817,7 @@
 
   function jawabTelepon(t) {
     const pesan = /(kirim (pesan|wa|whatsapp|chat)|^(wa|whatsapp|chat)\b|pesan (ke|untuk|buat))/.test(t);
-    const lewatWa = /(lewat|pakai|via) (wa|whatsapp)|video ?call|\bvc\b|(telepon|telpon|telfon|tlp|hubungi) (wa|whatsapp)\b/.test(t);
+    const lewatWa = /(lewat|pakai|pake|via|dengan|dgn|melalui|lwt|di) (wa|whatsapp|watsap|wasap)\b|video ?call|\bvc\b|(telepon|telpon|telfon|tlp|hubungi) (wa|whatsapp|watsap|wasap)\b/.test(t);
     // "panggil" sengaja tidak dipakai: "panggil aku Budi" itu perkenalan, bukan telepon.
     const telp = /(telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\b/.test(t);
     if (!pesan && !telp) return false;
@@ -3814,10 +3838,10 @@
         const m = t.match(/(?:\bke|\buntuk|\bbuat|^wa|^whatsapp|^chat)\s+([a-z]+)\s*(.*)$/);
         if (m) { nama = m[1]; isi = m[2].replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim(); }
       } else {
-        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|via|sekarang|dong|ya|pakai)\b|$)/);
+        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|pake|via|dengan|dgn|melalui|lwt|di|sekarang|dong|ya)\b|$)/);
         if (m) nama = m[1];
       }
-      if (/^(lewat|pakai|via|wa|whatsapp|sekarang|dong|ya|dulu|seseorang|orang|siapa|aja|saja)\b/.test(nama)) nama = '';
+      if (/^(lewat|pakai|pake|via|dengan|dgn|melalui|lwt|wa|whatsapp|watsap|wasap|sekarang|dong|ya|dulu|seseorang|orang|siapa|aja|saja)\b/.test(nama)) nama = '';
       if (!nama) {
         // Lapis 2: "telepon" saja -> tanya siapa, jawaban berikutnya melengkapi.
         const tanya = { pesan: 'Mau kirim pesan ke siapa?', vc: 'Mau video call siapa?', wa: 'Mau telepon siapa lewat WhatsApp?', tel: 'Mau telepon siapa?' }[mode];
