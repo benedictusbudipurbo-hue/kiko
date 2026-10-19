@@ -2437,7 +2437,7 @@
   // otomatis = dimulai sendiri karena ada wajah (mode "Lihat KiKo = bicara"),
   // bukan dari tombol. Bedanya: galat "tidak ada suara" tidak ditampilkan,
   // dan KiKo tidak memotong dirinya sendiri yang sedang bicara.
-  function mulaiDengar(otomatis = false) {
+  function mulaiDengar(otomatis = false, ulang = false) {
     if (!ai.url || fase !== 'hidup') return;
     if (!SR) { statusAi(L('Pengenal suara tidak tersedia. Pakai Chrome Android.', 'Speech recognition is not available. Use Chrome on Android.')); tampilTeks(L('Pengenal suara tidak tersedia di browser ini.', 'Speech recognition is not available in this browser.'), 4000); return; }
     // 2026-10-19 (pengguna: mic tampil tapi kata-kata tidak muncul, Chrome di Xiaomi): kalau sesi
@@ -2461,20 +2461,29 @@
     ai.pengenal = r;
     let adaGalat = false;
     r.lang = L('id-ID', 'en-US');
-    r.interimResults = false;
+    // 2026-10-19 (pengguna: "agak sulit mendengar"): hasil sementara ditampilkan langsung, supaya
+    // terlihat KiKo sedang menangkap kata; kalau sesi berakhir tanpa hasil final (Chrome Android
+    // kadang begitu), teks sementara terakhir tetap dipakai.
+    r.interimResults = true;
     r.maxAlternatives = 1;
-    let dapat = false;
+    let dapat = false, sementaraTeks = '';
+    const kirimTeks = teks => {
+      if (dapat || teks.length < 2) return;
+      dapat = true;
+      ai.jedaDengar = JEDA_DENGAR_MIN;                          // ada orang bicara: siap mendengar cepat lagi
+      tanyaKiKo(teks);
+    };
     r.onresult = e => {
-      const teks = (e.results[0] && e.results[0][0] && e.results[0][0].transcript || '').trim();
-      if (teks.length >= 2) {
-        dapat = true;
-        ai.jedaDengar = JEDA_DENGAR_MIN;                        // ada orang bicara: siap mendengar cepat lagi
-        tanyaKiKo(teks);
-      }
+      let teks = '', final = false;
+      for (let i = 0; i < e.results.length; i++) { teks += e.results[i][0].transcript; if (e.results[i].isFinal) final = true; }
+      teks = teks.trim();
+      if (final) kirimTeks(teks);
+      else if (teks) { sementaraTeks = teks; tampilTeks('… ' + teks, 4000); }
     };
     r.onerror = e => {
       if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
       if (otomatis && (e.error === 'no-speech' || e.error === 'aborted')) return;   // sunyi itu normal
+      if (!otomatis && e.error === 'no-speech' && !ulang) return;  // tombol: onend mendengar sekali lagi
       adaGalat = true;
       const pesan = e.error === 'not-allowed' ? L('Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di Chrome.', 'Microphone permission denied. Allow the microphone for this site in Chrome.') :
                     e.error === 'no-speech' ? L('Tidak terdengar suara. Coba lagi.', "I didn't hear anything. Try again.") :
@@ -2490,8 +2499,15 @@
     r.onend = () => {
       if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
       ai.pengenal = null;
+      if (!dapat && sementaraTeks.length >= 2) kirimTeks(sementaraTeks);
       if (dapat) return;                                        // tanyaKiKo yang melanjutkan
       aturTahap('diam');
+      // Tombol mic tanpa hasil: dengarkan sekali lagi otomatis (jendela dengar Android sangat pendek).
+      if (!otomatis && !adaGalat && !ulang) {
+        tampilTeks(L('Aku dengarkan lagi ya… bicara sekarang.', "Listening again… speak now."), 3000);
+        setTimeout(() => mulaiDengar(false, true), 250);
+        return;
+      }
       // Chrome Android kadang mengakhiri sesi tanpa hasil DAN tanpa galat: dulu teks "Mendengarkan…"
       // hilang begitu saja dan pengguna tidak tahu kenapa.
       if (!otomatis && !adaGalat) {
