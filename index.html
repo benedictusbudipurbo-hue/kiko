@@ -337,6 +337,7 @@
   <div class="bagian">
     <h2 data-en="Behaviour">Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> <span data-en="Spontaneous expressions; falls asleep when left alone">Ekspresi spontan dan tidur sendiri saat didiamkan</span></label>
+    <label class="saklar"><input type="checkbox" id="cekGerakHidup" checked> <span data-en="Lifelike motion: breathing, listening pose, small nods while talking, blinking on head turns">Gerak hidup: bernapas, pose mendengar, angguk kecil saat bicara, berkedip saat menoleh</span></label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> <span data-en="Head follows the eyes&#x27; gaze (needs base firmware Ver 3)">Kepala ikut lirikan mata (butuh firmware base Ver 3)</span></label>
     <label class="saklar"><input type="checkbox" id="cekTepi" checked> <span data-en="Table-edge fall protection (wheeled version + edge sensors, firmware Ver 6)">Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</span></label>
     <label class="saklar"><input type="checkbox" id="cekMalam" checked> <span data-en="Night mode: sleeps sooner, no automatic microphone">Mode malam: cepat tidur, tanpa mikrofon otomatis</span></label>
@@ -1344,8 +1345,13 @@
     } else if (!sentuh.aktif && !setir.aktif && now > berikutLirik) {
       if (mood === 'tidur') { pandang.tgt.x = 0; pandang.tgt.y = 0.2; }
       else if (Math.random() < 0.6) { pandang.tgt.x = acak(-0.25, 0.25); pandang.tgt.y = acak(-0.2, 0.2); }
-      else { pandang.tgt.x = acak(-1, 1); pandang.tgt.y = acak(-0.7, 0.7); }
-      berikutLirik = now + acak(1200, 4200) * (mood === 'ngantuk' ? 1.8 : 1);
+      else {
+        pandang.tgt.x = acak(-1, 1); pandang.tgt.y = acak(-0.7, 0.7);
+        if (cekGerakHidup.checked && Math.random() < 0.4) kedipSekarang();   // (gerak hidup 1) kedip saat lirikan besar
+      }
+      // (gerak hidup 5) tempo lirikan ikut suasana hati
+      const tempo = { ngantuk: 1.8, sedih: 1.5, tidur: 2, senang: 0.8, tertawa: 0.7, kaget: 0.6 }[mood] || 1;
+      berikutLirik = now + acak(1200, 4200) * (cekGerakHidup.checked ? tempo : (mood === 'ngantuk' ? 1.8 : 1));
     }
 
     // Integrasi pegas dengan sub-langkah kecil supaya stabil walau fps turun.
@@ -2162,6 +2168,12 @@
   const WAJAH_TENANG_MS = 700, WAJAH_GOYANG = 0.12;
 
   function hitungKepala(now) {
+    // Perintah suara "menoleh ke kanan" dsb. (jawabGerak): posisi kepala ditahan beberapa detik,
+    // lalu kembali ke tengah sekali; selama ditahan, pelacakan wajah tidak menggeser kepala.
+    if (kepala.paksaSampai) {
+      if (now < kepala.paksaSampai) return;
+      kepala.paksaSampai = 0; kepala.pan = 0; kepala.tilt = 0; kepala.lompat = now;
+    }
     const ex = pandang.tgt.x, ey = pandang.tgt.y;
     const diTepi = Math.abs(ex) > MATA_AMBANG_X || Math.abs(ey) > MATA_AMBANG_Y;
     if (!diTepi) kepala.tepiSejak = 0;
@@ -2174,10 +2186,13 @@
       }
       const tenang = now - kepala.tenangSejak > WAJAH_TENANG_MS;
       // Wajah terlacak: posisi relatif -> kepala melompat menutup selisihnya (kumulatif).
-      if (diTepi && tenang && now - kepala.tepiSejak > MATA_TAHAN_MS && now - kepala.lompat > KEPALA_JEDA_MS) {
-        if (Math.abs(ex) > MATA_AMBANG_X) kepala.pan += ARAH_PAN_LIRIK * ex * DERAJAT_PER_LIRIK_X * 0.85;
-        if (Math.abs(ey) > MATA_AMBANG_Y) kepala.tilt += -ey * DERAJAT_PER_LIRIK_Y * 0.85;
+      if (diTepi && tenang && now - kepala.tepiSejak > MATA_TAHAN_MS && now - kepala.lompat > (kepala.jedaIni || KEPALA_JEDA_MS)) {
+        // (gerak hidup 6) besar & jeda lompatan sedikit acak supaya tidak seperti mesin
+        const f = cekGerakHidup.checked ? acak(0.75, 0.95) : 0.85;
+        if (Math.abs(ex) > MATA_AMBANG_X) kepala.pan += ARAH_PAN_LIRIK * ex * DERAJAT_PER_LIRIK_X * f;
+        if (Math.abs(ey) > MATA_AMBANG_Y) kepala.tilt += -ey * DERAJAT_PER_LIRIK_Y * f;
         kepala.lompat = now; kepala.tepiSejak = 0;
+        kepala.jedaIni = KEPALA_JEDA_MS * (cekGerakHidup.checked ? acak(0.85, 1.3) : 1);
       }
     } else {
       // Tanpa wajah: lirikan acak cukup MATA saja, kepala diam (video 20:45: lirikan acak saat
@@ -2194,15 +2209,65 @@
     kepala.tilt = batas(kepala.tilt, -KEPALA_TURUN_MAKS, KEPALA_NAIK_MAKS);
   }
 
+  // =====================================================================
+  //  GERAK HIDUP (2026-10-19, pengguna: gerakan sudah halus tapi terlalu "diam" dan seragam;
+  //  "buat semuanya 1 sampai 6"). Semua di HP, firmware tidak berubah; gerak kecil & pelan supaya
+  //  servo tilt tidak terbebani (beban terbesar tetap saat HP tegak, lihat catatan servo).
+  //   1. berkedip saat kepala menoleh jauh (>= 4 derajat) dan pada sebagian lirikan besar
+  //   2. "bernapas": tilt naik-turun pelan +-1..1,8 derajat
+  //   3. pose mendengar: mendongak 3 derajat selama mikrofon mendengar
+  //   4. angguk kecil acak saat KiKo bicara
+  //   5. tempo & sikap ikut suasana hati (senang lincah, sedih/ngantuk pelan & sedikit menunduk)
+  //   6. variasi: periode napas, jeda & besar lompatan kepala, lirikan tidak pernah sama persis
+  //  Dimatikan lewat ATUR > Perilaku > "Gerak hidup" (kiko.gerakHidup) atau prefers-reduced-motion.
+  // =====================================================================
+  const cekGerakHidup = document.getElementById('cekGerakHidup');
+  try { cekGerakHidup.checked = localStorage.getItem('kiko.gerakHidup') !== '0'; } catch (_) {}
+  cekGerakHidup.addEventListener('change', () => { try { localStorage.setItem('kiko.gerakHidup', cekGerakHidup.checked ? '1' : '0'); } catch (_) {} });
+  const hidup = { fase: 0, periode: 5000, waktuLalu: 0, dengar: 0, anggukSampai: 0, anggukAmp: 0, anggukBerikut: 0, kedipKepala: 0, acuPan: 0, acuTilt: 0 };
+  // [periode napas ms, amplitudo derajat, sikap (bias) derajat] per suasana hati
+  function gayaNapas(mood) {
+    switch (mood) {
+      case 'senang': case 'tertawa': case 'sayang': return [3600, 1.4, 1];
+      case 'kaget': return [2800, 0.8, 1];
+      case 'sedih': return [6500, 1.0, -1];
+      case 'ngantuk': return [7000, 1.5, -1];
+      case 'tidur': return [7500, 1.8, -1.5];
+      default: return [5000, 1.2, 0];
+    }
+  }
+  function tiltHidup(now) {
+    const dt = hidup.waktuLalu ? Math.min(200, now - hidup.waktuLalu) : 0;
+    hidup.waktuLalu = now;
+    if (!cekGerakHidup.checked || kurangGerak) return 0;
+    const [T, A, bias] = gayaNapas(moodSaatIni(now));
+    hidup.fase += dt / hidup.periode * 2 * Math.PI;
+    if (hidup.fase > 2 * Math.PI) { hidup.fase -= 2 * Math.PI; hidup.periode = T * acak(0.8, 1.2); }   // (6)
+    let tilt = A * Math.sin(hidup.fase) + bias;                                                         // (2)(5)
+    hidup.dengar += ((ai.tahap === 'dengar' ? 1 : 0) - hidup.dengar) * Math.min(1, dt / 400);
+    tilt += 3 * hidup.dengar;                                                                           // (3)
+    if (ai.bicara) {                                                                                    // (4)
+      if (now > hidup.anggukBerikut) { hidup.anggukSampai = now + 420; hidup.anggukAmp = -acak(1.8, 3); hidup.anggukBerikut = now + acak(1500, 3000); }
+    } else hidup.anggukBerikut = Math.max(hidup.anggukBerikut, now + 600);
+    if (now < hidup.anggukSampai) tilt += hidup.anggukAmp * Math.sin(Math.PI * (1 - (hidup.anggukSampai - now) / 420));
+    return tilt;
+  }
+
   function kirimLirikan(now) {
     if (!kepalaIkutMata || !ble.terhubung || fase !== 'hidup') return;
     if (setir.aktif && modeSetir === 'kepala') return;   // joystick kepala sedang memegang kendali
     if (tari.aktif) return;                              // sedang menari: ketukanTari() yang mengirim L
     hitungKepala(now);
-    // Firmware menghaluskan gerak (profil trapesium, Ver 18); di sini cukup target lompatan.
+    // (1) kedip saat kepala menoleh jauh, seperti makhluk hidup saat memalingkan kepala
+    if (Math.abs(kepala.pan - hidup.acuPan) >= 4 || Math.abs(kepala.tilt - hidup.acuTilt) >= 4) {
+      if (cekGerakHidup.checked && now - hidup.kedipKepala > 1500) { kedipSekarang(); hidup.kedipKepala = now; }
+      hidup.acuPan = kepala.pan; hidup.acuTilt = kepala.tilt;
+    }
+    // Firmware menghaluskan gerak (profil trapesium + S-curve); di sini cukup target.
     const pan = Math.round(kepala.pan);
-    const tilt = Math.round(kepala.tilt);   // + = mendongak
-    const berubah = Math.abs(pan - lirik.pan) >= 2 || Math.abs(tilt - lirik.tilt) >= 2;
+    const tilt = Math.round(batas(kepala.tilt + tiltHidup(now), -KEPALA_TURUN_MAKS, KEPALA_NAIK_MAKS));   // + = mendongak
+    // Tilt dikirim per 1 derajat (napas/angguk kecil); pan tetap per 2 derajat supaya servo pan bisa istirahat.
+    const berubah = Math.abs(pan - lirik.pan) >= 2 || Math.abs(tilt - lirik.tilt) >= 1;
     // Kirim saat berubah (maks 10x/detik), atau tiap 800 ms sebagai "detak"
     // supaya firmware tidak mengembalikan lirikan ke 0 (timeout 2 detik).
     if ((berubah && now - lirik.waktu > 100) || now - lirik.waktu > 800) {
@@ -3341,8 +3406,10 @@
     if (topik) {
       const b = pilih[0];
       const jd = b.judul.toLowerCase().replace('&', L('dan', 'and'));
-      ucapkan(L(`Untuk ${jd}, misalnya bilang ${b.contoh[0].replace(/"/g, '')}. Contoh lainnya ada di layar.`,
-                `For ${jd}, you can say ${b.contoh[0].replace(/"/g, '')}. More examples are on the screen.`), 'senang');
+      // Contoh dibacakan tanpa simbol: "Aplikasi YouTube: Bagikan → KiKo" -> "Aplikasi YouTube, Bagikan lalu KiKo".
+      const contohUcap = b.contoh[0].replace(/"/g, '').replace(/\s*→\s*/g, L(' lalu ', ' then ')).replace(/\s*:\s*/g, ', ').replace(/\s*\/\s*/g, L(' atau ', ' or '));
+      ucapkan(L(`Untuk ${jd}, misalnya bilang ${contohUcap}. Contoh lainnya ada di layar.`,
+                `For ${jd}, you can say ${contohUcap}. More examples are on the screen.`), 'senang');
     } else {
       const bisa = B.map(b => b.bisa).filter(Boolean);
       const daftar = bisa.length > 1 ? bisa.slice(0, -1).join(', ') + L(', dan ', ', and ') + bisa[bisa.length - 1] : bisa.join('');
@@ -3410,6 +3477,44 @@
     tes.aktif = false;
     ucapkan(L('Selesai! Itu semua ekspresiku.', "Done! Those are all my expressions."), 'senang');
   }
+  // ---- Perintah gerak kepala lewat suara (2026-10-19, video 18:51: "menoleh ke kanan",
+  // "mengangguk" dikirim ke AI yang hanya bercerita). Sekarang dijalankan langsung di HP:
+  // menoleh/lihat ke kanan|kiri|atas|bawah (kanan = kanan KiKo sendiri), ke depan/tengah,
+  // angguk, geleng. Arah ditahan 5 dtk lalu kembali ke tengah (hitungKepala).
+  function jawabGerak(t) {
+    const en = bahasa === 'en';
+    const angguk = en ? /\b(nod|nodding)\b/ : /\b(angguk|mengangguk|ngangguk|anggukkan)\b/;
+    const geleng = en ? /\b(shake your head|head shake|shaking your head)\b/ : /\b(geleng|menggeleng|gelengkan|nggeleng)\b/;
+    const kataArah = en ? /\b(look|turn|face|glance)\b/ : /\b(menoleh|noleh|nengok|tengok|menengok|lihat|liat|lirik|hadap|menghadap|palingkan|putar kepala)\b/;
+    const g = angguk.test(t) ? 'angguk' : geleng.test(t) ? 'geleng' : null;
+    let arah = null;
+    if (!g && kataArah.test(t)) {
+      arah = en ? (/\bright\b/.test(t) ? 'kanan' : /\bleft\b/.test(t) ? 'kiri' : /\bup\b/.test(t) ? 'atas' : /\bdown\b/.test(t) ? 'bawah'
+                    : /\b(straight|forward|ahead|center|centre|front)\b/.test(t) ? 'depan' : null)
+               : (/\bkanan\b/.test(t) ? 'kanan' : /\bkiri\b/.test(t) ? 'kiri' : /\batas\b/.test(t) ? 'atas'
+                    : /\bbawah\b/.test(t) ? 'bawah' : /\b(depan|tengah|lurus)\b/.test(t) ? 'depan' : null);
+    }
+    if (!g && !arah) return false;
+    if (!ble.terhubung) { ucapkan(L('Kepalaku belum tersambung ke badan, jadi belum bisa bergerak.', "My head isn't connected to my body yet, so I can't move it."), 'sedih'); return true; }
+    interaksi();
+    if (g) {
+      setTimeout(() => kirim('G,' + g), 300);
+      ucapkan(g === 'angguk' ? L('Iya, iya!', 'Yes, yes!') : L('Nggak, nggak!', 'No, no!'), g === 'angguk' ? 'senang' : 'curiga');
+      return true;
+    }
+    const now = performance.now();
+    const KE = { kanan: [KEPALA_PAN_MAKS, 0, -0.8, 0], kiri: [-KEPALA_PAN_MAKS, 0, 0.8, 0],
+                 atas: [0, KEPALA_NAIK_MAKS, 0, -0.7], bawah: [0, -KEPALA_TURUN_MAKS, 0, 0.6], depan: [0, 0, 0, 0] }[arah];
+    kepala.pan = KE[0]; kepala.tilt = KE[1];
+    kepala.paksaSampai = arah === 'depan' ? 0 : now + 5000;
+    if (arah === 'depan') kepala.lompat = now;
+    pandang.tgt.x = KE[2]; pandang.tgt.y = KE[3]; berikutLirik = now + 5000;   // mata ikut melirik ke arah itu
+    const namaArah = { kanan: L('kanan', 'the right'), kiri: L('kiri', 'the left'), atas: L('atas', 'up'), bawah: L('bawah', 'down'), depan: L('depan', 'ahead') }[arah];
+    ucapkan(arah === 'depan' ? L('Oke, aku lihat ke depan lagi.', "Okay, looking ahead again.")
+                             : L(`Oke, aku menoleh ke ${namaArah}.`, `Okay, I'm looking ${namaArah}.`), 'senang');
+    return true;
+  }
+
   function jawabEkspresi(t) {
     if (tes.aktif && /\b(stop|berhenti|cukup|udah|sudah|selesai|batal)\b/.test(t)) {
       tes.aktif = false; ucapkan(L('Oke, berhenti.', 'Okay, stopping.'), 'normal'); return true;
@@ -3423,7 +3528,11 @@
       tes.token++; sementara = null; moodManual = null; tandaiEkspresi();
       ucapkan(L('Oke, aku normal lagi.', "Okay, I'm back to normal."), 'normal'); return true;
     }
-    if (!PEMICU_EKSPRESI.test(t)) return false;
+    // 2026-10-19 (video 18:51: pengguna bilang "bingung" saja, lalu dijawab AI): ucapan sangat pendek
+    // (<= 2 kata) yang berisi nama ekspresi juga dihitung perintah, kecuali kalimat tentang diri
+    // sendiri ("aku sedih" tetap ke AI supaya KiKo menanggapi perasaan orangnya).
+    const pendek = t.trim().split(/\s+/).length <= 2 && !/\b(aku|saya|gue|gw|kita|kami|i|i'm|im|we)\b/.test(t);
+    if (!PEMICU_EKSPRESI.test(t) && !pendek) return false;
     if (/\b(telepon|telpon|telfon|hubungi|wa|whatsapp|call|phone|message|pesan|ingatkan|remind|timer)\b/.test(t)) return false;   // "coba telepon sayang" tetap telepon
     const cocok = SINONIM_EKSPRESI.find(([, re]) => re.test(t));
     if (!cocok) return false;
@@ -3476,6 +3585,7 @@
       return true;
     }
     if (/baterai/.test(t) && /(berapa|sisa|masih|tinggal|level|habis|penuh|cukup)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabGerak(t)) return true;                           // "menoleh ke kanan", "angguk"
     if (jawabEkspresi(t)) return true;                        // "coba senyum", "tunjukkan semua ekspresi"
     if (jawabAsisten(t)) return true;                         // telepon/WA, timer, radio, cuaca
     if (/(jam|pukul) berapa/.test(t)) {
@@ -4259,6 +4369,7 @@
       return true;
     }
     if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabGerak(t)) return true;                           // "look to the right", "nod"
     if (jawabEkspresi(t)) return true;                        // "show me happy", "show all expressions"
     if (jawabNontonEn(t)) return true;
     if (fitur.telepon && jawabTeleponEn(t)) return true;
@@ -4362,6 +4473,8 @@
     window.kikoUjiAksi = d => jalankanAksiAi(d);
     // Uji pengurai link YouTube: kikoUraiYt('https://youtu.be/ID?t=90') -> {id, list, mulai}.
     window.kikoUraiYt = s => uraiYt(s);
+    // Uji gerak hidup: nilai L terakhir yang dikirim ke base.
+    window.kikoLirik = () => ({ pan: lirik.pan, tilt: lirik.tilt, kepalaPan: kepala.pan, kepalaTilt: kepala.tilt });
     window.kikoNonton = () => { let st = null; try { st = nonton.pemutar && nonton.pemutar.getPlayerState(); } catch (_) {} return { aktif: nonton.aktif, siap: nonton.siap, st, tunda: !!nonton.tunda, radio: radioMain(), stasiun: radio.stasiun && radio.stasiun.nama }; };
     // Ekspresi yang sedang tampil (uji perintah ekspresi): kikoMood() -> 'senang' dsb.
     window.kikoMood = () => moodSaatIni(performance.now());
