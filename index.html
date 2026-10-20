@@ -2824,6 +2824,10 @@
       ai.jedaDengar = JEDA_DENGAR_MIN;                          // ada orang bicara: siap mendengar cepat lagi
       tanyaKiKo(teks);
     };
+    r.onaudiostart = () => {
+      if (ai.pengenal !== r) return;
+      tampilTeks(lanjutMenunggu() ? L('🎤 Jawab sekarang…', '🎤 Answer now…') : (otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…')));
+    };
     r.onresult = e => {
       let teks = '', final = false;
       for (let i = 0; i < e.results.length; i++) { teks += e.results[i][0].transcript; if (e.results[i].isFinal) final = true; }
@@ -3086,6 +3090,12 @@
       ekspresiSingkat(nama, 700);
       // Mode otomatis: beri jeda sebentar supaya KiKo tidak mendengar ekor suaranya sendiri.
       ai.dengarBerikut = performance.now() + 600;
+      // 2026-10-20 (catatan dengar pengguna: setelah "Mau telepon siapa?" ada 3-8 sesi sunyi, lalu
+      // pengguna mengulang kalimat lengkap): orang menjawab LANGSUNG setelah pertanyaan, tapi
+      // pengenal baru mulai +-0,6 dtk + giliran interval 300 ms + waktu siap mic Android, jadi
+      // jawaban satu kata ("Rita") habis sebelum KiKo mendengar. Saat menunggu jawaban, dengar
+      // dimulai 120 ms setelah KiKo selesai bicara, langsung (tanpa menunggu interval).
+      if (lanjutMenunggu() && ai.tahap === 'diam') setTimeout(() => { if (lanjutMenunggu() && !ai.bicara) mulaiDengar(true); }, 120);
     };
     ai.bicara = true;                                          // dianggap bicara sejak diantrikan, bukan sejak onstart
     speechSynthesis.speak(u);
