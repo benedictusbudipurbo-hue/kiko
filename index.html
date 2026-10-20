@@ -762,6 +762,7 @@
     const now = performance.now();
     const tadinyaTidur = fase === 'hidup' && moodSaatIni(now) === 'tidur';
     terakhirInteraksi = now;
+    try { ai.jedaDengar = 1500; } catch (_) {}   // 2026-10-20: disentuh/diajak = dengar cepat lagi
     if (tadinyaTidur) { ekspresiSingkat('kaget', 900); kedipSekarang(); }
   }
 
@@ -2881,7 +2882,12 @@
   // Selama pelacakan wajah melihat seseorang, KiKo mendengar sendiri. Jeda
   // antar-sesi dengar mulai 1,5 detik dan berlipat sampai 12 detik kalau tidak
   // ada yang bicara; kembali cepat begitu ada suara atau orang baru datang.
-  const JEDA_DENGAR_MIN = 1500, JEDA_DENGAR_MAKS = 12000;
+  // 2026-10-20 (pengguna: "saat KiKo running 2 jam lebih, tambah lama tambah sulit mendengar"):
+  // jeda hanya kembali cepat saat orang BARU datang. Orang yang terus duduk di depan KiKo
+  // lama-lama hanya didengar tiap 12 dtk, jadi kebanyakan kalimat jatuh di antara sesi.
+  // Sekarang maksimum 4 dtk, dan jeda kembali cepat juga saat orang menyentuh layar / dielus /
+  // wajahnya bergerak cukup jauh (tanda sedang aktif).
+  const JEDA_DENGAR_MIN = 1500, JEDA_DENGAR_MAKS = 4000;
   ai.jedaDengar = JEDA_DENGAR_MIN;
   ai.dengarBerikut = 0;
   const cekDengarOtomatis = document.getElementById('cekDengarOtomatis');
@@ -2894,6 +2900,12 @@
     const adaWajah = wajah.ada;
     if (adaWajah && !wajahTadi) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = now + 800; }   // orang baru datang
     wajahTadi = adaWajah;
+    // wajah bergeser jauh (menoleh/mendekat) = orang aktif: dengar cepat lagi
+    if (adaWajah) {
+      const gx = wajah.x - (ai.acuWajahX ?? wajah.x), gy = wajah.y - (ai.acuWajahY ?? wajah.y);
+      if (Math.hypot(gx, gy) > 0.35) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = Math.min(ai.dengarBerikut, now + 400); }
+      ai.acuWajahX = wajah.x; ai.acuWajahY = wajah.y;
+    }
     const menunggu = lanjutMenunggu();      // KiKo baru bertanya: dengarkan jawabannya
     if ((!cekDengarOtomatis.checked && !menunggu) || !ai.url || fase !== 'hidup' || document.hidden || (modeMalamAktif() && !menunggu) || tari.mik || radioMain() || videoMain()) return;
     if ((!adaWajah && !menunggu) || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
