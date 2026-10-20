@@ -2632,6 +2632,28 @@
     pratinjau.hidden = true;
   }
 
+  // 2026-10-20 (pengguna: "saat long run sulit berkomunikasi, sulit mendengar"): dengar otomatis
+  // butuh wajah terlihat kamera. Android mengambil kamera untuk aplikasi lain (WhatsApp video call,
+  // kamera) dan aliran kamera KiKo berhenti ("ended"/beku) TANPA pernah dinyalakan lagi, jadi
+  // KiKo tidak pernah melihat orang lagi dan berhenti mendengar sendiri. Penjaga ini menyalakan
+  // ulang kamera kalau track berakhir, video tidak maju > 6 dtk, atau detektor gagal terus.
+  wajah.galatDeteksi = 0; wajah.majuTerakhir = 0; wajah.restart = 0;
+  setInterval(() => {
+    if (!cekWajah.checked || wajah.memuat || document.hidden || fase !== 'hidup') return;
+    const track = wajah.stream && wajah.stream.getVideoTracks()[0];
+    const v = wajah.video, now = performance.now();
+    if (v && v.currentTime !== wajah.waktuCek) { wajah.waktuCek = v.currentTime; wajah.majuTerakhir = now; }
+    const mati = !wajah.aktif || !track || track.readyState === 'ended';
+    const beku = wajah.aktif && now - wajah.majuTerakhir > 6000;
+    if (mati || beku || wajah.galatDeteksi > 50) {
+      wajah.restart++; wajah.galatDeteksi = 0; wajah.majuTerakhir = now;
+      console.warn('[KiKo] kamera dinyalakan ulang:', mati ? 'mati' : beku ? 'beku' : 'galat');
+      hentikanWajah();
+      mulaiWajah().then(() => { if (wajah.aktif) statusWajah(L(`Aktif (kamera dinyalakan ulang ${wajah.restart}x).`, `On (camera restarted ${wajah.restart}x).`)); });
+    }
+  }, 3000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) wajah.majuTerakhir = performance.now(); });
+
   function deteksiWajah() {
     const v = wajah.video;
     if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
@@ -2640,7 +2662,7 @@
     const now = performance.now();
 
     let hasil;
-    try { hasil = wajah.detektor.detectForVideo(v, now); } catch (_) { return; }
+    try { hasil = wajah.detektor.detectForVideo(v, now); wajah.galatDeteksi = 0; } catch (_) { wajah.galatDeteksi++; return; }
     // Kalau ada beberapa orang, ikuti wajah terbesar (paling dekat).
     let terbaik = null;
     for (const d of (hasil && hasil.detections) || []) {
