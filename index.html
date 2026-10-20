@@ -362,6 +362,17 @@
   </div>
 
   <div class="bagian">
+    <h2 data-en="Update KiKo">Perbarui KiKo</h2>
+    <p class="petunjuk" id="statusOta" role="status">Hubungkan base untuk mengecek versi firmware.</p>
+    <progress id="majuOta" max="100" value="0" hidden style="width:100%"></progress>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol utama" id="tombolOta" type="button" hidden>Perbarui</button>
+      <button class="tombol" id="tombolOtaUlang" type="button" hidden data-en="Reinstall this version">Pasang ulang versi ini</button>
+    </div>
+    <p class="petunjuk" data-en="Keep the phone in the cradle and the battery above 50 % (or the charger plugged in). It takes about 1–2 minutes. If anything goes wrong, KiKo goes back to the old version by itself.">Biarkan HP di dudukan dan baterai di atas 50 % (atau charger tercolok). Lama +-1–2 menit. Kalau ada yang gagal, KiKo kembali ke versi lama sendiri.</p>
+  </div>
+
+  <div class="bagian">
     <h2 data-en="App">Aplikasi</h2>
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol utama" id="tombolPasangApp" type="button" hidden data-en="Install the KiKo app">Pasang aplikasi KiKo</button>
@@ -1787,6 +1798,209 @@
                 `KiKo's battery is down to ${p} percent. KiKo is getting hungry, please charge KiKo.`), 'ngantuk');
     }
   }
+  // ---------------------------------------------------------------------
+  // PERKIRAAN SISA WAKTU BATERAI (2026-10-20, pengguna: "saat ditanya level baterai, tambahkan
+  // perkiraan berapa lama baterai bertahan hingga perlu dicharge"). Laju turun (% per jam)
+  // diukur sendiri selama KiKo menyala tanpa charger: dari bacaan tertua s/d terbaru dalam 90
+  // menit terakhir, dipakai kalau rentangnya >= 15 menit dan turun >= 2 %. Laju yang terukur
+  // disimpan (rata-rata bergerak, kiko.lajuBaterai) supaya sesi berikutnya langsung pakai.
+  // Awal: 20 %/jam (uji 18-10: 98 -> 81 % dalam +-45 menit dengan HP di dudukan).
+  // "Perlu dicas" = 20 % (batas peringatan BATERAI_LEMAH).
+  // ---------------------------------------------------------------------
+  const LAJU_BAWAAN = 20;
+  let lajuBaterai = LAJU_BAWAAN;
+  try { const v = parseFloat(localStorage.getItem('kiko.lajuBaterai')); if (v >= 3 && v <= 80) lajuBaterai = v; } catch (_) {}
+  const riwayatBaterai = [];
+  function catatBaterai(p) {
+    const t = Date.now();
+    if (p === null || ble.cas) { riwayatBaterai.length = 0; return; }
+    riwayatBaterai.push({ t, p });
+    while (riwayatBaterai.length && t - riwayatBaterai[0].t > 90 * 60000) riwayatBaterai.shift();
+    const a = riwayatBaterai[0], jam = (t - a.t) / 3600000, turun = a.p - p;
+    if (jam >= 0.25 && turun >= 2) {
+      const laju = Math.min(80, Math.max(3, turun / jam));
+      lajuBaterai = lajuBaterai * 0.7 + laju * 0.3;
+      try { localStorage.setItem('kiko.lajuBaterai', lajuBaterai.toFixed(1)); } catch (_) {}
+    }
+  }
+  function sisaWaktuBaterai(p) {             // jam sampai 20 %, atau null
+    if (p === null || ble.cas) return null;
+    return Math.max(0, (p - BATERAI_LEMAH) / lajuBaterai);
+  }
+  function ucapSisaWaktu(jam) {
+    if (jam === null) return '';
+    if (jam < 0.15) return L('sebaiknya dicas sekarang', 'it should be charged now');
+    if (jam < 1) { const m = Math.max(10, Math.round(jam * 6) * 10); return L(`kira-kira ${m} menit lagi baru perlu dicas`, `about ${m} minutes until it needs charging`); }
+    const j = Math.round(jam * 2) / 2, utuh = Math.floor(j), stgh = j > utuh;
+    return L(`kira-kira ${utuh}${stgh ? ' setengah' : ''} jam lagi baru perlu dicas`,
+             `about ${utuh}${stgh ? ' and a half' : ''} hour${j > 1 ? 's' : ''} until it needs charging`);
+  }
+
+  // =====================================================================
+  //  PEMBARUAN FIRMWARE LEWAT BLUETOOTH (2026-10-20, firmware Ver 25+)
+  //  firmware/versi.json di GitHub Pages: {versi, file, ukuran, sha256, catatan, catatan_en}.
+  //  Alur: F,mulai,<ukuran>,<sha256>,<versi> -> F,siap -> potongan [offset 4 byte LE][isi] ke
+  //  karakteristik 6e400004 (write dengan respons, berurutan) -> F,selesai -> F,ok -> base restart.
+  //  Base < Ver 25 belum punya penerima: perlu unggah USB sekali.
+  // =====================================================================
+  const NUS_OTA = '6e400004-b5a3-f393-e0a9-e50e24dcca9e';
+  const ota = { aktif: false, info: null, tunggu: null, mulaiUlang: false, target: 0, diumumkan: 0 };
+  const elStatusOta = document.getElementById('statusOta');
+  const elMajuOta = document.getElementById('majuOta');
+  const tombolOta = document.getElementById('tombolOta');
+  const tombolOtaUlang = document.getElementById('tombolOtaUlang');
+  async function cekPembaruan() {
+    if (!ble.terhubung) return;
+    try {
+      const r = await fetch('firmware/versi.json', { cache: 'no-cache' });
+      if (!r.ok) throw new Error(r.status);
+      ota.info = await r.json();
+    } catch (_) { ota.info = null; }
+    selesaiPembaruanCek();
+  }
+  function selesaiPembaruanCek() {
+    if (ota.aktif) return;
+    const vb = ble.versiBase, inf = ota.info;
+    tombolOta.hidden = true; tombolOtaUlang.hidden = true;
+    if (!ble.terhubung) { elStatusOta.textContent = L('Hubungkan base untuk mengecek versi firmware.', 'Connect the base to check the firmware version.'); return; }
+    if (!vb) { elStatusOta.textContent = L('Mengecek versi firmware…', 'Checking the firmware version…'); return; }
+    if (vb < 25) { elStatusOta.textContent = L(`Firmware Ver ${vb}. Versi ini belum bisa diperbarui lewat HP; perlu unggah lewat kabel USB sekali (Ver 25 ke atas bisa).`, `Firmware Ver ${vb}. This version can't be updated from the phone yet; it needs one USB upload (Ver 25 and later can).`); return; }
+    if (!inf) { elStatusOta.textContent = L(`Firmware Ver ${vb}. Daftar versi tidak bisa dibuka (cek internet).`, `Firmware Ver ${vb}. Could not load the version list (check the internet).`); return; }
+    const catatan = bahasa === 'en' ? (inf.catatan_en || inf.catatan || '') : (inf.catatan || '');
+    if (inf.versi > vb) {
+      elStatusOta.textContent = L(`Pembaruan tersedia: Ver ${vb} → Ver ${inf.versi}. `, `Update available: Ver ${vb} → Ver ${inf.versi}. `) + catatan;
+      tombolOta.textContent = L(`Perbarui ke Ver ${inf.versi}`, `Update to Ver ${inf.versi}`); tombolOta.hidden = false;
+      if (ota.diumumkan !== inf.versi && fase === 'hidup') {
+        ota.diumumkan = inf.versi;
+        tawarkanAksi(L(`Ada pembaruan untuk badan KiKo (Ver ${inf.versi}).`, `There's an update for KiKo's body (Ver ${inf.versi}).`), L('Perbarui', 'Update'), () => mulaiPembaruan(false));
+      }
+    } else {
+      elStatusOta.textContent = L(`Firmware Ver ${vb}, sudah yang terbaru.`, `Firmware Ver ${vb}, up to date.`);
+      if (inf.versi === vb) tombolOtaUlang.hidden = false;
+    }
+  }
+  function tungguBalasanOta(pola, ms) {
+    return new Promise((ok, gagal) => {
+      const t = setTimeout(() => { ota.tunggu = null; gagal(new Error(L('base tidak menjawab', 'no reply from the base'))); }, ms);
+      ota.tunggu = { pola, ok: v => { clearTimeout(t); ok(v); }, gagal: e => { clearTimeout(t); gagal(e); } };
+    });
+  }
+  const ALASAN_OTA = {
+    baterai: ['baterai KiKo kurang dari 7,0 V; cas dulu atau colok charger', "KiKo's battery is below 7.0 V; charge it or plug in the charger"],
+    ukuran: ['file terlalu besar untuk slot firmware', 'the file is too large for the firmware slot'],
+    sha: ['isi file rusak di jalan (pemeriksaan SHA-256 gagal)', 'the file got corrupted on the way (SHA-256 check failed)'],
+    putus: ['sambungan Bluetooth putus', 'the Bluetooth connection dropped'],
+    waktu: ['data berhenti datang', 'the data stopped arriving'],
+    gambar: ['file bukan firmware KiKo yang sah', 'the file is not valid KiKo firmware'],
+  };
+  function terimaOta(baris) {
+    const b = baris.split(',');
+    if (b[1] === 'gagal') {
+      const a = ALASAN_OTA[b[2]];
+      const teks = a ? L(a[0], a[1]) : b.slice(2).join(',');
+      if (ota.tunggu) { const t = ota.tunggu; ota.tunggu = null; t.gagal(new Error(teks)); }
+      else if (ota.aktif) gagalOta(teks);
+      return;
+    }
+    if (ota.tunggu && ota.tunggu.pola === b[1]) { const t = ota.tunggu; ota.tunggu = null; t.ok(b); }
+  }
+  function gagalOta(teks) {
+    ota.aktif = false; ota.mulaiUlang = false;
+    elMajuOta.hidden = true;
+    elStatusOta.textContent = L('Pembaruan gagal: ', 'Update failed: ') + teks + L('. KiKo tetap memakai versi lama.', '. KiKo keeps the old version.');
+    ucapkan(L('Pembaruanku gagal, tapi tidak apa-apa, aku tetap pakai versi lama.', "My update failed, but that's okay, I'm still on the old version."), 'sedih');
+    setTimeout(selesaiPembaruanCek, 8000);
+  }
+  async function sha256Heks(buf) {
+    const h = await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+  async function mulaiPembaruan(ulang) {
+    const inf = ota.info;
+    if (ota.aktif || !inf || !ble.terhubung || !ble.layanan) return;
+    if (!(ble.versiBase >= 25)) { selesaiPembaruanCek(); return; }
+    if (ble.persen !== null && ble.persen < 50 && !ble.cas) {
+      elStatusOta.textContent = L(`Baterai KiKo ${ble.persen} %. Colok charger dulu atau tunggu di atas 50 %, baru perbarui.`, `KiKo's battery is at ${ble.persen} %. Plug in the charger or wait until it's above 50 %, then update.`);
+      ucapkan(L('Bateraiku masih kurang untuk pembaruan. Colok charger dulu ya.', 'My battery is too low for an update. Please plug in the charger first.'), 'ngantuk');
+      return;
+    }
+    ota.aktif = true; ota.target = inf.versi;
+    tombolOta.hidden = true; tombolOtaUlang.hidden = true;
+    elMajuOta.hidden = false; elMajuOta.value = 0;
+    try {
+      elStatusOta.textContent = L('Mengunduh firmware…', 'Downloading the firmware…');
+      const r = await fetch('firmware/' + inf.file, { cache: 'no-cache' });
+      if (!r.ok) throw new Error(L('file tidak bisa diunduh', 'could not download the file') + ' (' + r.status + ')');
+      const buf = await r.arrayBuffer();
+      if (buf.byteLength !== inf.ukuran) throw new Error(L('ukuran file tidak cocok', 'file size does not match'));
+      const sha = await sha256Heks(buf);
+      if (sha !== String(inf.sha256).toLowerCase()) throw new Error(L('file rusak saat diunduh', 'the download is corrupted'));
+      const kar = await ble.layanan.getCharacteristic(NUS_OTA);
+      await antrianTulis;                              // tunggu tulisan lain selesai
+      elStatusOta.textContent = L('Menyiapkan base…', 'Preparing the base…');
+      const siap = tungguBalasanOta('siap', 15000);
+      ota.aktif = false; kirim(`F,mulai,${inf.ukuran},${sha},${inf.versi}`); ota.aktif = true;
+      await siap;
+      ucapkan(L('Aku sedang diperbarui. Jangan cabut HP-nya ya.', "I'm being updated. Please don't take the phone off."), 'senang');
+      await antrianTulis;
+      const data = new Uint8Array(buf);
+      let potong = 240, off = 0, lalu = 0;
+      const t0 = performance.now();
+      while (off < data.length) {
+        const n = Math.min(potong, data.length - off);
+        const paket = new Uint8Array(4 + n);
+        new DataView(paket.buffer).setUint32(0, off, true);
+        paket.set(data.subarray(off, off + n), 4);
+        try { await kar.writeValueWithResponse(paket); }
+        catch (e) {
+          if (potong > 20 && off === 0) { potong = potong > 120 ? 120 : 20; continue; }   // MTU kecil: perkecil potongan
+          throw e;
+        }
+        off += n;
+        const persen = Math.floor(off * 100 / data.length);
+        if (persen !== lalu) {
+          lalu = persen; elMajuOta.value = persen;
+          const dtk = (performance.now() - t0) / 1000, sisa = dtk / off * (data.length - off);
+          elStatusOta.textContent = L(`Mengirim ${persen} % · sisa +-${Math.ceil(sisa)} dtk`, `Sending ${persen} % · about ${Math.ceil(sisa)} s left`);
+        }
+        if (!ota.aktif) return;                         // dibatalkan (mis. putus)
+      }
+      elStatusOta.textContent = L('Memeriksa firmware di base…', 'Checking the firmware on the base…');
+      const ok = tungguBalasanOta('ok', 20000);
+      ota.aktif = false; kirim('F,selesai'); ota.aktif = true;
+      await ok;
+      ota.aktif = false;          // transfer selesai: putusnya sambungan sesudah ini = restart yang diharapkan
+      ota.mulaiUlang = true;
+      elMajuOta.value = 100;
+      elStatusOta.textContent = L('Terkirim. KiKo dimulai ulang dengan versi baru…', 'Sent. KiKo is restarting with the new version…');
+    } catch (e) {
+      gagalOta((e && e.message) || String(e));
+    }
+  }
+  async function sambungSetelahPembaruan() {
+    for (let i = 0; i < 10 && ota.mulaiUlang && !ble.terhubung; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try { if (await sambungUlangOtomatis()) break; } catch (_) {}
+    }
+    if (!ble.terhubung && ota.mulaiUlang) {
+      ota.aktif = false; ota.mulaiUlang = false; elMajuOta.hidden = true;
+      elStatusOta.textContent = L('Base belum tersambung lagi. Ketuk "Hubungkan base".', 'The base has not reconnected yet. Tap "Connect base".');
+    }
+  }
+  // dipanggil saat versi base diketahui sesudah sambung ulang
+  const selesaiPembaruanCekAsli = selesaiPembaruanCek;
+  selesaiPembaruanCek = function () {
+    if (ota.mulaiUlang && ble.versiBase) {
+      const berhasil = ble.versiBase === ota.target;
+      ota.aktif = false; ota.mulaiUlang = false; elMajuOta.hidden = true;
+      if (berhasil) ucapkan(L(`Aku sudah diperbarui ke versi ${ota.target}!`, `I've been updated to version ${ota.target}!`), 'senang');
+      else ucapkan(L('Versi baru tidak berhasil jalan, jadi aku kembali ke versi lama.', "The new version didn't start properly, so I went back to the old one."), 'bingung');
+    }
+    selesaiPembaruanCekAsli();
+  };
+  tombolOta.addEventListener('click', () => mulaiPembaruan(false));
+  tombolOtaUlang.addEventListener('click', () => mulaiPembaruan(true));
+
   // Jawaban suara "baterai kamu berapa?" (dipanggil jawabLokal / jawabLokalEn).
   function jawabBaterai() {
     if (!ble.terhubung) { ucapkan(L('Aku belum tersambung ke badanku, jadi belum tahu baterainya.', "I'm not connected to my body yet, so I don't know the battery level."), 'bingung'); return; }
@@ -1794,7 +2008,9 @@
     const p = ble.persen;
     const cas = ble.cas ? L(', dan sekarang lagi di-cas', ", and I'm charging now") : '';
     const nada = p > 50 ? L('aman!', "I'm good!") : p > BATERAI_LEMAH ? L('masih cukup.', 'still enough.') : L('cas aku sebentar lagi ya.', 'please charge me soon.');
-    ucapkan(L(`Baterai KiKo ${p} persen${cas}, ${nada}`, `KiKo's battery is at ${p} percent${cas}, ${nada}`), p > BATERAI_LEMAH ? 'senang' : 'ngantuk');
+    const sisa = ucapSisaWaktu(sisaWaktuBaterai(p));
+    ucapkan(L(`Baterai KiKo ${p} persen${cas}, ${nada}`, `KiKo's battery is at ${p} percent${cas}, ${nada}`) + (sisa ? L(` Menurut perkiraanku, ${sisa}.`, ` By my estimate, ${sisa}.`) : ''),
+            p > BATERAI_LEMAH ? 'senang' : 'ngantuk');
   }
   // Ver 12: kabel charger tercolok -> base mengunci roda. Wajah memberi tahu sekali,
   // joystick roda berhenti mengirim M. diam = tanpa ucapan (mis. saat terputus).
@@ -1825,6 +2041,7 @@
 
   function kirim(baris) {
     if (!ble.rx) return;
+    if (ota.aktif && !/^F\b/.test(baris)) return;   // selama pembaruan firmware: jangan ganggu GATT
     const data = enc.encode(baris + '\n');
     // Web Bluetooth menolak dua tulisan GATT bersamaan, jadi diantrikan.
     antrianTulis = antrianTulis
@@ -1842,9 +2059,13 @@
     else if (kode === 'J') { interaksi(); ekspresiSingkat('bingung', 1800); kirim('G,bingung'); }
     // U = kabel charger tercolok (U,1) / dicabut (U,0), firmware Ver 12
     else if (kode === 'U' && nilai) aturCas(nilai === '1');
+    // OK,KiKo-Base,<versi> = balasan ping; F,... = pembaruan firmware (Ver 25)
+    else if (kode === 'OK') { const v = parseInt(baris.split(',')[2], 10); if (v > 0) { ble.versiBase = v; selesaiPembaruanCek(); } }
+    else if (kode === 'F') terimaOta(baris.trim());
     else if (kode === 'B' && nilai) {
       ble.baterai = parseFloat(nilai);
       ble.persen = persenBaterai(ble.baterai);
+      catatBaterai(ble.persen);
       perbaruiChip();
       perbaruiBaterai();
       // Ver 11: "B,6.31,kritis" = baterai di bawah 6,4 V, base akan mematikan motor/servo lalu tidur.
@@ -1920,7 +2141,7 @@
           ble.sisa = ble.sisa.slice(i + 1);
         }
       });
-      ble.device = device; ble.terhubung = true;
+      ble.device = device; ble.terhubung = true; ble.layanan = layanan; ble.versiBase = null;
       hentikanNfc();
       try { localStorage.setItem('kiko.pernahBase', '1'); localStorage.setItem('kiko.baseId', device.id); } catch (_) {}
       statusPasang.textContent = '';
@@ -1928,18 +2149,25 @@
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
       kirim(document.getElementById('cekTepi').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
       kirim('U');                    // Ver 12: tanya colokan cas (firmware lama membalas ?,U, diabaikan)
+      kirim('P');                    // Ver 25: versi firmware (balasan OK,KiKo-Base,<versi>) -> cek pembaruan
+      setTimeout(cekPembaruan, 2500);
       if (fase === 'pasang') mulaiMemuat();
     }
   }
 
   function saatTerputus() {
-    ble.terhubung = false; ble.rx = null; ble.baterai = null; ble.persen = null;
+    ble.terhubung = false; ble.rx = null; ble.baterai = null; ble.persen = null; ble.layanan = null;
+    if (ota.aktif) gagalOta(L('sambungan putus di tengah pembaruan, coba lagi', 'the connection dropped mid-update, try again'));
     ble.lemahHitung = 0; ble.lemahDiumumkan = false;
     aturCas(false, true);
     perbaruiChip();
     perbaruiBaterai();
     // Base Ver 11 mengirim "B,x.xx,kritis" lalu tidur: jelaskan alasannya, bukan sekadar "terputus".
-    if (fase === 'hidup' || (fase === 'memuat' && !MODE_PENGEMBANG)) keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
+    if (ota.mulaiUlang) {                       // pembaruan berhasil: base sedang restart, sambung lagi sendiri
+      if (fase === 'hidup' || fase === 'memuat') keLayarPasang(L('KiKo sedang memasang versi baru, tunggu sebentar…', 'KiKo is installing the new version, one moment…'));
+      sambungSetelahPembaruan();
+    }
+    else if (fase === 'hidup' || (fase === 'memuat' && !MODE_PENGEMBANG)) keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
     ble.kritis = false;
   }
 
@@ -2120,7 +2348,9 @@
     const chip = document.getElementById('chipBase');
     chip.classList.toggle('aktif', ble.terhubung);
     chip.textContent = ble.terhubung
-      ? L('Base terhubung', 'Base connected') + (ble.persen !== null ? L(' · Baterai ', ' · Battery ') + ble.persen + '% (' + ble.baterai.toFixed(2) + ' V)' : '') + (ble.cas ? ' · ⚡' : '')
+      ? L('Base terhubung', 'Base connected') + (ble.persen !== null ? L(' · Baterai ', ' · Battery ') + ble.persen + '% (' + ble.baterai.toFixed(2) + ' V)' : '')
+        + (sisaWaktuBaterai(ble.persen) !== null ? L(' · +-', ' · ~') + sisaWaktuBaterai(ble.persen).toFixed(1) + L(' jam lagi', ' h left') : '')
+        + (ble.versiBase ? ' · Ver ' + ble.versiBase : '') + (ble.cas ? ' · ⚡' : '')
       : L('Base: tidak terhubung', 'Base: not connected');
     tombolBasePanel.textContent = ble.terhubung ? L('Putuskan base', 'Disconnect base') : L('Hubungkan base', 'Connect base');
     tombolHubung.textContent = L('Hubungkan base', 'Connect base');
@@ -2560,7 +2790,7 @@
     // terlihat KiKo sedang menangkap kata; kalau sesi berakhir tanpa hasil final (Chrome Android
     // kadang begitu), teks sementara terakhir tetap dipakai.
     r.interimResults = true;
-    r.maxAlternatives = 1;
+    r.maxAlternatives = 5;      // 2026-10-20: alternatif dicoba saat menunggu jawaban (nama pendek)
     let dapat = false, sementaraTeks = '';
     const kirimTeks = teks => {
       if (dapat || teks.length < 2) return;
@@ -2572,7 +2802,12 @@
       let teks = '', final = false;
       for (let i = 0; i < e.results.length; i++) { teks += e.results[i][0].transcript; if (e.results[i].isFinal) final = true; }
       teks = teks.trim();
-      if (final) kirimTeks(teks);
+      if (final) {
+        const akhir = e.results[e.results.length - 1], alt = [];
+        for (let k = 1; k < akhir.length; k++) alt.push(akhir[k].transcript.trim());
+        ai.alternatif = alt;
+        kirimTeks(teks);
+      }
       else if (teks) { sementaraTeks = teks; tampilTeks('… ' + teks, 4000); }
     };
     r.onerror = e => {
@@ -2594,7 +2829,7 @@
     r.onend = () => {
       if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
       ai.pengenal = null;
-      if (!dapat && sementaraTeks.length >= 2) kirimTeks(sementaraTeks);
+      if (!dapat && sementaraTeks.length >= 2) { ai.alternatif = []; kirimTeks(sementaraTeks); }
       if (dapat) return;                                        // tanyaKiKo yang melanjutkan
       aturTahap('diam');
       // Tombol mic tanpa hasil: dengarkan sekali lagi otomatis (jendela dengar Android sangat pendek).
@@ -2608,6 +2843,12 @@
       if (!otomatis && !adaGalat) {
         const p = L('Tidak terdengar. Ketuk mic, tunggu "Mendengarkan…", lalu langsung bicara.', 'Nothing heard. Tap the mic, wait for "Listening…", then speak right away.');
         tampilTeks(p, 4000); statusAi(p);
+      }
+      if (otomatis && lanjutMenunggu()) {
+        lanjut.sunyi++;
+        ai.dengarBerikut = performance.now() + 300;
+        tampilTeks(lanjut.sunyi >= 2 ? L('Sebut namanya dengan jelas ya, atau ketuk mic dulu.', 'Say the name clearly, or tap the mic first.') : '', 3000);
+        return;
       }
       if (otomatis) {
         // Sesi sunyi: tunggu makin lama sebelum mendengar lagi, supaya Chrome
@@ -2653,8 +2894,9 @@
     const adaWajah = wajah.ada;
     if (adaWajah && !wajahTadi) { ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = now + 800; }   // orang baru datang
     wajahTadi = adaWajah;
-    if (!cekDengarOtomatis.checked || !ai.url || fase !== 'hidup' || document.hidden || modeMalamAktif() || tari.mik || radioMain() || videoMain()) return;
-    if (!adaWajah || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
+    const menunggu = lanjutMenunggu();      // KiKo baru bertanya: dengarkan jawabannya
+    if ((!cekDengarOtomatis.checked && !menunggu) || !ai.url || fase !== 'hidup' || document.hidden || (modeMalamAktif() && !menunggu) || tari.mik || radioMain() || videoMain()) return;
+    if ((!adaWajah && !menunggu) || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
     mulaiDengar(true);
   }, 300);
 
@@ -3320,9 +3562,52 @@
   //     dan menampilkan kartu contoh di pita bawah (tidak menutupi wajah).
   // =====================================================================
   let lanjut = null;   // { buat: jawaban -> kalimat lengkap, sampai: ms }
-  function tanyaLanjut(pertanyaan, buat) {
-    lanjut = { buat, sampai: Date.now() + 40000 };
+  // 2026-10-20 (video 09:08, pengguna: "kiko kurang nyambung saat diberi jawaban, perlu kalimat
+  // lengkap seperti video call Is"): sesudah "Mau video call siapa?" KiKo mendengar 6-7 kali tapi
+  // pengenal suara Android tidak menangkap jawaban satu kata pendek ("Is"). Sekarang selama
+  // menunggu jawaban: (1) KiKo langsung mendengar lagi tanpa jeda dan tanpa syarat wajah terlihat,
+  // (2) pengenal memberi 5 alternatif kata dan semuanya dicoba, (3) nama kontak dicocokkan longgar
+  // (beda 1 huruf, kata depan "ke/sama/si/pak/bu" dibuang), (4) setelah 2 sesi sunyi muncul petunjuk.
+  function tanyaLanjut(pertanyaan, buat, jenis) {
+    lanjut = { buat, jenis: jenis || '', sampai: Date.now() + 40000, sunyi: 0 };
     ucapkan(pertanyaan, 'bingung');
+    ai.dengarBerikut = 0;
+  }
+  function cobaTanpaTanyaUlang(kalimat) {
+    // alternatif pengenal suara: hanya dipakai kalau namanya memang ada di kontak / bukan perintah kontak
+    if (/^(video call|telepon|kirim pesan ke|message|call)\b/.test(kalimat) && !cariKontak(kalimat) && !nomorDiucapkan(kalimat)) return false;
+    return jawabLokalInti(kalimat);
+  }
+  function lanjutMenunggu() { return !!(lanjut && Date.now() < lanjut.sampai); }
+  function jarakKata(a, b) {                    // Levenshtein
+    const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+  // Jawaban pendek -> nama kontak yang paling mirip (hanya kalau satu-satunya yang cocok).
+  function kontakLonggar(j) {
+    if (!kontak.length) return null;
+    const bersih = j.toLowerCase().replace(/[.,!?]/g, '').trim();
+    const varian = [bersih, bersih.replace(/^(ke|sama|dengan|dgn|si|kepada|untuk|buat|to|with|call)\s+/, '')];
+    varian.push(varian[1].replace(/^(pak|bu|bapak|ibu|mas|mbak|kak|om|tante|mr|mrs|ms)\s+/, ''));
+    const skor = [];
+    for (const k of kontak) {
+      const nama = k.nama.toLowerCase(), inti = nama.replace(/^(pak|bu|bapak|ibu|mas|mbak|kak|om|tante)\s+/, '');
+      let min = 99;
+      for (const v of varian) {
+        if (!v || v.split(' ').length > 3) continue;
+        for (const n of [nama, inti]) {
+          const dd = jarakKata(v, n), batas = n.length <= 4 ? 1 : Math.floor(n.length / 4) + 1;
+          if (dd <= batas) min = Math.min(min, dd);
+        }
+      }
+      if (min < 99) skor.push([min, k]);
+    }
+    if (!skor.length) return null;
+    skor.sort((x, y) => x[0] - y[0]);
+    return skor.length === 1 || skor[1][0] > skor[0][0] ? skor[0][1].nama : null;   // hanya kalau jelas satu
   }
   const KATA_BATAL = /^(batal|batalkan|gak jadi|ga jadi|nggak jadi|enggak jadi|tidak jadi|ndak jadi|cancel|never ?mind|forget it)\b/;
 
@@ -3335,6 +3620,17 @@
       if (KATA_BATAL.test(t)) { ucapkan(L('Oke, tidak jadi.', 'Okay, never mind.'), 'normal'); return true; }
       // Jawaban yang sudah berupa perintah lengkap dijalankan apa adanya; selain itu dilengkapi.
       if (jawabLokalInti(teks)) return true;
+      const calon = [t, ...(ai.alternatif || []).map(x => x.toLowerCase().trim())].filter((x, i, a) => x && a.indexOf(x) === i);
+      for (const c of calon) {
+        const lengkap = tunggu.buat(c.replace(/[.!?]+$/, ''));
+        if (lengkap && cobaTanpaTanyaUlang(lengkap)) return true;
+      }
+      if (tunggu.jenis === 'kontak') {
+        for (const c of calon) {
+          const nama = kontakLonggar(c);
+          if (nama && jawabLokalInti(tunggu.buat(nama))) return true;
+        }
+      }
       const lengkap = tunggu.buat(t.replace(/[.!?]+$/, ''));
       if (lengkap && jawabLokalInti(lengkap)) return true;
     }
@@ -3876,7 +4172,7 @@
       if (!nama) {
         // Lapis 2: "telepon" saja -> tanya siapa, jawaban berikutnya melengkapi.
         const tanya = { pesan: 'Mau kirim pesan ke siapa?', vc: 'Mau video call siapa?', wa: 'Mau telepon siapa lewat WhatsApp?', tel: 'Mau telepon siapa?' }[mode];
-        tanyaLanjut(tanya, j => mode === 'pesan' ? `kirim pesan ke ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `telepon ${j} lewat wa` : `telepon ${j}`);
+        tanyaLanjut(tanya, j => mode === 'pesan' ? `kirim pesan ke ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `telepon ${j} lewat wa` : `telepon ${j}`, 'kontak');
         return true;
       }
       kontakBelumAda(nama, mode, isi);
@@ -4305,7 +4601,7 @@
       if (/^(on|via|someone|somebody|now|please|whatsapp|who)\b/.test(nama)) nama = '';
       if (!nama) {
         const tanya = { pesan: 'Who do you want to message?', vc: 'Who do you want to video call?', wa: 'Who do you want to call on WhatsApp?', tel: 'Who do you want to call?' }[mode];
-        tanyaLanjut(tanya, j => mode === 'pesan' ? `message ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `call ${j} on whatsapp` : `call ${j}`);
+        tanyaLanjut(tanya, j => mode === 'pesan' ? `message ${j}` : mode === 'vc' ? `video call ${j}` : mode === 'wa' ? `call ${j} on whatsapp` : `call ${j}`, 'kontak');
         return true;
       }
       kontakBelumAda(nama, mode, isi);
