@@ -2821,12 +2821,13 @@
     const kirimTeks = teks => {
       if (dapat || teks.length < 2) return;
       dapat = true;
+      ai.tolakBeruntun = 0;
       ai.jedaDengar = JEDA_DENGAR_MIN;                          // ada orang bicara: siap mendengar cepat lagi
       tanyaKiKo(teks);
     };
     r.onaudiostart = () => {
       if (ai.pengenal !== r) return;
-      tampilTeks(lanjutMenunggu() ? L('🎤 Jawab sekarang…', '🎤 Answer now…') : (otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…')));
+      tampilTeks(lanjutMenunggu() ? L('🎤 Jawab sekarang…', '🎤 Answer now…') + (lanjut.pilihan ? '  ' + lanjut.pilihan : '') : (otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…')));
     };
     r.onresult = e => {
       let teks = '', final = false;
@@ -2849,8 +2850,17 @@
                     e.error === 'no-speech' ? L('Tidak terdengar suara. Coba lagi.', "I didn't hear anything. Try again.") :
                     e.error === 'network' ? L('Pengenal suara butuh internet.', 'Speech recognition needs the internet.') :
                     L('Pengenal suara gagal: ', 'Speech recognition failed: ') + e.error;
-      if (e.error === 'not-allowed' && cekDengarOtomatis.checked) {
-        cekDengarOtomatis.checked = false;                      // jangan mencoba terus tanpa izin
+      // 2026-10-20 (foto pengguna: "Dengar otomatis" ternyata mati sendiri): dulu SATU galat
+      // 'not-allowed' langsung mematikan centang selamanya. Galat itu juga muncul sesaat saat
+      // WhatsApp (video call) masih memegang mikrofon, jadi sesudah uji WA KiKo diam-diam berhenti
+      // mendengar. Sekarang: dengar otomatis istirahat 30 dtk ('audio-capture'/'network': 10 dtk);
+      // centang baru dimatikan kalau 'not-allowed' 5x berturut-turut (izin memang ditolak).
+      if (otomatis && /not-allowed|audio-capture|network/.test(e.error)) {
+        ai.dengarBerikut = performance.now() + (e.error === 'not-allowed' ? 30000 : 10000);
+        if (e.error === 'not-allowed') ai.tolakBeruntun = (ai.tolakBeruntun || 0) + 1;
+      }
+      if (e.error === 'not-allowed' && cekDengarOtomatis.checked && (ai.tolakBeruntun || 0) >= 5) {
+        cekDengarOtomatis.checked = false;                      // izin memang ditolak: jangan mencoba terus
         simpanDengarOtomatis();
       }
       tampilTeks(pesan, 3500);
@@ -3083,7 +3093,8 @@
     const suara = L(suaraId, suaraEn);
     if (suara) u.voice = suara;
     u.rate = 1.05;
-    u.pitch = 1.35;                                            // sedikit lebih tinggi: terdengar seperti robot kecil
+    u.pitch = 1.35;
+    u.volume = volSuara || 1;                                     // 2026-10-20: volume suara KiKo lewat perintah suara                                            // sedikit lebih tinggi: terdengar seperti robot kecil
     u.onstart = () => { ai.bicara = true; ekspresiSingkat(nama, 60000); };
     u.onend = u.onerror = () => {
       ai.bicara = false;
@@ -3634,9 +3645,10 @@
   // menunggu jawaban: (1) KiKo langsung mendengar lagi tanpa jeda dan tanpa syarat wajah terlihat,
   // (2) pengenal memberi 5 alternatif kata dan semuanya dicoba, (3) nama kontak dicocokkan longgar
   // (beda 1 huruf, kata depan "ke/sama/si/pak/bu" dibuang), (4) setelah 2 sesi sunyi muncul petunjuk.
-  function tanyaLanjut(pertanyaan, buat, jenis) {
-    lanjut = { buat, jenis: jenis || '', sampai: Date.now() + 40000, sunyi: 0 };
+  function tanyaLanjut(pertanyaan, buat, jenis, pilihan) {
+    lanjut = { buat, jenis: jenis || '', sampai: Date.now() + 40000, sunyi: 0, pilihan: pilihan || '' };
     ucapkan(pertanyaan, 'bingung');
+    if (pilihan) setTimeout(() => tampilTeks(pertanyaan + ' ' + pilihan), 30);
     ai.dengarBerikut = 0;
   }
   function cobaTanpaTanyaUlang(kalimat) {
@@ -3967,9 +3979,49 @@
     return true;
   }
 
+  // =====================================================================
+  // VOLUME SUARA KIKO lewat perintah suara (2026-10-20, pengguna: "apakah KiKo bisa memperbesar/
+  // memperkecil volume suara via verbal?"). Radio dan YouTube sudah punya perintah volumenya
+  // sendiri (dipakai kalau sedang main). Ini volume suara bicara KiKo (SpeechSynthesis volume
+  // 0,2..1). Halaman web TIDAK bisa menaikkan volume HP: kalau sudah maksimum, KiKo menyarankan
+  // tombol volume HP. Disimpan di kiko.volSuara.
+  // =====================================================================
+  var volSuara = 1;   // var (bukan let): ucapkan() di atas bisa terpanggil sebelum baris ini dijalankan
+  try { const v = parseFloat(localStorage.getItem('kiko.volSuara')); if (v >= 0.2 && v <= 1) volSuara = v; } catch (_) {}
+  function aturVolSuara(v) {
+    volSuara = Math.round(Math.min(1, Math.max(0.2, v)) * 100) / 100;
+    try { localStorage.setItem('kiko.volSuara', String(volSuara)); } catch (_) {}
+  }
+  function jawabVolume(t, en) {
+    if (radioMain() || (typeof nonton !== 'undefined' && nonton.aktif)) return false;   // radio/video punya perintahnya sendiri
+    const kecil = en ? /\b(quieter|softer|lower your voice|turn (it |your voice |the volume )?down|volume down|less loud|too loud)\b/
+                     : /(kecilkan|pelankan|kecilin|pelanin|turunkan|kurangi) (suara|volume)|suara(mu|nya)? (kecilkan|pelankan|kekencangan|terlalu keras|terlalu kencang|kekerasan)|(jangan|terlalu) (keras|kencang)|bicara(lah)? (lebih )?pelan/;
+    const besar = en ? /\b(louder|speak up|turn (it |your voice |the volume )?up|volume up|can'?t hear you|too quiet)\b/
+                     : /(besarkan|keraskan|kencangkan|gedein|kerasin|naikkan|tambah) (suara|volume)|suara(mu|nya)? (besarkan|keraskan|kencangkan|terlalu pelan|terlalu kecil|kurang keras|kurang kencang)|(bicara|ngomong)(lah)? (lebih )?(keras|kencang)|kurang (keras|kencang|terdengar)|tidak (kedengaran|terdengar)|nggak kedengaran|gak kedengaran/;
+    const maks = en ? /\b(full volume|max(imum)? volume|loudest)\b/ : /(volume|suara)(mu)? (paling keras|maksimal|maksimum|penuh)/;
+    const tanya = en ? /\b(what'?s|how loud is) (the|your) volume\b/ : /(volume|suara)(mu)? (berapa|sekarang berapa)/;
+    if (tanya.test(t)) { ucapkan(en ? `My voice is at ${Math.round(volSuara * 100)} percent.` : `Volume suaraku ${Math.round(volSuara * 100)} persen.`, 'senang'); return true; }
+    let arah = maks.test(t) ? 'maks' : kecil.test(t) ? 'kecil' : besar.test(t) ? 'besar' : '';
+    if (!arah) return false;
+    if (arah === 'besar' && volSuara >= 1) {
+      ucapkan(en ? "I'm already at my loudest. Turn up the phone's volume with the side button."
+                 : 'Suaraku sudah paling keras. Besarkan volume HP pakai tombol di samping ya.', 'bingung');
+      return true;
+    }
+    if (arah === 'kecil' && volSuara <= 0.2) {
+      ucapkan(en ? "This is my quietest voice." : 'Ini sudah suaraku yang paling pelan.', 'normal');
+      return true;
+    }
+    aturVolSuara(arah === 'maks' ? 1 : volSuara + (arah === 'besar' ? 0.25 : -0.25));
+    ucapkan(en ? (arah === 'kecil' ? 'Okay, is this better?' : 'Okay, can you hear me now?')
+               : (arah === 'kecil' ? 'Oke, segini lebih enak?' : 'Oke, sekarang lebih jelas?'), 'senang');
+    return true;
+  }
+
   function jawabLokalInti(teks) {
     if (bahasa === 'en') return jawabLokalEn(teks.toLowerCase().replace(/[’]/g, "'"));
     const t = teks.toLowerCase();
+    if (jawabVolume(t, false)) return true;
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
@@ -4231,10 +4283,10 @@
         const m = t.match(/(?:\bke|\buntuk|\bbuat|^wa|^whatsapp|^chat)\s+([a-z]+)\s*(.*)$/);
         if (m) { nama = m[1]; isi = m[2].replace(/^\s*(bahwa|kalau|isinya|:|,)\s*/, '').trim(); }
       } else {
-        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|whatsapp)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|pake|via|dengan|dgn|melalui|lwt|di|sekarang|dong|ya)\b|$)/);
+        const m = t.match(/(?:telepon|telpon|telfon|tlp|hubungi|video ?call|vc)\s+(?:(?:ke|wa|wah|wak|w a|whatsapp|whats app|watsap|wasap)\s+)*([a-z]+(?:\s+[a-z]+){0,2}?)(?=\s+(?:lewat|pakai|pake|via|dengan|dgn|melalui|lwt|di|sekarang|dong|ya)\b|$)/);
         if (m) nama = m[1];
       }
-      if (/^(lewat|pakai|pake|via|dengan|dgn|melalui|lwt|wa|whatsapp|watsap|wasap|sekarang|dong|ya|dulu|seseorang|orang|siapa|aja|saja)\b/.test(nama)) nama = '';
+      if (/^(lewat|pakai|pake|via|dengan|dgn|melalui|lwt|wa|wah|wak|whatsapp|watsap|wasap|sekarang|dong|ya|dulu|seseorang|orang|siapa|aja|saja)\b/.test(nama)) nama = '';
       if (!nama) {
         // Lapis 2: "telepon" saja -> tanya siapa, jawaban berikutnya melengkapi.
         const tanya = { pesan: 'Mau kirim pesan ke siapa?', vc: 'Mau video call siapa?', wa: 'Mau telepon siapa lewat WhatsApp?', tel: 'Mau telepon siapa?' }[mode];
@@ -4450,6 +4502,15 @@
     return semuaRadio().find(r => r.nama.toLowerCase().replace(/[()]/g, '').split(/\s+/)
       .some(w => w.length >= 4 && !/^(radio|jakarta|suara|berita|musik|indonesia)$/.test(w) && t.includes(w)));
   }
+  // Kalimat hanya berisi nama stasiun (+ kata pengisi): "elshinta", "suara surabaya dong".
+  // "aku dari surabaya" TIDAK (sisa kata "aku dari").
+  function hanyaStasiun(t, st) {
+    if (!st) return false;
+    const kataNama = st.nama.toLowerCase().replace(/[()]/g, '').split(/\s+/);
+    const sisa = t.toLowerCase().replace(/[.,!?]/g, '').split(/\s+/)
+      .filter(w => w && !kataNama.includes(w) && !/^(radio|fm|dong|ya|deh|aja|saja|yang|the|please|station)$/.test(w));
+    return sisa.length === 0;
+  }
   // Nama stasiun untuk diucapkan: "Sonora, Elshinta, Suara Surabaya atau Dengerin Musik".
   function daftarNamaRadio(atau) {
     const n = semuaRadio().map(r => r.nama.replace(/\s*\(.*?\)/g, '').replace(/\s+(FM|Jakarta|Indonesia)\b/g, '').trim());
@@ -4476,7 +4537,10 @@
       return true;
     }
     // Hanya kata perintah: "aku suka dengar musik" tidak boleh menyalakan radio.
-    if (!/(putar|nyalakan|hidupkan|setel|dengarkan|mau dengar|pasang|mainkan|play)/.test(t)) return false;
+    // 2026-10-20 (pengguna: menjawab hanya nama radio tidak direspon, "radio + nama" langsung):
+    // kalimat pendek (<= 4 kata) yang hanya berisi nama stasiun, atau diawali "radio", juga dihitung.
+    const pendek = t.trim().split(/\s+/).length <= 4;
+    if (!/(putar|nyalakan|hidupkan|setel|dengarkan|mau dengar|pasang|mainkan|play)/.test(t) && !(pendek && (hanyaStasiun(t, sebut) || /^radio\b/.test(t)))) return false;
     const daftar = semuaRadio();
     // Nama stasiun yang disebut, lalu jenisnya.
     let s = sebut;
@@ -4486,8 +4550,9 @@
     if (!s && TERSERAH.test(t)) s = daftar.find(r => r.jenis === 'radio');
     if (!s) {
       // Lapis 2: stasiun belum disebut -> tanya; "terserah" = stasiun pertama.
-      tanyaLanjut('Mau radio apa? Ada ' + daftarNamaRadio(L(' atau ', ' or ')) + '.',
-        j => TERSERAH.test(j) ? 'putar radio terserah' : `putar radio ${j}`);
+      // Pertanyaan PENDEK diucapkan; daftar stasiun ditampilkan saja. Dulu daftar ikut diucapkan dan
+      // orang menjawab di tengah-tengah (KiKo belum mendengar), jadi jawabannya hilang.
+      tanyaLanjut('Mau radio apa?', j => TERSERAH.test(j) ? 'putar radio terserah' : `putar radio ${j}`, 'radio', daftarNamaRadio(' · ').replace(/, /g, ' · '));
       return true;
     }
     ucapkan('Oke, aku putarkan ' + s.nama + '.', 'senang');
@@ -4558,6 +4623,9 @@
   function jawabCuaca(t) {
     if (!/(cuaca|hujan|gerimis|panas|dingin|suhu|mendung|cerah|payung)/.test(t)) return false;
     if (/(ingatkan|timer)/.test(t)) return false;
+    // 2026-10-20: "aku suka suara hujan" / "panas banget ya" dulu dijawab laporan cuaca. Selain kata
+    // "cuaca"/"suhu"/"ramalan", sekarang perlu tanda pertanyaan/waktu (apa, nggak, besok, nanti, ...).
+    if (!/(cuaca|suhu|ramalan|prakiraan)/.test(t) && !/\b(apa|apakah|nggak|ngga|gak|enggak|tidak|ga|besok|nanti|sekarang|hari ini|sore|malam|pagi|siang|perlu payung|bawa payung|berapa|gimana|bagaimana)\b|\w+kah\b|\?/.test(t)) return false;
     if (!lokasi) { ucapkan('Aku belum tahu kamu di kota mana. Atur dulu di panel ATUR, bagian Cuaca.', 'bingung'); return true; }
     const besok = /besok/.test(t);
     ekspresiSingkat('curiga', 4000);
@@ -4718,7 +4786,7 @@
       if (radio.stasiun) { hentikanRadio(); ucapkan('Radio off.', 'normal'); } else ucapkan('The radio is already off.', 'normal');
       return true;
     }
-    if (!/(play|turn on|put on|start|switch on)/.test(t)) return false;
+    if (!/(play|turn on|put on|start|switch on)/.test(t) && !(t.trim().split(/\s+/).length <= 4 && (hanyaStasiun(t, sebut) || /^radio\b/.test(t)))) return false;
     const daftar = semuaRadio();
     let st = sebut;
     if (!st && /news/.test(t)) st = daftar.find(r => /berita/i.test(r.nama));
@@ -4726,7 +4794,7 @@
     const ANY = /(any|anything|whatever|you choose|your choice|doesn'?t matter)/;
     if (!st && ANY.test(t)) st = daftar.find(r => r.jenis === 'radio');
     if (!st) {
-      tanyaLanjut('Which station? I have ' + daftarNamaRadio(' or ') + '.', j => ANY.test(j) ? 'play the radio anything' : `play the radio ${j}`);
+      tanyaLanjut('Which station?', j => ANY.test(j) ? 'play the radio anything' : `play the radio ${j}`, 'radio', daftarNamaRadio(' · ').replace(/, /g, ' · '));
       return true;
     }
     ucapkan('Okay, playing ' + st.nama + '.', 'senang');
@@ -4737,6 +4805,7 @@
   function jawabCuacaEn(t) {
     if (!/(weather|rain|raining|hot|cold|temperature|umbrella|sunny|forecast)/.test(t)) return false;
     if (/(remind|timer)/.test(t)) return false;
+    if (!/(weather|temperature|forecast)/.test(t) && !/\b(will|is it|going to|today|tomorrow|tonight|later|now|need an umbrella|should i|how|what)\b|\?/.test(t)) return false;
     if (!lokasi) { ucapkan("I don't know which city you're in yet. Set it in the menu under Weather.", 'bingung'); return true; }
     const besok = /tomorrow/.test(t);
     ekspresiSingkat('curiga', 4000);
@@ -4757,6 +4826,7 @@
   }
 
   function jawabLokalEn(t) {
+    if (jawabVolume(t, true)) return true;
     if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
       if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
