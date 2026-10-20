@@ -1,0 +1,10 @@
+{
+ "versi": 25,
+ "file": "kiko_base_Ver_25.bin",
+ "ukuran": 679248,
+ "sha256": "7e480bd96b5e593a264d823d068dc266bed5c47f01abda82c97292aece4adc45",
+ "tanggal": "2026-10-20",
+ "catatan": "Pembaruan firmware lewat HP (Bluetooth) dengan kembali otomatis ke versi lama kalau gagal.",
+ "catatan_en": "Firmware updates from the phone (Bluetooth), with automatic return to the old version if anything fails.",
+ "partisi": "min_spiffs"
+}
