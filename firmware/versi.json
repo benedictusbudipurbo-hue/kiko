@@ -1,10 +1,10 @@
 {
- "versi": 25,
- "file": "kiko_base_Ver_25.bin",
- "ukuran": 679248,
- "sha256": "7e480bd96b5e593a264d823d068dc266bed5c47f01abda82c97292aece4adc45",
+ "versi": 26,
+ "file": "kiko_base_Ver_26.bin",
+ "ukuran": 682144,
+ "sha256": "a832e4b12c2568ed36f5d8100c25984b09bf32be44ef4c236daadec0d139b5b4",
  "tanggal": "2026-10-20",
- "catatan": "Pembaruan firmware lewat HP (Bluetooth) dengan kembali otomatis ke versi lama kalau gagal.",
- "catatan_en": "Firmware updates from the phone (Bluetooth), with automatic return to the old version if anything fails.",
+ "catatan": "Hemat energi: leher istirahat saat KiKo tidur, badan tidur sendiri kalau HP dilepas 10 menit, prosesor lebih hemat.",
+ "catatan_en": "Energy saving: the neck rests while KiKo sleeps, the body sleeps by itself 10 minutes after the phone is removed, lower-power processor.",
  "partisi": "min_spiffs"
 }
