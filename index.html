@@ -395,6 +395,9 @@
     <label class="saklar"><input type="checkbox" id="cekSuara" checked> <span data-en="Speak answers aloud">Ucapkan jawaban dengan suara</span></label>
     <label class="saklar"><input type="checkbox" id="cekDengarOtomatis" checked> <span data-en="Listen automatically when a face looks at KiKo (needs Face tracking)">Dengar otomatis saat ada wajah menatap KiKo (butuh Pelacakan wajah)</span></label>
     <p class="petunjuk" id="statusAi" role="status">Isi alamat Worker untuk memunculkan tombol mikrofon.</p>
+    <details id="wadahLogDengar"><summary data-en="What KiKo heard (last 10)">Yang didengar KiKo (10 terakhir)</summary>
+      <ol id="logDengar" class="petunjuk" style="margin:6px 0 0;padding-left:1.3em;font-size:12px;line-height:1.4"></ol>
+    </details>
     <p class="petunjuk" data-en="Tap the microphone button and speak. Chrome&#x27;s speech recognition sends the audio to Google to turn it into text; the text goes to your Worker and then to Cloudflare&#x27;s AI model (free).">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
   </div>
 
@@ -2854,6 +2857,7 @@
       ai.pengenal = null;
       if (!dapat && sementaraTeks.length >= 2) { ai.alternatif = []; kirimTeks(sementaraTeks); }
       if (dapat) return;                                        // tanyaKiKo yang melanjutkan
+      ai.sunyiBeruntun = (ai.sunyiBeruntun || 0) + 1;
       aturTahap('diam');
       // Tombol mic tanpa hasil: dengarkan sekali lagi otomatis (jendela dengar Android sangat pendek).
       if (!otomatis && !adaGalat && !ulang) {
@@ -2991,9 +2995,23 @@
     ucapkan(pilihan[Math.floor(Math.random() * pilihan.length)], 'senang');
   }
 
+  // 2026-10-20 (pengguna: "test telp WA masih sulit"): catatan yang didengar KiKo, supaya
+  // kelihatan apakah masalahnya di pendengaran (kata salah/tidak tertangkap) atau di pemahaman.
+  const logDengar = [];
+  function catatDengar(teks, hasil) {
+    const jam = new Date().toTimeString().slice(0, 5);
+    const alt = (ai.alternatif || []).filter(x => x && x.toLowerCase() !== teks.toLowerCase()).slice(0, 3);
+    const sunyi = ai.sunyiBeruntun || 0; ai.sunyiBeruntun = 0;
+    logDengar.unshift(`${jam} «${teks}»` + (alt.length ? ` / ${alt.map(x => '«' + x + '»').join(' ')}` : '') + ` → ${hasil}` + (sunyi ? L(` (setelah ${sunyi} sesi sunyi)`, ` (after ${sunyi} silent sessions)`) : ''));
+    logDengar.length = Math.min(logDengar.length, 10);
+    const ol = document.getElementById('logDengar'); ol.textContent = '';
+    for (const b of logDengar) { const li = document.createElement('li'); li.textContent = b; ol.append(li); }
+  }
   async function tanyaKiKo(teks) {
     // Jam, tanggal dan pengingat dijawab di HP (tanpa AI, tanpa kuota).
-    if (jawabLokal(teks)) { aturTahap('diam'); return; }
+    const menungguJawaban = lanjutMenunggu();
+    if (jawabLokal(teks)) { catatDengar(teks, L('dijawab di HP', 'handled on the phone') + (menungguJawaban ? L(' (jawaban pertanyaan)', ' (answer to a question)') : '')); aturTahap('diam'); return; }
+    catatDengar(teks, L('ke AI', 'to the AI') + (menungguJawaban ? L(' (jawaban tidak cocok)', ' (answer did not match)') : ''));
     aturTahap('pikir');
     tampilTeks(L('Kamu: ', 'You: ') + teks);
     // Wajah "berpikir" sampai jawaban datang; mata melirik ke atas.
@@ -3017,6 +3035,10 @@
       // Worker v7: AI menebak maksud perintah ("aku pengen dengerin radio Surabaya dong").
       // Kalau HP bisa menjalankannya, fitur HP yang bicara; kalau tidak, ucapkan jawaban AI.
       if (data.aksi === 'telepon' && /\b(wa|whatsapp|watsap|wasap)\b/i.test(teks)) data.aksi = 'telepon_wa';   // AI kadang lupa "lewat WA"
+      if (logDengar.length) {
+        logDengar[0] += data.aksi ? ` [AI: ${data.aksi}${data.target ? ' ' + data.target : ''}]` : ' [AI: ngobrol]';
+        const li = document.querySelector('#logDengar li'); if (li) li.textContent = logDengar[0];
+      }
       if (data.aksi && jalankanAksiAi(data)) return;
       ucapkan(data.teks, data.ekspresi);
       // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
@@ -4854,6 +4876,7 @@
   // Uji perintah suara tanpa mikrofon, hanya di server lokal (localhost):
   // di konsol, kikoUji('telepon mama') -> true kalau dijawab di HP.
   if (location.hostname === 'localhost') {
+    window.kikoTanya = t => tanyaKiKo(t);   // uji jalur suara lengkap (termasuk catatan dengar)
     window.kikoUji = teks => jawabLokal(teks);
     // Uji jawaban Worker v7 tanpa AI: kikoUjiAksi({aksi:'radio_putar', target:'Suara Surabaya'}).
     window.kikoUjiAksi = d => jalankanAksiAi(d);
