@@ -158,6 +158,7 @@
     display: grid; gap: 4px; justify-items: start; pointer-events: none;
   }
   #sudut > * { margin: 0; }
+  #teksGalat { max-width: 46vw; font: 11px/1.3 system-ui, sans-serif; color: #ffb38a; background: rgba(0,0,0,.55); padding: 3px 7px; border-radius: 6px; }
   .isian { font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--garis); background: transparent; color: var(--teks); width: 100%; box-sizing: border-box; }
   .isian:focus-visible { outline: 2px solid var(--mata); outline-offset: 2px; }
 
@@ -274,6 +275,7 @@
   <button id="tombolStopRadio" type="button" hidden></button>
   <button id="tombolTutupYt" class="tombolSudut" type="button" hidden>✕ YouTube</button>
   <p id="jam" hidden aria-live="off"></p>
+  <p id="teksGalat" hidden aria-live="polite"></p>
 </div>
 <div id="pita">
 <div id="kartuBantuan" class="gelembung" hidden role="status"></div>
@@ -564,6 +566,24 @@
   const ctx = kanvas.getContext('2d');
   const lapis = document.createElement('canvas');
   const lctx = lapis.getContext('2d');
+  // 2026-10-20 (pengguna: layar tetap GELAP setelah tersambung ke base, ganti warna wajah pun
+  // tidak menolong; di browser pane tidak terulang): pencatat galat di layar. Galat JS yang
+  // menghentikan loop gambar, atau kanvas 2D yang hilang konteksnya (Chrome Android saat
+  // memori/GPU sesak, mis. bersamaan dengan MediaPipe GPU), sekarang terlihat di pojok kiri bawah.
+  const elGalat = document.getElementById('teksGalat');
+  let galatTerakhir = '';
+  function laporGalat(teks) {
+    teks = String(teks).slice(0, 160);
+    if (teks === galatTerakhir) return;
+    galatTerakhir = teks;
+    console.error('[KiKo] ' + teks);
+    elGalat.textContent = '⚠ ' + teks; elGalat.hidden = false;
+    clearTimeout(laporGalat.t); laporGalat.t = setTimeout(() => { elGalat.hidden = true; galatTerakhir = ''; }, 30000);
+  }
+  window.addEventListener('error', e => laporGalat((e.message || 'galat') + (e.lineno ? ' (baris ' + e.lineno + ')' : '')));
+  window.addEventListener('unhandledrejection', e => { const r = e.reason; if (r && /^(AbortError|NotAllowedError|NotSupportedError|SecurityError)$/.test(r.name)) return; laporGalat('janji: ' + ((r && r.message) || r)); });
+  kanvas.addEventListener('contextlost', () => laporGalat('kanvas wajah kehilangan konteks (memori/GPU HP)'));
+  kanvas.addEventListener('contextrestored', () => laporGalat('kanvas wajah pulih'));
   const kurangGerak = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let W = 0, H = 0, DPR = 1, U = 0;
@@ -1304,6 +1324,10 @@
   }
 
   function bingkai(now) {
+    try { bingkaiInti(now); }
+    catch (e) { laporGalat('gambar: ' + (e && e.message)); requestAnimationFrame(bingkai); }
+  }
+  function bingkaiInti(now) {
     const dt = Math.min(0.05, (now - waktuLalu) / 1000);
     waktuLalu = now;
 
@@ -1719,7 +1743,7 @@
   //  bukan gadget); persen hanya ada di chip panel ATUR, bisa ditanya lewat
   //  suara, dan ikon merah kecil di pojok baru muncul saat <= 20%, sekali
   //  disertai ucapan. Persen mengikuti kurva baterai Li-ion 2S (tidak lurus),
-  //  supaya angkanya tidak anjlok mendadak di ujung. Versi Hemat (tanpa
+  //  supaya angkanya tidak anjlok mendadak di ujung. KiKo Lite (tanpa
   //  baterai) membaca 0 V -> dianggap tidak ada baterai.
   // ---------------------------------------------------------------------
   // 2026-10-18: kurva digeser. Charger 2S yang baru berhenti (LED biru) di +-8,1 V, dan saat KiKo
@@ -2244,6 +2268,9 @@
     // terus bergerak dan berdengung tepat di sebelah mikrofon HP. Selama mendengar, posisi dibekukan
     // (KiKo "diam memperhatikan"); napas lanjut lagi setelahnya.
     if (ai.tahap === 'dengar') return hidup.terakhir || 0;
+    // 2026-10-20: baris ini hilang di tambalan 19-10 malam ("kepala dibekukan saat mendengar"),
+    // sehingga "A is not defined" menghentikan loop gambar begitu base tersambung = LAYAR GELAP.
+    const [T, A, bias] = gayaNapas(moodSaatIni(now));
     hidup.fase += dt / hidup.periode * 2 * Math.PI;
     if (hidup.fase > 2 * Math.PI) { hidup.fase -= 2 * Math.PI; hidup.periode = T * acak(0.8, 1.2); }   // (6)
     let tilt = A * Math.sin(hidup.fase) + bias;                                                         // (2)(5)
@@ -3503,7 +3530,7 @@
   }
   // ---- Perintah gerak kepala lewat suara (2026-10-19, video 18:51: "menoleh ke kanan",
   // "mengangguk" dikirim ke AI yang hanya bercerita). Sekarang dijalankan langsung di HP:
-  // menoleh/lihat ke kanan|kiri|atas|bawah (kanan = kanan KiKo sendiri), ke depan/tengah,
+  // menoleh/lihat ke kanan|kiri|atas|bawah (kanan = kanan ORANG yang menghadap KiKo, sejak 20-10-2026), ke depan/tengah,
   // angguk, geleng. Arah ditahan 5 dtk lalu kembali ke tengah (hitungKepala).
   function jawabGerak(t) {
     const en = bahasa === 'en';
@@ -3527,13 +3554,16 @@
       return true;
     }
     const now = performance.now();
-    const KE = { kanan: [KEPALA_PAN_MAKS, 0, -0.8, 0], kiri: [-KEPALA_PAN_MAKS, 0, 0.8, 0],
+    // 2026-10-20 (pengguna, uji #14: "arah kanan dan kiri disesuaikan dengan pemilik"): kanan/kiri
+    // menurut ORANG YANG MENGHADAP KiKo. Kanan pemilik = kiri KiKo sendiri (pan negatif) dan, di
+    // layar yang menghadap pemilik, lirikan ke sisi kanan layar (x +). Dulu kanan = kanan KiKo.
+    const KE = { kanan: [-KEPALA_PAN_MAKS, 0, 0.8, 0], kiri: [KEPALA_PAN_MAKS, 0, -0.8, 0],
                  atas: [0, KEPALA_NAIK_MAKS, 0, -0.7], bawah: [0, -KEPALA_TURUN_MAKS, 0, 0.6], depan: [0, 0, 0, 0] }[arah];
     kepala.pan = KE[0]; kepala.tilt = KE[1];
     kepala.paksaSampai = arah === 'depan' ? 0 : now + 5000;
     if (arah === 'depan') kepala.lompat = now;
     pandang.tgt.x = KE[2]; pandang.tgt.y = KE[3]; berikutLirik = now + 5000;   // mata ikut melirik ke arah itu
-    const namaArah = { kanan: L('kanan', 'the right'), kiri: L('kiri', 'the left'), atas: L('atas', 'up'), bawah: L('bawah', 'down'), depan: L('depan', 'ahead') }[arah];
+    const namaArah = { kanan: L('kananmu', 'your right'), kiri: L('kirimu', 'your left'), atas: L('atas', 'up'), bawah: L('bawah', 'down'), depan: L('depan', 'ahead') }[arah];
     ucapkan(arah === 'depan' ? L('Oke, aku lihat ke depan lagi.', "Okay, looking ahead again.")
                              : L(`Oke, aku menoleh ke ${namaArah}.`, `Okay, I'm looking ${namaArah}.`), 'senang');
     return true;
