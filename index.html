@@ -4223,6 +4223,7 @@
     if (bahasa === 'en') return jawabLokalEn(teks.toLowerCase().replace(/[’]/g, "'"));
     const t = teks.toLowerCase();
     if (jawabVolume(t, false)) return true;
+    if (jawabPanggilan(t, false)) return true;                // telepon WA berdering: angkat / tolak
     if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
@@ -5029,6 +5030,7 @@
 
   function jawabLokalEn(t) {
     if (jawabVolume(t, true)) return true;
+    if (jawabPanggilan(t, true)) return true;
     if (jawabPesan(t, true)) return true;
     if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
       if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
@@ -5262,6 +5264,7 @@
       const d = await r.json();
       // Pertama tersambung: pesan lama tidak ditampilkan, hanya dicatat posisinya.
       if (notif.sejak >= 0 && d.pesan && d.pesan.length) terimaPesanBaru(d.pesan);
+      if ('panggilan' in d) terimaPanggilan(d.panggilan);         // KiKo Notif v1.3+
       notif.sejak = d.terakhir || 0;
       notif.gagal = 0;
     } catch (_) {
@@ -5271,7 +5274,67 @@
       statusPesan();
     }
   }
+  // ---- Telepon WA masuk (2026-10-21, pengguna: "apakah KiKo bisa memberi tahu kalau ada telepon WA
+  // masuk, dan pemilik menjawab?"). KiKo Notif v1.3 menyertakan "panggilan" di /pesan selama
+  // berdering, dengan tombol Jawab/Tolak bawaan WhatsApp. KiKo bangun, kaget, gelembung 📞 tetap
+  // tampil selama berdering, bertanya "mau diangkat?" (diulang tiap 12 dtk, maks 3x) lalu langsung
+  // mendengar jawaban. "angkat / ya" -> /panggilan?aksi=jawab, "tolak / jangan" -> aksi=tolak.
+  // Mode malam (jam tenang): hanya gelembung + wajah, tanpa suara. Pengecekan dipercepat ke 1,5 dtk.
+  function sebutPanggilan(p) { return namaPengirim({ dari: p.dari }) || L('seseorang', 'someone'); }
+  function terimaPanggilan(p) {
+    if (!p) { if (notif.panggilan) selesaiDering(); return; }
+    if (notif.panggilan && notif.panggilan.id === p.id) return;
+    if (p.id === notif.ditolakId) return;                       // baru ditolak; notifikasi WA belum hilang
+    notif.panggilan = p; notif.ulangDering = 0;
+    clearInterval(notif.cepat); notif.cepat = setInterval(ambilPesan, 1500);
+    elTeksPesan.textContent = `📞 ${sebutPanggilan(p)} ${L('menelepon', 'is calling')} (${p.app || 'WhatsApp'}${p.video ? ', video' : ''})`;
+    elTeksPesan.hidden = false;
+    if (fase === 'hidup') { interaksi(); ekspresiSingkat('kaget', 1200); if (ble.terhubung) kirim('G,kaget'); }
+    umumkanDering();
+  }
+  function umumkanDering() {
+    const p = notif.panggilan;
+    if (!p || fase !== 'hidup' || notif.ulangDering >= 3) return;
+    notif.ulangDering++;
+    clearTimeout(notif.timerDering); notif.timerDering = setTimeout(umumkanDering, 12000);
+    if (cekPesanTenang.checked && modeMalamAktif()) return;
+    if (ai.bicara || ai.tahap !== 'diam') return;              // sedang bicara/mendengar: coba lagi nanti
+    const nama = sebutPanggilan(p), jenis = p.video ? L('video call', 'video call') : L('telepon', 'call');
+    if (p.bisaJawab || p.bisaTolak) {
+      notif.tanyaDering = true;
+      tanyaLanjut(L(`Ada ${jenis} WA dari ${nama}! Mau diangkat?`, `${nama} is calling on WhatsApp! Pick up?`),
+        j => (/\b(ya|iya|yes|boleh|oke|ok|angkat|jawab|terima|sure|yeah)\b/.test(j) ? (bahasa === 'en' ? 'answer the call' : 'angkat telepon')
+            : /\b(tidak|nggak|enggak|gak|ga|jangan|tolak|no|nope|decline)\b/.test(j) ? (bahasa === 'en' ? 'decline the call' : 'tolak telepon') : j));
+    } else {
+      ucapkan(L(`Ada ${jenis} WA dari ${nama}!`, `${nama} is calling on WhatsApp!`), 'kaget');
+    }
+  }
+  function selesaiDering() {
+    notif.panggilan = null;
+    clearTimeout(notif.timerDering); clearInterval(notif.cepat); notif.cepat = 0;
+    if (notif.tanyaDering && lanjut) lanjut = null;
+    notif.tanyaDering = false;
+    elTeksPesan.hidden = true; notif.tampil = false;
+    setTimeout(tampilPesanBerikut, 400);
+  }
+  function jawabPanggilan(t, en) {
+    if (!notif.panggilan) return false;
+    const tolak = /\b(tolak|tolakkan|abaikan|jangan angkat|jangan diangkat|decline|reject|ignore|don't answer)\b/.test(t);
+    const angkat = !tolak && /\b(angkat|angkatkan|jawab|jawabkan|terima|answer|pick up|pick it up|accept)\b/.test(t);
+    if (!tolak && !angkat) return false;
+    const aksi = angkat ? 'jawab' : 'tolak';
+    notif.ditolakId = notif.panggilan.id;                      // dijawab atau ditolak: jangan diumumkan lagi
+    clearTimeout(notif.timerDering);
+    tampilTeks(angkat ? L('📞 Mengangkat telepon…', '📞 Answering…') : L('📞 Menolak telepon…', '📞 Declining…'), 3000);
+    fetch(`${ALAMAT_NOTIF}/panggilan?aksi=${aksi}`, { cache: 'no-store' }).then(r => r.json()).then(d => {
+      if (d.hasil === 'ok') { if (!angkat) { ucapkan(L('Oke, teleponnya aku tolak.', 'Okay, I declined the call.'), 'normal'); selesaiDering(); } }
+      else ucapkan(L('Aku tidak bisa menekan tombolnya. Pakai layar HP ya.', "I couldn't press the button. Please use the phone screen."), 'bingung');
+    }).catch(() => ucapkan(L('KiKo Notif tidak menjawab. Pakai layar HP ya.', "KiKo Notif didn't respond. Please use the phone screen."), 'bingung'));
+    return true;
+  }
+
   function tampilPesanBerikut() {
+    if (notif.panggilan) return;                                // gelembung telepon diutamakan
     if (notif.tampil || !notif.antre.length) return;
     notif.antre = notif.antre.slice(-3);                 // banjir pesan grup: cukup 3 terakhir
     const p = notif.antre.shift();
@@ -5286,7 +5349,7 @@
       if (ble.terhubung) kirim('G,kaget');
     }
     setTimeout(() => {
-      elTeksPesan.hidden = true;
+      if (!notif.panggilan) elTeksPesan.hidden = true;          // jangan sembunyikan gelembung telepon
       notif.tampil = false;
       setTimeout(tampilPesanBerikut, 400);
     }, PESAN_MS);
@@ -5295,6 +5358,7 @@
     try { localStorage.setItem('kiko.pesanMasuk', cekPesan.checked ? '1' : '0'); } catch (_) {}
     clearInterval(notif.timer);
     notif.sejak = -1; notif.gagal = 0; notif.antre = []; notif.terlewat = []; notif.belumDibaca = [];
+    if (notif.panggilan) selesaiDering();
     if (cekPesan.checked) { notif.timer = setInterval(ambilPesan, cekHemat.checked ? 5000 : 2000); ambilPesan(); }
     statusPesan();
   }
