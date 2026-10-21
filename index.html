@@ -3201,7 +3201,24 @@
     const ol = document.getElementById('logDengar'); ol.textContent = '';
     for (const b of logDengar) { const li = document.createElement('li'); li.textContent = b; ol.append(li); }
   }
+  // 2026-10-21 (pengguna: "wajah melet seharusnya muncul sekali-kali setelah dipuji agar tampak
+  // centil"): pujian untuk KiKo dicatat; setelah KiKo selesai menjawab, kadang (40 %, paling sering
+  // tiap 2 menit) muncul wajah melet sebentar. Kalimat bernada menyangkal ("nggak lucu") tidak dihitung.
+  const POLA_PUJIAN = /\b(pintar|pinter|cerdas|lucu|imut|gemes|gemas|menggemaskan|cantik|ganteng|cakep|keren|hebat|mantap|mantul|bagus|jago|manis|top|terbaik|sayang kamu|love you|good job|well done|clever|smart|cute|adorable|awesome|amazing|great|nice|the best|good (girl|boy|kitty))\b/;
+  function dipuji(t) {
+    if (!POLA_PUJIAN.test(t) || /\b(tidak|nggak|ngga|gak|enggak|bukan|kurang|not|isn't|aren't)\b/.test(t)) return false;
+    return /\b(kamu|kau|kiko|engkau|you|your|you're)\b/.test(t) || t.trim().split(/\s+/).length <= 3;
+  }
+  function meletSetelahDipuji() {
+    if (!ai.dipuji || Date.now() - ai.dipuji > 30000) return;
+    ai.dipuji = 0;
+    if (Math.random() >= 0.4 || Date.now() - (ai.meletLalu || 0) < 120000) return;
+    ai.meletLalu = Date.now();
+    setTimeout(() => { ekspresiSingkat('melet', 1600); kedipSekarang(); }, 250);
+  }
+
   async function tanyaKiKo(teks) {
+    if (dipuji(teks.toLowerCase())) ai.dipuji = Date.now();
     // Jam, tanggal dan pengingat dijawab di HP (tanpa AI, tanpa kuota).
     const menungguJawaban = lanjutMenunggu();
     if (jawabLokal(teks)) { catatDengar(teks, L('dijawab di HP', 'handled on the phone') + (menungguJawaban ? L(' (jawaban pertanyaan)', ' (answer to a question)') : '')); aturTahap('diam'); return; }
@@ -3265,6 +3282,7 @@
     ekspresiSingkat(nama, perkiraan);
     if (!cekSuara.checked || !window.speechSynthesis) {
       ai.dengarBerikut = performance.now() + Math.min(perkiraan, 4000);   // beri waktu membaca teks
+      setTimeout(meletSetelahDipuji, perkiraan);
       return;
     }
 
@@ -3279,6 +3297,7 @@
     u.onend = u.onerror = () => {
       ai.bicara = false;
       ekspresiSingkat(nama, 700);
+      meletSetelahDipuji();
       // Mode otomatis: beri jeda sebentar supaya KiKo tidak mendengar ekor suaranya sendiri.
       ai.dengarBerikut = performance.now() + 600;
       // 2026-10-20 (catatan dengar pengguna: setelah "Mau telepon siapa?" ada 3-8 sesi sunyi, lalu
