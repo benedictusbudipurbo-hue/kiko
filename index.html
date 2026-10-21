@@ -738,7 +738,13 @@
   let berikutSpontan = performance.now() + acak(9000, 16000);
   let berikutLirik = 0;
   let moodTerkirim = '';
-  const IDLE_NGANTUK = 45000, IDLE_TIDUR = 90000;
+  // Hemat energi C (2026-10-21, pengguna: "sehemat mungkin baterai"): tanpa orang, mengantuk
+  // setelah 25 dtk dan tidur setelah 60 dtk (dulu 45 / 90), supaya lebih cepat masuk mode tidur
+  // (layar redup, servo lemas). Tanpa "Hemat energi" kembali ke angka lama.
+  const IDLE_NGANTUK_HEMAT = 25000, IDLE_TIDUR_HEMAT = 60000;
+  const IDLE_NGANTUK_BIASA = 45000, IDLE_TIDUR_BIASA = 90000;
+  const idleNgantuk = () => (cekHemat.checked ? IDLE_NGANTUK_HEMAT : IDLE_NGANTUK_BIASA);
+  const idleTidur = () => (cekHemat.checked ? IDLE_TIDUR_HEMAT : IDLE_TIDUR_BIASA);
 
   // ---------- Mode malam ----------
   // Di jam tidur (bawaan 22:00-06:00) KiKo cepat mengantuk/tidur, tidak membuat
@@ -767,8 +773,8 @@
     if (otomatis) {
       const diam = now - terakhirInteraksi;
       const jamTidur = modeMalamAktif();
-      if (diam > (jamTidur ? MALAM_TIDUR : IDLE_TIDUR)) return 'tidur';
-      if (diam > (jamTidur ? MALAM_NGANTUK : IDLE_NGANTUK)) return 'ngantuk';
+      if (diam > (jamTidur ? MALAM_TIDUR : idleTidur())) return 'tidur';
+      if (diam > (jamTidur ? MALAM_NGANTUK : idleNgantuk())) return 'ngantuk';
     }
     return 'normal';
   }
@@ -1397,7 +1403,7 @@
   }
   function bingkaiInti(now) {
     // hemat: 30 gambar/dtk, 8 saat tidur (rAF tetap jalan tiap frame layar, gambar dilewati)
-    const selang = !cekHemat.checked ? 0 : hemat.tidur ? 125 : 32;
+    const selang = !cekHemat.checked ? 0 : hemat.tidur ? 125 : hemat.sepi ? 66 : 32;   // 8 / 15 / 30 gambar per detik
     if (selang && now - hemat.frameLalu < selang - 2) { requestAnimationFrame(bingkai); return; }
     hemat.frameLalu = now;
     const dt = Math.min(0.15, (now - waktuLalu) / 1000);
@@ -1501,7 +1507,7 @@
 
     aturTidurHemat(now, mood);
     // layar meredup pelan (+-2 dtk) ke hampir hitam saat tidur; OLED hemat
-    hemat.redup += ((hemat.tidur ? 0.82 : 0) - hemat.redup) * Math.min(1, dt * 1.5);
+    hemat.redup += ((hemat.tidur ? 0.82 : hemat.sepi ? 0.5 : 0) - hemat.redup) * Math.min(1, dt * 1.5);
     if (hemat.redup > 0.01 && !hanyaMata) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(0,0,0,${hemat.redup.toFixed(3)})`; ctx.fillRect(0, 0, kanvas.width, kanvas.height); }
     kirimLirikan(now);
     if (mood === 'tidur') gambarZzz(now);
@@ -2568,7 +2574,21 @@
   const cekHemat = document.getElementById('cekHemat');
   try { cekHemat.checked = localStorage.getItem('kiko.hemat') !== '0'; } catch (_) {}
   cekHemat.addEventListener('change', () => { try { localStorage.setItem('kiko.hemat', cekHemat.checked ? '1' : '0'); } catch (_) {} });
-  const hemat = { tidur: false, zTerkirim: false, redup: 0, frameLalu: 0 };
+  // 2026-10-21 hemat tahap 2 (pengguna: "sehemat mungkin baterai", pilih A-D):
+  //  A. tidur: kamera diturunkan ke 5 fps + deteksi wajah 1x/dtk (resolusi tetap 320x240
+  //     supaya jarak bangun tidak berkurang); bangun: kamera 30 fps lagi.
+  //  B. bangun tapi SEPI (tidak ada wajah >= 30 dtk, tidak ada sentuhan/suara): layar redup 50 %.
+  //  C. lihat idleNgantuk/idleTidur: tertidur lebih cepat.
+  //  D. SEPI: gambar 15x/dtk (dulu 30).
+  const hemat = { tidur: false, zTerkirim: false, redup: 0, frameLalu: 0, sepi: false, kameraHemat: false };
+  const SEPI_MS = 30000;
+  function aturKameraHemat(mau) {
+    if (mau === hemat.kameraHemat) return;
+    const tr = wajah.stream && wajah.stream.getVideoTracks()[0];
+    if (!tr || tr.readyState !== 'live' || !tr.applyConstraints) return;
+    hemat.kameraHemat = mau;
+    tr.applyConstraints(mau ? { frameRate: { ideal: 5, max: 5 } } : { frameRate: { ideal: 30 } }).catch(() => {});
+  }
   function adaOrangBaru(now) {   // wajah terlihat dalam 60 dtk terakhir (tanpa pelacakan wajah: anggap ada)
     if (!document.getElementById('cekWajah').checked) return true;
     return wajah.ada || (wajah.terakhirLihat > 0 && now - wajah.terakhirLihat < 60000);
@@ -2578,6 +2598,12 @@
     const kirimZ = hemat.tidur && ble.terhubung && (ble.versiBase || 0) >= 26 && !ota.aktif;
     if (kirimZ && !hemat.zTerkirim) { hemat.zTerkirim = true; kirim('Z,1'); }
     else if (!kirimZ && hemat.zTerkirim) { hemat.zTerkirim = false; hemat.bangunPada = now; if (ble.terhubung) kirim('Z,0'); }
+    // B/D: sepi = bangun, ada pelacakan wajah, tapi tidak ada wajah >= 30 dtk dan tidak ada interaksi.
+    const pakaiWajah = document.getElementById('cekWajah').checked && wajah.aktif;
+    hemat.sepi = cekHemat.checked && fase === 'hidup' && !hemat.tidur && !nonton.aktif && pakaiWajah
+      && !wajah.ada && now - (wajah.terakhirLihat || 0) >= SEPI_MS && now - terakhirInteraksi >= SEPI_MS
+      && !ai.bicara && ai.tahap === 'diam' && !panelTerbuka;
+    aturKameraHemat(hemat.tidur && pakaiWajah);
   }
   const hidup = { fase: 0, periode: 5000, waktuLalu: 0, dengar: 0, anggukSampai: 0, anggukAmp: 0, anggukBerikut: 0, kedipKepala: 0, acuPan: 0, acuTilt: 0 };
   // [periode napas ms, amplitudo derajat, sikap (bias) derajat] per suasana hati
@@ -2682,6 +2708,7 @@
       wajah.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: false,
       });
+      hemat.kameraHemat = false;   // aliran baru selalu mulai 30 fps (hemat A disetel ulang di aturTidurHemat)
       if (!wajah.video) {
         wajah.video = document.createElement('video');
         wajah.video.muted = true;
@@ -2760,7 +2787,7 @@
     const v = wajah.video;
     if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
     if (cekHemat.checked) {                                   // hemat: lebih jarang kalau tidak ada orang / tidur
-      const jeda = hemat.tidur ? 500 : wajah.ada ? 0 : 300, t0 = performance.now();
+      const jeda = hemat.tidur ? 1000 : wajah.ada ? 0 : 300, t0 = performance.now();
       if (t0 - (wajah.deteksiLalu || 0) < jeda) return;
       wajah.deteksiLalu = t0;
     }
