@@ -339,7 +339,7 @@
   <div class="bagian">
     <h2 data-en="Behaviour">Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> <span data-en="Spontaneous expressions; falls asleep when left alone">Ekspresi spontan dan tidur sendiri saat didiamkan</span></label>
-    <label class="saklar"><input type="checkbox" id="cekHemat" checked> <span data-en="Energy saving: dim screen and resting neck while asleep, lifelike motion only when someone is there">Hemat energi: layar redup &amp; leher istirahat saat tidur, gerak hidup hanya saat ada orang</span></label>
+    <label class="saklar"><input type="checkbox" id="cekHemat" checked> <span data-en="Energy saving (battery): falls asleep sooner, screen dims when nobody is there, neck rests and camera slows down while asleep">Hemat energi (baterai): cepat tidur, layar redup saat tidak ada orang, leher istirahat &amp; kamera pelan saat tidur</span></label>
     <label class="saklar"><input type="checkbox" id="cekGerakHidup" checked> <span data-en="Lifelike motion: breathing, listening pose, small nods while talking, blinking on head turns">Gerak hidup: bernapas, pose mendengar, angguk kecil saat bicara, berkedip saat menoleh</span></label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> <span data-en="Head follows the eyes&#x27; gaze (needs base firmware Ver 3)">Kepala ikut lirikan mata (butuh firmware base Ver 3)</span></label>
     <label class="saklar"><input type="checkbox" id="cekTepi" checked> <span data-en="Table-edge fall protection (wheeled version + edge sensors, firmware Ver 6)">Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</span></label>
@@ -781,6 +781,7 @@
 
   function ekspresiSingkat(nama, ms) {
     sementara = { nama, sampai: performance.now() + ms };
+    try { bangunkanBingkai(); } catch (_) {}
   }
 
   function interaksi() {
@@ -789,6 +790,7 @@
     terakhirInteraksi = now;
     try { ai.jedaDengar = 1500; } catch (_) {}   // 2026-10-20: disentuh/diajak = dengar cepat lagi
     if (tadinyaTidur) { ekspresiSingkat('kaget', 900); kedipSekarang(); }
+    try { bangunkanBingkai(); } catch (_) {}   // tidur dalam: gambar lagi sekarang, jangan tunggu 1 dtk
   }
 
   // =====================================================================
@@ -1401,10 +1403,24 @@
     try { bingkaiInti(now); }
     catch (e) { laporGalat('gambar: ' + (e && e.message)); requestAnimationFrame(bingkai); }
   }
+  // Tidur dalam (2026-10-21): selang >= 100 ms tidak lagi memutar rAF tiap frame layar (120 Hz di HP
+  // baru), tapi menunggu dengan setTimeout. Sentuhan/suara membangunkan lewat bangunkanBingkai().
+  function lanjutBingkai(selang) {
+    if (selang >= 100) {
+      const sisa = Math.max(0, selang - (performance.now() - hemat.frameLalu));
+      hemat.timerBingkai = setTimeout(() => { hemat.timerBingkai = 0; requestAnimationFrame(bingkai); }, sisa);
+    } else requestAnimationFrame(bingkai);
+  }
+  function bangunkanBingkai() {
+    if (!hemat.timerBingkai) return;                          // loop sedang jalan biasa
+    clearTimeout(hemat.timerBingkai); hemat.timerBingkai = 0; hemat.frameLalu = 0;
+    requestAnimationFrame(bingkai);
+  }
   function bingkaiInti(now) {
-    // hemat: 30 gambar/dtk, 8 saat tidur (rAF tetap jalan tiap frame layar, gambar dilewati)
-    const selang = !cekHemat.checked ? 0 : hemat.tidur ? 125 : hemat.sepi ? 66 : 32;   // 8 / 15 / 30 gambar per detik
-    if (selang && now - hemat.frameLalu < selang - 2) { requestAnimationFrame(bingkai); return; }
+    // hemat: 30 gambar/dtk, 15 saat sepi, 8 saat mulai tidur, 1 saat tidur dalam (layar sudah hitam)
+    const tidurPenuh = hemat.tidur && hemat.redup > 0.98;
+    const selang = !cekHemat.checked ? 0 : tidurPenuh ? 1000 : hemat.tidur ? 125 : hemat.sepi ? 66 : 32;
+    if (selang && now - hemat.frameLalu < selang - 2) { lanjutBingkai(selang); return; }
     hemat.frameLalu = now;
     const dt = Math.min(0.15, (now - waktuLalu) / 1000);
     waktuLalu = now;
@@ -1507,11 +1523,13 @@
 
     aturTidurHemat(now, mood);
     // layar meredup pelan (+-2 dtk) ke hampir hitam saat tidur; OLED hemat
-    hemat.redup += ((hemat.tidur ? 0.82 : hemat.sepi ? 0.5 : 0) - hemat.redup) * Math.min(1, dt * 1.5);
+    // tidur: hitam penuh (OLED: piksel mati), hanya "zzz" kecil yang digambar sesudahnya
+    hemat.redup += ((hemat.tidur ? 1 : hemat.sepi ? 0.5 : 0) - hemat.redup) * Math.min(1, dt * 1.5);
+    if (hemat.tidur && hemat.redup > 0.97) hemat.redup = 1;
     if (hemat.redup > 0.01 && !hanyaMata) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(0,0,0,${hemat.redup.toFixed(3)})`; ctx.fillRect(0, 0, kanvas.width, kanvas.height); }
     kirimLirikan(now);
     if (mood === 'tidur') gambarZzz(now);
-    requestAnimationFrame(bingkai);
+    lanjutBingkai(selang);
   }
 
   // Lapis 1 pengaman (2026-10-08): wajah hanya hidup saat tersambung ke base
@@ -2769,6 +2787,7 @@
   wajah.galatDeteksi = 0; wajah.majuTerakhir = 0; wajah.restart = 0;
   setInterval(() => {
     if (!cekWajah.checked || wajah.memuat || document.hidden || fase !== 'hidup') return;
+    if (hemat.kamTidur) return;                               // kamera sengaja dimatikan (tidur dalam)
     const track = wajah.stream && wajah.stream.getVideoTracks()[0];
     const v = wajah.video, now = performance.now();
     if (v && v.currentTime !== wajah.waktuCek) { wajah.waktuCek = v.currentTime; wajah.majuTerakhir = now; }
@@ -2783,11 +2802,41 @@
   }, 3000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) wajah.majuTerakhir = performance.now(); });
 
+  // TIDUR DALAM di HP (2026-10-21, uji pengguna: HP tetap turun +-17 %/jam walau KiKo tidur 51 menit;
+  // kamera + layar tetap menyala). Saat tidur hemat, kamera DIMATIKAN dan hanya "mengintip"
+  // INTIP_MS tiap INTIP_JEDA_MS untuk mencari wajah. Wajah terlihat -> interaksi() membangunkan,
+  // kamera tetap menyala. Bangun karena hal lain (sentuh, pengingat) -> kamera dinyalakan lagi.
+  const INTIP_JEDA_MS = 10000, INTIP_MS = 1500;
+  setInterval(() => {
+    const now = performance.now();
+    const mauTidur = cekHemat.checked && cekWajah.checked && hemat.tidur && !document.hidden;
+    if (!mauTidur) {
+      hemat.intip = false;
+      if (hemat.kamTidur) { hemat.kamTidur = false; if (cekWajah.checked && !wajah.aktif) mulaiWajah(); }
+      return;
+    }
+    if (wajah.memuat) return;
+    if (!hemat.kamTidur) {                                    // baru tertidur: matikan kamera
+      if (wajah.aktif && !wajah.ada) {
+        hentikanWajah(); hemat.kamTidur = true; hemat.intipBerikut = now + INTIP_JEDA_MS;
+        statusWajah(L('Tidur hemat: kamera mati, mengintip tiap 10 detik.', 'Saving sleep: camera off, peeking every 10 seconds.'));
+      }
+      return;
+    }
+    if (!hemat.intip && now >= hemat.intipBerikut) {          // waktunya mengintip
+      hemat.intip = true;
+      mulaiWajah().then(() => { hemat.intipSampai = performance.now() + INTIP_MS; });
+      hemat.intipSampai = now + 8000;                         // batas aman kalau kamera lambat menyala
+    } else if (hemat.intip && now >= hemat.intipSampai && !wajah.ada) {
+      hentikanWajah(); hemat.intip = false; hemat.intipBerikut = now + INTIP_JEDA_MS;
+    }
+  }, 500);
+
   function deteksiWajah() {
     const v = wajah.video;
     if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
     if (cekHemat.checked) {                                   // hemat: lebih jarang kalau tidak ada orang / tidur
-      const jeda = hemat.tidur ? 1000 : wajah.ada ? 0 : 300, t0 = performance.now();
+      const jeda = hemat.intip ? 200 : hemat.tidur ? 1000 : wajah.ada ? 0 : 300, t0 = performance.now();
       if (t0 - (wajah.deteksiLalu || 0) < jeda) return;
       wajah.deteksiLalu = t0;
     }
