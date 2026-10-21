@@ -1723,6 +1723,13 @@
         saatDitempel('gerak');
       }
     } else if (!gerak.tegak) {
+      // 2026-10-21 (pengguna: ditinggal 5 menit, KiKo kembali ke layar pasang dengan latar
+      // tidak redup): saat tidur hemat, base memindah leher ke pose tidur (mendongak) lalu
+      // servo dilemaskan, sehingga HP bisa condong melewati batas "tegak". Itu bukan diangkat.
+      // Selama tidur, hanya hitung "diangkat" kalau ada hentakan (HP dicabut) dalam 3 dtk terakhir.
+      // Juga 5 dtk sesudah bangun: leher masih bergerak kembali ke pose tengah.
+      const tidurAtauBaruBangun = hemat.zTerkirim || moodSaatIni(now) === 'tidur' || now - (hemat.bangunPada || -1e9) < 5000;
+      if (tidurAtauBaruBangun && now - gerak.puncakT > 3000) { gerak.lepasSejak = 0; return; }
       if (!gerak.lepasSejak) gerak.lepasSejak = now;
       else if (now - gerak.lepasSejak > 1200) { gerak.tempel = false; gerak.lepasSejak = 0; saatDiangkat(); }
     } else {
@@ -2570,7 +2577,7 @@
     hemat.tidur = cekHemat.checked && fase === 'hidup' && mood === 'tidur' && !nonton.aktif;
     const kirimZ = hemat.tidur && ble.terhubung && (ble.versiBase || 0) >= 26 && !ota.aktif;
     if (kirimZ && !hemat.zTerkirim) { hemat.zTerkirim = true; kirim('Z,1'); }
-    else if (!kirimZ && hemat.zTerkirim) { hemat.zTerkirim = false; if (ble.terhubung) kirim('Z,0'); }
+    else if (!kirimZ && hemat.zTerkirim) { hemat.zTerkirim = false; hemat.bangunPada = now; if (ble.terhubung) kirim('Z,0'); }
   }
   const hidup = { fase: 0, periode: 5000, waktuLalu: 0, dengar: 0, anggukSampai: 0, anggukAmp: 0, anggukBerikut: 0, kedipKepala: 0, acuPan: 0, acuTilt: 0 };
   // [periode napas ms, amplitudo derajat, sikap (bias) derajat] per suasana hati
