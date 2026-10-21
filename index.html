@@ -3267,6 +3267,7 @@
   }
 
   let suaraId = null, suaraEn = null;
+  let suaraBerjalan = 0;                                       // ucapan yang sudah onstart tapi belum onend
   function pilihSuara() {
     if (!window.speechSynthesis) return;
     const semua = speechSynthesis.getVoices();
@@ -3286,15 +3287,31 @@
       return;
     }
 
+    // 2026-10-21 (pengguna: setelah KiKo lama tidur, layar disentuh, "cuman suara tidak ada"):
+    // HyperOS kadang mematikan mesin suara Google saat KiKo lama diam. Chrome lalu menerima
+    // speak() tanpa galat tapi tidak pernah mulai bicara (antrean macet / status "speaking"
+    // basi). Bersihkan antrean yang macet sebelum bicara, dan bila ucapan belum mulai dalam
+    // 3 dtk, batalkan lalu coba sekali lagi tanpa objek suara (bisa basi setelah mesin mati).
+    try {
+      if ((speechSynthesis.speaking || speechSynthesis.pending) && suaraBerjalan === 0 && !ai.bicara) speechSynthesis.cancel();
+      speechSynthesis.resume();
+    } catch (_) {}
+    ucapkanUlang(teks, nama, perkiraan, false);
+  }
+
+  function ucapkanUlang(teks, nama, perkiraan, cobaKedua) {
     const u = new SpeechSynthesisUtterance(teks);
     u.lang = L('id-ID', 'en-US');
     const suara = L(suaraId, suaraEn);
-    if (suara) u.voice = suara;
+    if (suara && !cobaKedua) u.voice = suara;
+    let mulai = false, selesai = false;
     u.rate = 1.05;
     u.pitch = 1.35;
     u.volume = volSuara || 1;                                     // 2026-10-20: volume suara KiKo lewat perintah suara                                            // sedikit lebih tinggi: terdengar seperti robot kecil
-    u.onstart = () => { ai.bicara = true; ekspresiSingkat(nama, 60000); };
+    u.onstart = () => { mulai = true; suaraBerjalan++; ai.bicara = true; ekspresiSingkat(nama, 60000); };
     u.onend = u.onerror = () => {
+      if (mulai && !selesai) suaraBerjalan = Math.max(0, suaraBerjalan - 1);
+      selesai = true;                                           // "mulai" tetap true: penjaga 3 dtk tidak boleh mengulang
       ai.bicara = false;
       ekspresiSingkat(nama, 700);
       meletSetelahDipuji();
@@ -3309,6 +3326,18 @@
     };
     ai.bicara = true;                                          // dianggap bicara sejak diantrikan, bukan sejak onstart
     speechSynthesis.speak(u);
+    // Penjaga mesin suara macet (lihat ucapkan): belum mulai dan tidak ada yang sedang diucapkan.
+    setTimeout(() => {
+      // Ucapan lain yang benar-benar sedang berbunyi (onstart tanpa onend) = antrean wajar, bukan macet.
+      // speechSynthesis.speaking tidak dipakai: saat mesin macet nilainya bisa tetap true.
+      if (mulai || suaraBerjalan > 0) return;
+      u.onstart = u.onend = u.onerror = null;                   // galat "canceled" jangan mereset status ucapan berikutnya
+      try { speechSynthesis.cancel(); } catch (_) {}
+      if (!cobaKedua) { pilihSuara(); ucapkanUlang(teks, nama, perkiraan, true); return; }
+      ai.bicara = false;
+      ai.dengarBerikut = performance.now() + 600;
+      statusAi(L('Suara HP tidak keluar. Tutup lalu buka lagi KiKo.', "The phone's voice didn't play. Close and reopen KiKo."));
+    }, 3000);
     // Pengaman: di sebagian HP Android onend kadang tidak pernah dipanggil.
     // Tanpa ini ai.bicara macet true dan mode dengar otomatis berhenti selamanya.
     setTimeout(() => {
