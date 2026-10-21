@@ -444,7 +444,18 @@
     <h2 data-en="Incoming messages">Pesan masuk</h2>
     <label class="saklar"><input type="checkbox" id="cekPesan"> <span data-en="Show incoming messages briefly (needs the KiKo Notif app)">Tampilkan pesan masuk sekejap (butuh aplikasi KiKo Notif)</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanIsi" checked> <span data-en="Also show the message text (off = sender only)">Tampilkan juga isi pesan (mati = hanya pengirim)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanSuara" checked> <span data-en="KiKo says who sent it (&quot;WhatsApp from Budi&quot;); text is read only when you ask">KiKo menyebut pengirimnya ("Ada WA dari Budi"); isi dibacakan hanya kalau diminta</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanRingkas" checked> <span data-en="Summary of messages when you come back">Ringkasan pesan saat kamu kembali</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanGrup" checked> <span data-en="Ignore group chats">Abaikan obrolan grup</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanTenang" checked> <span data-en="Quiet during night mode and while watching (kept for the summary)">Diam saat mode malam dan menonton (disimpan untuk ringkasan)</span></label>
+    <label class="saklar" for="pesanSaring"><span data-en="Messages from">Pesan dari</span>
+      <select class="isian" id="pesanSaring" style="width:auto">
+        <option value="semua" data-en="All chat apps">Semua aplikasi chat</option>
+        <option value="wa" data-en="WhatsApp only">Hanya WhatsApp</option>
+        <option value="kontak" data-en="Only contacts in KiKo's list">Hanya kontak di daftar KiKo</option>
+      </select></label>
     <p class="petunjuk" id="statusPesan" role="status"></p>
+    <p class="petunjuk" data-en="Say: &quot;read the message&quot;, &quot;any messages?&quot;, &quot;reply to Budi I'm on my way&quot; (KiKo opens WhatsApp with the text filled in, you tap send).">Bilang: "bacakan pesannya", "ada pesan apa?", "balas Budi aku sudah di jalan" (KiKo membuka WhatsApp dengan pesan terisi, Anda yang menekan kirim).</p>
     <p class="petunjuk" data-en="KiKo Notif (Android app) reads message notifications from any app (WhatsApp, SMS, Telegram, …) and hands them to KiKo inside the phone only (127.0.0.1); nothing goes to the internet. The bubble appears for a few seconds at the bottom without covering the face.">KiKo Notif (aplikasi Android) membaca notifikasi pesan dari aplikasi apa pun (WhatsApp, SMS, Telegram, …) dan memberikannya ke KiKo hanya di dalam HP (127.0.0.1); tidak ada yang dikirim ke internet. Gelembung muncul beberapa detik di bawah tanpa menutupi wajah.</p>
   </div>
 
@@ -675,6 +686,10 @@
     tertawa: { label: 'Tertawa', w: 1.08, h: 0.9, lidBot: 0.74, dy: -0.05, pupil: 0.45, pipi: 1, alis: 0.4 },
     // Bingung: asimetris, satu alis naik tinggi, mata lain sedikit menyipit.
     bingung: { label: 'Bingung', pupil: 0.4, kiri: { alis: 1.2, h: 1.1 }, kanan: { alis: -0.4, lidTop: 0.3, tilt: 0.25 } },
+    // Melet (2026-10-21, pengguna: "wajah melet, menjulurkan lidah untuk mengejek"): mata kiri
+    // mengedip nakal, mata kanan terbuka dengan alis naik, lidah menjulur (gambarLidahMelet).
+    melet:   { label: 'Melet', pupil: 0.46, pipi: 0.6, dy: -0.02,
+               kiri: { lidTop: 0.82, lidBot: 0.35, tilt: -0.1, alis: -0.25 }, kanan: { h: 1.06, lidBot: 0.18, alis: 0.7 } },
   };
   const URUTAN = Object.keys(EKSPRESI);
   const KUNCI = Object.keys(DASAR);
@@ -1239,6 +1254,41 @@
   // Hidung, mulut "w" dan kumis gaya kucing. Ikut naik-turun bersama mata (dy
   // rata-rata kedua mata + dyTambah), mulut membuka saat senang/tertawa/kaget
   // dan saat KiKo bicara, terbalik saat sedih.
+  // Lidah menjulur untuk ekspresi "melet" (2026-10-21). (x, y) = sudut mulut tempat lidah keluar,
+  // dalam koordinat wajah (sesudah aturTransformWajah). Lidah sedikit miring ke kanan dan bergoyang
+  // pelan supaya terlihat jahil. warnaIsi/warnaGaris: merah muda di gaya realistis/kucing,
+  // warna cahaya di gaya robot (digambar di kanvas lapis, jadi ikut berpendar).
+  function gambarLidahMelet(c, x, y, now, warnaIsi, warnaGaris) {
+    const lebar = 0.095 * U, goyang = kurangGerak ? 0 : Math.sin(now / 160);
+    const panjang = (0.125 + 0.01 * goyang) * U, r = lebar / 2;
+    c.save();
+    c.translate(x + 0.012 * U, y);
+    c.rotate(0.14 + 0.05 * goyang);
+    c.beginPath();
+    c.moveTo(-r, 0);
+    c.lineTo(-r, panjang - r);
+    c.arc(0, panjang - r, r, Math.PI, 0, true);
+    c.lineTo(r, 0);
+    c.closePath();
+    c.fillStyle = warnaIsi; c.fill();
+    if (warnaGaris) {
+      c.strokeStyle = warnaGaris; c.lineWidth = 0.006 * U; c.lineCap = 'round'; c.stroke();
+      c.beginPath(); c.moveTo(0, 0.012 * U); c.lineTo(0, panjang * 0.55); c.stroke();   // alur tengah lidah
+    }
+    c.restore();
+  }
+  // Mulut + lidah untuk gaya realistis dan robot (gaya kucing punya mulut sendiri).
+  function gambarMeletPolos(c, now, dyTambah, robot) {
+    const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
+    const x0 = W / 2 + pandang.cur.x * 0.03 * U, y = H / 2 + (0.36 + dy) * U + pandang.cur.y * 0.02 * U;
+    const aksen = robot ? warnaMata : warnaAksen();
+    // senyum jahil kecil, lalu lidah dari tengahnya
+    c.strokeStyle = aksen; c.lineWidth = (robot ? 0.022 : 0.012) * U; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x0 - 0.1 * U, y - 0.02 * U); c.quadraticCurveTo(x0, y + 0.035 * U, x0 + 0.1 * U, y - 0.02 * U); c.stroke();
+    if (robot) gambarLidahMelet(c, x0, y + 0.005 * U, now, warnaMata, null);
+    else gambarLidahMelet(c, x0, y + 0.005 * U, now, '#ef7f97', '#b8475f');
+  }
+
   function gambarWajahKucing(mood, now, dyTambah) {
     const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
     const x0 = W / 2 + pandang.cur.x * 0.03 * U;
@@ -1277,6 +1327,7 @@
     if (mood === 'tertawa') buka = 0.75 + (kurangGerak ? 0 : 0.2 * Math.abs(Math.sin(now / 85)));
     else if (mood === 'kaget') buka = 0.6;
     else if (mood === 'senang' || mood === 'sayang') buka = 0.3;
+    else if (mood === 'melet') buka = 0.35;
     if (ai.bicara) buka = Math.max(buka, kurangGerak ? 0.3 : 0.15 + 0.35 * Math.abs(Math.sin(now / 90)));
 
     const yW = yHidung + th / 2 + 0.03 * U;   // pusat "w"
@@ -1304,6 +1355,7 @@
       ctx.quadraticCurveTo(x0 + rw, yW + rw * 1.1, x0 + 2 * rw, yW - rw * 0.25);
     }
     ctx.stroke();
+    if (mood === 'melet') gambarLidahMelet(ctx, x0, yW + 0.01 * U, now, '#ef7f97', '#b8475f');
 
     // Kumis: 3 helai tiap sisi, sedikit melengkung, berkedut pelan.
     ctx.lineWidth = 0.006 * U;
@@ -1430,6 +1482,7 @@
       gambarMataRealistis('kanan', mata.kanan.cur, kedipan, now, dyTambah);
       pakaiAlis = alisLama;
       if (gaya === 'kucing' && !hanyaMata) gambarWajahKucing(mood, now, dyTambah);
+      else if (mood === 'melet' && !hanyaMata) gambarMeletPolos(ctx, now, dyTambah, false);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
       lctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1438,6 +1491,7 @@
       lctx.fillStyle = warnaMata;
       gambarMata('kiri', mata.kiri.cur, kedipan, now, dyTambah);
       gambarMata('kanan', mata.kanan.cur, kedipan, now, dyTambah);
+      if (mood === 'melet') gambarMeletPolos(lctx, now, dyTambah, true);
 
       ctx.shadowColor = warnaMata;
       ctx.shadowBlur = 0.07 * U * DPR;
@@ -3847,8 +3901,8 @@
     if (fitur.cuaca) B.push({ k: 'cuaca', judul: L('Cuaca', 'Weather'), bisa: L('memberi tahu cuaca', 'tell you the weather'),
       contoh: L(['"Cuaca hari ini"', '"Besok hujan nggak?"'], ['"What\'s the weather?"', '"Will it rain tomorrow?"']) });
     B.push({ k: 'ekspresi', judul: L('Ekspresi', 'Expressions'), bisa: L('menunjukkan ekspresi', 'show my expressions'),
-      contoh: L(['"Coba senyum" / "Tunjukkan wajah marah"', '"Tahan ekspresi sedih" lalu "kembali normal"', '"Tunjukkan semua ekspresi" (uji semuanya, "stop" untuk berhenti)'],
-                ['"Show me happy" / "Make an angry face"', '"Hold a sad face", then "back to normal"', '"Show all expressions" (test them all, "stop" to end)']) });
+      contoh: L(['"Coba senyum" / "Tunjukkan wajah marah"', '"Melet dong" / "Julurkan lidah"', '"Tahan ekspresi sedih" lalu "kembali normal"', '"Tunjukkan semua ekspresi" (uji semuanya, "stop" untuk berhenti)'],
+                ['"Show me happy" / "Make an angry face"', '"Stick your tongue out" / "Tease me"', '"Hold a sad face", then "back to normal"', '"Show all expressions" (test them all, "stop" to end)']) });
     B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
       contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
                 ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
@@ -3918,10 +3972,12 @@
     ['curiga', /\b(curiga|suspicious)\b/],
     ['sayang', /\b(sayang|cinta|jatuh cinta|love|loving|in love)\b/],
     ['bingung', /\b(bingung|confused|puzzled)\b/],
+    ['melet', /\b(melet|melelet|meletin|julurkan lidah|menjulurkan lidah|julur lidah|lidah|ejek|ngejek|mengejek|ledek|ngeledek|meledek|tongue|tease|teasing|cheeky)\b/],
     ['tidur', /\b(tidur|bobo|asleep|sleeping)\b/],
     ['normal', /\b(normal|biasa|netral|neutral)\b/],
   ];
-  const PEMICU_EKSPRESI = /\b(coba|cobain|tunjukkan|tunjukin|tampilkan|perlihatkan|pasang|bikin|buat|pura-pura|kayak|seperti|gaya|tahan|ekspresi|wajah|muka|mimik|show|make|do|act|pretend|look|face|expression)\b/;
+  // melet/julurkan/ejek/ledek sendiri sudah berupa perintah ("julurkan lidah dong", "ejek aku dong").
+  const PEMICU_EKSPRESI = /\b(melet|meletin|julurkan|ejek|ngejek|ledek|ngeledek|tongue|tease|coba|cobain|tunjukkan|tunjukin|tampilkan|perlihatkan|pasang|bikin|buat|pura-pura|kayak|seperti|gaya|tahan|ekspresi|wajah|muka|mimik|show|make|do|act|pretend|look|face|expression)\b/;
   const tes = { aktif: false, token: 0 };
   function namaEkspresi(n) { return L(EKSPRESI[n].label, LABEL_EN[n] || EKSPRESI[n].label); }
   function tunggu(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -4065,6 +4121,7 @@
     if (bahasa === 'en') return jawabLokalEn(teks.toLowerCase().replace(/[’]/g, "'"));
     const t = teks.toLowerCase();
     if (jawabVolume(t, false)) return true;
+    if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
@@ -4870,6 +4927,7 @@
 
   function jawabLokalEn(t) {
     if (jawabVolume(t, true)) return true;
+    if (jawabPesan(t, true)) return true;
     if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
       if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
@@ -4935,11 +4993,158 @@
   const cekPesanIsi = document.getElementById('cekPesanIsi');
   const elStatusPesan = document.getElementById('statusPesan');
   const elTeksPesan = document.getElementById('teksPesan');
-  const notif = { timer: 0, sejak: -1, antre: [], tampil: false, gagal: 0, sibuk: false };
+  // 2026-10-21 (pengguna: "notifikasi WA masuk supaya lebih nyaman memakai KiKo lama", pilih A-E):
+  //  A. KiKo menyebut pengirim ("Ada WA dari Budi"); isi hanya dibacakan kalau diminta ("bacakan").
+  //  B. Pesan yang datang saat tidak ada orang / KiKo tidur / jam tenang disimpan di notif.terlewat
+  //     dan diringkas saat orangnya kembali ("Selama kamu pergi ada 3 pesan: 2 dari Budi ...").
+  //  C. "balas Budi aku sudah di jalan" -> tombol hijau WhatsApp dengan pesan terisi (aksiKontak).
+  //  D. Saring: semua aplikasi chat / hanya WhatsApp / hanya kontak KiKo, plus abaikan grup
+  //     (KiKo Notif v1.1 mengirim grup + namaGrup; versi lama dianggap bukan grup).
+  //  E. Jam tenang: mode malam dan menonton YouTube -> tanpa gelembung/suara, masuk ringkasan.
+  //  Isi pesan tidak pernah dikirim ke AI; semua diurus di HP.
+  const notif = { timer: 0, sejak: -1, antre: [], tampil: false, gagal: 0, sibuk: false,
+                  riwayat: [], terlewat: [], belumDibaca: [], umumLalu: 0, siapLalu: true, ringkasPada: 0 };
+  const cekPesanSuara = document.getElementById('cekPesanSuara');
+  const cekPesanRingkas = document.getElementById('cekPesanRingkas');
+  const cekPesanGrup = document.getElementById('cekPesanGrup');
+  const cekPesanTenang = document.getElementById('cekPesanTenang');
+  const pilihPesanSaring = document.getElementById('pesanSaring');
+  const SAKLAR_PESAN = [[cekPesanSuara, 'kiko.pesanSuara'], [cekPesanRingkas, 'kiko.pesanRingkas'],
+                        [cekPesanGrup, 'kiko.pesanGrup'], [cekPesanTenang, 'kiko.pesanTenang']];
   try {
     cekPesan.checked = localStorage.getItem('kiko.pesanMasuk') === '1';
     cekPesanIsi.checked = localStorage.getItem('kiko.pesanIsi') !== '0';
+    for (const [c, k] of SAKLAR_PESAN) c.checked = localStorage.getItem(k) !== '0';
+    pilihPesanSaring.value = localStorage.getItem('kiko.pesanSaring') || 'semua';
   } catch (_) {}
+  for (const [c, k] of SAKLAR_PESAN) c.addEventListener('change', () => { try { localStorage.setItem(k, c.checked ? '1' : '0'); } catch (_) {} });
+  pilihPesanSaring.addEventListener('change', () => { try { localStorage.setItem('kiko.pesanSaring', pilihPesanSaring.value); } catch (_) {} });
+
+  const bersihNama = s => String(s || '').replace(/[\u{1F000}-\u{1FFFF}☀-➿️]/gu, '').replace(/\s+/g, ' ').trim();
+  function kontakDari(p) {
+    const d = bersihNama(p.dari).toLowerCase();
+    let hasil = null;
+    for (const k of kontak) { const n = k.nama.toLowerCase(); if (n && d.includes(n) && (!hasil || n.length > hasil.nama.length)) hasil = k; }
+    return hasil;
+  }
+  function namaPengirim(p) { const k = kontakDari(p); return k ? hurufBesar(k.nama) : (bersihNama(p.dari) || L('seseorang', 'someone')); }
+  const adalahWa = p => /whats ?app/i.test(p.app || '');
+  function jenisPesan(p) { return adalahWa(p) ? 'WA' : L('pesan ' + (p.app || ''), (p.app || '') + ' message').trim(); }
+  function lolosSaring(p) {
+    if (p.grup && cekPesanGrup.checked) return false;
+    if (pilihPesanSaring.value === 'wa' && !adalahWa(p)) return false;
+    if (pilihPesanSaring.value === 'kontak' && !kontakDari(p)) return false;
+    return true;
+  }
+  function jamTenang() { return cekPesanTenang.checked && (modeMalamAktif() || nonton.aktif); }
+  function orangHadir(now) { return fase === 'hidup' && adaOrangBaru(now) && moodSaatIni(now) !== 'tidur'; }
+  function kikoLuang() { return fase === 'hidup' && ai.tahap === 'diam' && !ai.bicara && !tes.aktif; }
+  // "2 dari Budi, 1 dari Mama" (urut terbanyak); maks 3 nama.
+  function daftarPengirim(list) {
+    const hit = new Map();
+    for (const p of list) { const n = namaPengirim(p); hit.set(n, (hit.get(n) || 0) + 1); }
+    const urut = [...hit.entries()].sort((a, b) => b[1] - a[1]);
+    const bag = urut.slice(0, 3).map(([n, c]) => list.length > 1 && c > 1 ? L(`${c} dari ${n}`, `${c} from ${n}`) : n);
+    const sisa = urut.length - 3;
+    return bag.join(', ') + (sisa > 0 ? L(`, dan ${sisa} orang lain`, `, and ${sisa} others`) : '');
+  }
+  function umumkanPesan(baru) {
+    if (!cekPesanSuara.checked || !kikoLuang() || Date.now() - notif.umumLalu < 20000) return;
+    notif.umumLalu = Date.now();
+    const p = baru[baru.length - 1];
+    if (baru.length === 1) {
+      const grup = p.grup && p.namaGrup ? L(` di grup ${bersihNama(p.namaGrup)}`, ` in ${bersihNama(p.namaGrup)}`) : '';
+      ucapkan(L(`Ada ${jenisPesan(p)} dari ${namaPengirim(p)}${grup}.`, `You've got a ${adalahWa(p) ? 'WhatsApp' : jenisPesan(p)} from ${namaPengirim(p)}${grup}.`), 'kaget');
+    } else {
+      ucapkan(L(`Ada ${baru.length} pesan baru, dari ${daftarPengirim(baru)}.`, `${baru.length} new messages, from ${daftarPengirim(baru)}.`), 'kaget');
+    }
+  }
+  function terimaPesanBaru(baru) {
+    baru = baru.filter(lolosSaring);
+    if (!baru.length) return;
+    notif.riwayat = notif.riwayat.concat(baru).slice(-20);
+    notif.belumDibaca = notif.belumDibaca.concat(baru).slice(-20);
+    const now = performance.now();
+    if (jamTenang() || !orangHadir(now)) {
+      notif.terlewat = notif.terlewat.concat(baru).slice(-30);   // B/E: diringkas nanti
+      return;
+    }
+    for (const p of baru) notif.antre.push(p);
+    tampilPesanBerikut();
+    umumkanPesan(baru);
+  }
+  // B: ringkasan saat orang kembali / jam tenang selesai (dicek tiap detik).
+  setInterval(() => {
+    if (!cekPesan.checked) return;
+    const now = performance.now();
+    const siap = orangHadir(now) && !jamTenang();
+    if (siap && !notif.siapLalu && notif.terlewat.length) notif.ringkasPada = Date.now() + 2500;   // beri waktu salam dulu
+    notif.siapLalu = siap;
+    if (!notif.ringkasPada || Date.now() < notif.ringkasPada || !siap || !kikoLuang()) return;
+    notif.ringkasPada = 0;
+    const list = notif.terlewat; notif.terlewat = [];
+    if (!list.length || !cekPesanRingkas.checked) return;
+    ucapkan(list.length === 1
+      ? L(`Selama kamu pergi ada ${jenisPesan(list[0])} dari ${namaPengirim(list[0])}. Bilang "bacakan pesannya" kalau mau dengar.`,
+          `While you were away you got a message from ${namaPengirim(list[0])}. Say "read the message" to hear it.`)
+      : L(`Selama kamu pergi ada ${list.length} pesan: ${daftarPengirim(list)}. Bilang "bacakan pesannya" kalau mau dengar.`,
+          `While you were away you got ${list.length} messages: ${daftarPengirim(list)}. Say "read the messages" to hear them.`), 'senang');
+  }, 1000);
+
+  // Perintah suara pesan (A bacakan, B daftar, C balas). Dipanggil sebelum jawabTelepon,
+  // karena "siapa yang kirim pesan" mengandung "kirim pesan".
+  function jawabPesan(t, en) {
+    const balas = en ? t.match(/^(?:please |kiko,? )?reply(?: back)?(?: to)?\s*(.*)$/) : t.match(/^(?:tolong |kiko,? )?(?:balas|bales|balaskan)(?: pesan| wa| chat)?(?: (?:ke|untuk|buat))?\s*(.*)$/);
+    if (balas) { balasPesan(balas[1].trim(), en); return true; }
+    const baca = en ? /\bread\b.*\b(messages?|texts?|whatsapp|it)\b/.test(t)
+                    : /\b(bacakan|bacain|bacakanlah)\b|\bbaca(kan)? (pesan|wa|chat)|\bisi(nya)? (pesan|wa|chat)/.test(t);
+    const tanya = en ? /\b(any|new|who)\b.*\b(messages?|texts?|whatsapps?)\b|\bwho (messaged|texted)\b/.test(t) && !/\bsend\b/.test(t)
+                     // di awal kalimat saja: "aku ada pesan buat kamu" tetap ke AI
+                     : /^(?:kiko,? |tadi )?(ada (pesan|wa|chat)( baru| masuk)?( apa| gak| nggak| tidak| enggak| dari siapa)?|siapa (yang )?(wa|chat|kirim pesan|ngechat|nge ?wa)|pesan (masuk|baru))\b/.test(t);
+    if (!baca && !tanya) return false;
+    if (!cekPesan.checked) {
+      ucapkan(L('Pesan masuk belum dinyalakan. Nyalakan di ATUR, bagian Pesan masuk, dan pasang aplikasi KiKo Notif.',
+                'Incoming messages are off. Turn them on in the menu under Incoming messages, and install the KiKo Notif app.'), 'bingung');
+      return true;
+    }
+    if (baca) {
+      let list = notif.belumDibaca.length ? notif.belumDibaca : notif.riwayat.slice(-1);
+      const orang = list.filter(p => t.includes(namaPengirim(p).toLowerCase()));
+      if (orang.length) list = orang;
+      list = list.slice(-3);
+      if (!list.length) { ucapkan(L('Belum ada pesan masuk.', 'No messages yet.'), 'normal'); return true; }
+      notif.belumDibaca = notif.belumDibaca.filter(p => !list.includes(p));
+      notif.terlewat = notif.terlewat.filter(p => !list.includes(p));
+      const kalimat = s => /[.!?…]$/.test(s) ? s : s + '.';
+      ucapkan(list.map(p => kalimat(L(`Dari ${namaPengirim(p)}: ${p.isi || 'tanpa teks'}`, `From ${namaPengirim(p)}: ${p.isi || 'no text'}`))).join(' '), 'normal');
+      return true;
+    }
+    const list = notif.belumDibaca.length ? notif.belumDibaca : [];
+    if (!list.length) { ucapkan(L('Tidak ada pesan baru.', 'No new messages.'), 'normal'); return true; }
+    notif.terlewat = [];
+    ucapkan(L(`Ada ${list.length} pesan belum dibaca: ${daftarPengirim(list)}. Bilang "bacakan pesannya" kalau mau dengar.`,
+              `${list.length} unread: ${daftarPengirim(list)}. Say "read the messages" to hear them.`), 'normal');
+    return true;
+  }
+  function balasPesan(sisa, en) {
+    // Penerima: kontak / pengirim yang disebut di awal, kalau tidak ada = pengirim terakhir.
+    let penerima = null, isi = sisa;
+    const calon = [...kontak.map(k => ({ nama: k.nama, k })), ...notif.riwayat.slice().reverse().map(p => ({ nama: namaPengirim(p), k: kontakDari(p) }))];
+    for (const c of calon) {
+      const n = c.nama.toLowerCase();
+      if (n && (sisa === n || sisa.startsWith(n + ' ')) && (!penerima || n.length > penerima.nama.length)) penerima = c;
+    }
+    if (penerima) isi = sisa.slice(penerima.nama.length).replace(/^\s*(bahwa|kalau|isinya|that|saying|:|,)\s*/, '').trim();
+    else if (notif.riwayat.length) { const p = notif.riwayat[notif.riwayat.length - 1]; penerima = { nama: namaPengirim(p), k: kontakDari(p) }; }
+    if (!penerima) { ucapkan(L('Mau balas siapa? Belum ada pesan masuk.', "Reply to whom? There are no messages yet."), 'bingung'); return; }
+    const nama = penerima.nama;
+    if (!isi) {
+      tanyaLanjut(L(`Mau balas apa ke ${nama}?`, `What should I reply to ${nama}?`), j => `${en ? 'reply to' : 'balas'} ${nama} ${j}`);
+      return;
+    }
+    if (penerima.k) aksiKontak(penerima.k, 'pesan', isi);
+    else kontakBelumAda(nama, 'pesan', isi);
+  }
 
   function statusPesan() {
     elStatusPesan.textContent = !cekPesan.checked ? L('Mati.', 'Off.')
@@ -4954,10 +5159,9 @@
       const r = await fetch(`${ALAMAT_NOTIF}/pesan?sejak=${Math.max(0, notif.sejak)}`, { cache: 'no-store' });
       const d = await r.json();
       // Pertama tersambung: pesan lama tidak ditampilkan, hanya dicatat posisinya.
-      if (notif.sejak >= 0) for (const p of d.pesan || []) notif.antre.push(p);
+      if (notif.sejak >= 0 && d.pesan && d.pesan.length) terimaPesanBaru(d.pesan);
       notif.sejak = d.terakhir || 0;
       notif.gagal = 0;
-      tampilPesanBerikut();
     } catch (_) {
       notif.gagal++;
     } finally {
@@ -4970,7 +5174,7 @@
     notif.antre = notif.antre.slice(-3);                 // banjir pesan grup: cukup 3 terakhir
     const p = notif.antre.shift();
     const isi = cekPesanIsi.checked && p.isi ? ': ' + (p.isi.length > 70 ? p.isi.slice(0, 70) + '…' : p.isi) : '';
-    elTeksPesan.textContent = `💬 ${p.dari || L('Pesan', 'Message')}${p.app ? ' · ' + p.app : ''}${isi}`;
+    elTeksPesan.textContent = `💬 ${namaPengirim(p)}${p.grup && p.namaGrup ? ' · ' + bersihNama(p.namaGrup) : ''}${p.app ? ' · ' + p.app : ''}${isi}`;
     elTeksPesan.hidden = false;
     notif.tampil = true;
     if (fase === 'hidup' && !modeMalamAktif()) {
@@ -4988,7 +5192,7 @@
   function aturPesan() {
     try { localStorage.setItem('kiko.pesanMasuk', cekPesan.checked ? '1' : '0'); } catch (_) {}
     clearInterval(notif.timer);
-    notif.sejak = -1; notif.gagal = 0; notif.antre = [];
+    notif.sejak = -1; notif.gagal = 0; notif.antre = []; notif.terlewat = []; notif.belumDibaca = [];
     if (cekPesan.checked) { notif.timer = setInterval(ambilPesan, cekHemat.checked ? 5000 : 2000); ambilPesan(); }
     statusPesan();
   }
@@ -5481,7 +5685,7 @@
   });
 
   const LABEL_EN = { normal: 'Normal', senang: 'Happy', kaget: 'Surprised', ngantuk: 'Sleepy', sedih: 'Sad', marah: 'Angry',
-    curiga: 'Suspicious', sayang: 'Loving', tidur: 'Asleep', tertawa: 'Laughing', bingung: 'Confused' };
+    curiga: 'Suspicious', sayang: 'Loving', tidur: 'Asleep', tertawa: 'Laughing', bingung: 'Confused', melet: 'Tongue out' };
   const JENIS_EN = { oranye: 'Orange tabby', abu: 'Grey tabby', hitam: 'Black', calico: 'Calico', siam: 'Siamese', ganjil: 'Odd-eyed white' };
   function terapkanBahasa() {
     document.documentElement.lang = bahasa;
