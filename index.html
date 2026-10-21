@@ -2806,7 +2806,18 @@
   // kamera + layar tetap menyala). Saat tidur hemat, kamera DIMATIKAN dan hanya "mengintip"
   // INTIP_MS tiap INTIP_JEDA_MS untuk mencari wajah. Wajah terlihat -> interaksi() membangunkan,
   // kamera tetap menyala. Bangun karena hal lain (sentuh, pengingat) -> kamera dinyalakan lagi.
-  const INTIP_JEDA_MS = 10000, INTIP_MS = 1500;
+  // 2026-10-21 (uji 15.30-17.30: HP masih +-11,5 %/jam saat tidur; menyalakan kamera itu mahal):
+  // jarak mengintip bertahap. 10 menit pertama tidur tetap tiap 10 dtk (orang yang baru pergi
+  // biasanya kembali cepat), sesudahnya tiap 30 dtk. Bangun lewat sentuhan/pesan/pengingat tetap seketika.
+  const INTIP_JEDA_MS = 10000, INTIP_JEDA_LAMA_MS = 30000, INTIP_LAMA_SETELAH_MS = 10 * 60000, INTIP_MS = 1500;
+  function jedaIntip(now) {
+    const lama = now - (hemat.kamTidurSejak || now) >= INTIP_LAMA_SETELAH_MS;
+    if (lama && !hemat.intipLama) {
+      hemat.intipLama = true;
+      statusWajah(L('Tidur hemat: kamera mati, mengintip tiap 30 detik.', 'Saving sleep: camera off, peeking every 30 seconds.'));
+    }
+    return lama ? INTIP_JEDA_LAMA_MS : INTIP_JEDA_MS;
+  }
   setInterval(() => {
     const now = performance.now();
     const mauTidur = cekHemat.checked && cekWajah.checked && hemat.tidur && !document.hidden;
@@ -2818,7 +2829,8 @@
     if (wajah.memuat) return;
     if (!hemat.kamTidur) {                                    // baru tertidur: matikan kamera
       if (wajah.aktif && !wajah.ada) {
-        hentikanWajah(); hemat.kamTidur = true; hemat.intipBerikut = now + INTIP_JEDA_MS;
+        hentikanWajah(); hemat.kamTidur = true; hemat.kamTidurSejak = now; hemat.intipLama = false;
+        hemat.intipBerikut = now + INTIP_JEDA_MS;
         statusWajah(L('Tidur hemat: kamera mati, mengintip tiap 10 detik.', 'Saving sleep: camera off, peeking every 10 seconds.'));
       }
       return;
@@ -2828,7 +2840,7 @@
       mulaiWajah().then(() => { hemat.intipSampai = performance.now() + INTIP_MS; });
       hemat.intipSampai = now + 8000;                         // batas aman kalau kamera lambat menyala
     } else if (hemat.intip && now >= hemat.intipSampai && !wajah.ada) {
-      hentikanWajah(); hemat.intip = false; hemat.intipBerikut = now + INTIP_JEDA_MS;
+      hentikanWajah(); hemat.intip = false; hemat.intipBerikut = now + jedaIntip(now);
     }
   }, 500);
 
