@@ -1,0 +1,16 @@
+Suara hewan KiKo (dipakai gaya wajah Kucing / Anjing, index.html "SUARA HEWAN")
+Diunduh dari Wikimedia Commons 2026-10-24 (izin pengguna). Berkas tidak diubah; KiKo hanya
+memutar potongan bagiannya.
+
+kucing_1.ogg  = "Maullido de gata hembra joven.ogg"  - George Miquilena - CC0 1.0
+                https://commons.wikimedia.org/wiki/File:Maullido_de_gata_hembra_joven.ogg
+kucing_2.wav  = "Meow of a Siamese cat - freemaster2.wav" - freemaster2 - CC0 1.0
+                https://commons.wikimedia.org/wiki/File:Meow_of_a_Siamese_cat_-_freemaster2.wav
+anjing_1.ogg  = "Barking of a dog.ogg"   - Amada44 - CC BY-SA 3.0
+                https://commons.wikimedia.org/wiki/File:Barking_of_a_dog.ogg
+anjing_2.ogg  = "Barking of a dog 2.ogg" - Amada44 - CC BY-SA 3.0
+                https://commons.wikimedia.org/wiki/File:Barking_of_a_dog_2.ogg
+
+CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/): boleh dipakai termasuk komersial,
+WAJIB mencantumkan nama pembuat + lisensi (lihat ATUR -> Suara hewan, dan buku manual), dan kalau
+berkas suaranya diubah/dipotong, hasil ubahan itu juga berlisensi CC BY-SA 3.0.
