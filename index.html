@@ -528,12 +528,28 @@
       <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis" data-en="Realistic">Realistis</button>
       <button class="pilih" type="button" id="gaya-robot" data-gaya="robot">Robot</button>
       <button class="pilih" type="button" id="gaya-kucing" data-gaya="kucing" data-en="Cat">Kucing</button>
+      <button class="pilih" type="button" id="gaya-anjing" data-gaya="anjing" data-en="Dog">Anjing</button>
     </div>
   </div>
 
   <div class="bagian khusus-kucing">
     <h2 data-en="Cat breed">Jenis kucing</h2>
     <div class="grid-ekspresi" id="gridJenis"></div>
+  </div>
+
+  <div class="bagian khusus-anjing">
+    <h2 data-en="Dog breed">Jenis anjing</h2>
+    <div class="grid-ekspresi" id="gridJenisAnjing"></div>
+  </div>
+
+  <div class="bagian khusus-hewan">
+    <h2 data-en="Animal sounds">Suara hewan</h2>
+    <label class="saklar"><input type="checkbox" id="cekSuaraHewan" checked> <span data-en="Now and then meow (cat) or bark (dog)">Sesekali mengeong (kucing) atau menggonggong (anjing)</span></label>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolCobaSuaraHewan" type="button" data-en="Try the sound">Coba suaranya</button>
+    </div>
+    <p class="petunjuk" data-en="Plays when someone arrives, when KiKo is petted and now and then while someone is near. Silent at night, while asleep, while listening/talking and while the radio or YouTube plays. Ask &quot;meow!&quot; or &quot;bark!&quot; to hear it.">Bunyi saat ada orang datang, saat dielus, dan sesekali selama ada orang di dekatnya. Diam saat malam, tidur, mendengar/bicara, dan saat radio atau YouTube main. Bisa juga diminta: "meong dong" / "gonggong dong".</p>
+    <p class="petunjuk" data-en="Recordings from Wikimedia Commons: cat meows by George Miquilena and freemaster2 (CC0); dog barks by Amada44, CC BY-SA 3.0.">Rekaman dari Wikimedia Commons: meong kucing oleh George Miquilena dan freemaster2 (CC0); gonggongan anjing oleh Amada44, CC BY-SA 3.0.</p>
   </div>
 
   <div class="bagian khusus-realistis">
@@ -545,7 +561,7 @@
     <h2 data-en="Face colour">Warna wajah</h2>
     <div class="grid-warna" id="gridKulit"></div>
     <label class="saklar"><input type="checkbox" id="cekAlis" checked> <span data-en="Show eyebrows">Tampilkan alis</span></label>
-    <label class="saklar khusus-kucing"><input type="checkbox" id="cekBelang" checked> <span data-en="Show cat markings (stripes / patches / mask)">Tampilkan corak kucing (belang / bercak / topeng)</span></label>
+    <label class="saklar khusus-hewan"><input type="checkbox" id="cekBelang" checked> <span data-en="Show fur markings (stripes / patches / spots / mask)">Tampilkan corak bulu (belang / bercak / totol / topeng)</span></label>
   </div>
 
   <div class="bagian khusus-robot">
@@ -935,7 +951,11 @@
   // 'kucing' = mesin gaya realistis + pupil celah, tanpa alis/bulu mata,
   // ditambah hidung, mulut "w" dan kumis (gambarWajahKucing). Cocok dengan
   // paket body kucing (telinga di atas HP).
-  let gaya = 'realistis';          // 'realistis' | 'robot' | 'kucing'
+  // 'anjing' (2026-10-24) = mesin yang sama + pupil bulat, iris agak besar, alis bulu lembut,
+  // moncong, hidung hitam besar dan lidah menjulur saat senang (gambarPolaAnjing / gambarWajahAnjing).
+  // TANPA telinga di layar (pengguna 2026-10-24: "jangan perlihatkan telinga anjing"; telinga fisik
+  // ada di bando dudukan).
+  let gaya = 'realistis';          // 'realistis' | 'robot' | 'kucing' | 'anjing'
   let warnaIris = '#6b4428';
   let pakaiAlis = true;
 
@@ -957,7 +977,31 @@
     { id: 'abu',     nama: 'Kucing abu',  latar: '#b9bcc2', kelopak: '#a9adb4', lipatan: '#868a92', alis: '#3e4148', bulu: '#2a2c31' },
     { id: 'putihk',  nama: 'Kucing putih', latar: '#f6f3ee', kelopak: '#ece6dd', lipatan: '#c9bfb2', alis: '#55504a', bulu: '#3b3632' },
     { id: 'krem',    nama: 'Kucing krem (siam)', latar: '#efe0c6', kelopak: '#e6d3b4', lipatan: '#b99b78', alis: '#4a3324', bulu: '#3a2618' },
+    // 2026-10-24: bulu anjing (gaya 'anjing', lihat JENIS_ANJING)
+    { id: 'emas',    nama: 'Anjing emas', latar: '#e8b46c', kelopak: '#dda25a', lipatan: '#b47c3a', alis: '#7a4a1c', bulu: '#4a2a10' },
+    { id: 'shiba',   nama: 'Anjing shiba', latar: '#df8a3e', kelopak: '#d27a30', lipatan: '#a95a1c', alis: '#6b3410', bulu: '#3e1e08' },
+    { id: 'husky',   nama: 'Anjing husky', latar: '#717780', kelopak: '#656b74', lipatan: '#4d525a', alis: '#2c2f34', bulu: '#1e2024' },
+    { id: 'beagle',  nama: 'Anjing beagle', latar: '#b9773d', kelopak: '#a96a32', lipatan: '#83501f', alis: '#4a2a12', bulu: '#2e1a0a' },
+    { id: 'dalmasi', nama: 'Anjing dalmatian', latar: '#f4f2ed', kelopak: '#e9e5dc', lipatan: '#c4bcae', alis: '#3a3633', bulu: '#2a2624' },
+    { id: 'rott',    nama: 'Anjing hitam (rottweiler)', latar: '#1e1b1a', kelopak: '#2a2624', lipatan: '#403a36', alis: '#a8673a', bulu: '#000000' },
+    { id: 'pug',     nama: 'Anjing pug', latar: '#e9d3ab', kelopak: '#dec497', lipatan: '#b39a6e', alis: '#3a2c1e', bulu: '#2a1e12' },
   ];
+  // Jenis anjing siap pakai (2026-10-24, pengguna: "coba create tampilan anjing"). Sama seperti
+  // JENIS_KUCING, satu ketukan mengganti bulu, mata dan corak; plus warna moncong.
+  //  warnaGelap = warna bulu kedua, hanya untuk contoh warna di tombol panel
+  //  corak: polos | shiba (pipi & alis putih) | masker (husky: topeng putih) | blaze (beagle: garis putih
+  //         di tengah dahi) | totol (dalmatian) | alisTitik (rottweiler: titik cokelat di atas mata)
+  //         | topeng (pug: moncong hitam)
+  const JENIS_ANJING = [
+    { id: 'golden',  nama: 'Golden',     kulit: 'emas',    iris: '#5a3a1e', corak: 'polos',     warnaGelap: '#c98d43', moncong: '#f2cf96' },
+    { id: 'shiba',   nama: 'Shiba',      kulit: 'shiba',   iris: '#3b2416', corak: 'shiba',     warnaGelap: '#c9732c', moncong: '#f7efe4' },
+    { id: 'husky',   nama: 'Husky',      kulit: 'husky',   iris: '#5fb0e6', corak: 'masker',    warnaGelap: '#4d5259', moncong: '#efedea' },
+    { id: 'beagle',  nama: 'Beagle',     kulit: 'beagle',  iris: '#4a2c16', corak: 'blaze',     warnaGelap: '#5b3a22', moncong: '#f3ede4' },
+    { id: 'dalmasi', nama: 'Dalmatian',  kulit: 'dalmasi', iris: '#4a2c16', corak: 'totol',     warnaGelap: '#2c2826', moncong: '#ffffff' },
+    { id: 'rott',    nama: 'Rottweiler', kulit: 'rott',    iris: '#6b4428', corak: 'alisTitik', warnaGelap: '#141211', moncong: '#a8673a' },
+    { id: 'pug',     nama: 'Pug',        kulit: 'pug',     iris: '#2a1a10', corak: 'topeng',    warnaGelap: '#2a2420', moncong: '#2e2824' },
+  ];
+  let jenisAnjing = JENIS_ANJING[0];
   // Jenis kucing siap pakai: satu ketukan mengganti bulu, mata dan corak.
   // iris2 = mata kanan berbeda (kucing putih "mata ganjil" / heterokromia).
   const JENIS_KUCING = [
@@ -971,7 +1015,8 @@
   let kulit = KULIT[0];
 
   // Warna untuk zzz dan bar memuat: warna cahaya di gaya robot, warna bulu mata di gaya realistis.
-  const warnaAksen = () => gaya === 'robot' ? warnaMata : (kulit.id === 'hitam' ? '#d9d9de' : kulit.bulu);
+  const kulitGelap = () => kulit.id === 'hitam' || kulit.id === 'rott';
+  const warnaAksen = () => gaya === 'robot' ? warnaMata : (kulitGelap() ? '#d9d9de' : kulit.bulu);
 
   function hexKeRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
   function campur(a, b, t) {
@@ -1078,7 +1123,9 @@
     // Iris + pupil bergerak di dalam mata mengikuti arah pandang.
     // Kucing: iris besar (sklera hampir tidak terlihat) dan pupil celah tegak.
     const kucing = gaya === 'kucing';
-    const rI = (kucing ? 0.18 : 0.15) * U * skala;
+    // Anjing: pupil bulat seperti manusia tapi iris lebih besar (mata "anak anjing", sklera sedikit).
+    const anjing = gaya === 'anjing';
+    const rI = (kucing ? 0.18 : anjing ? 0.17 : 0.15) * U * skala;
     // 2026-10-13 (pengguna: "mata kurang melirik jauh"): iris boleh menyelip sebagian ke sudut
     // mata (dulu rI*1.1 / 0.5), karena kepala sekarang baru ikut saat mata hampir mentok.
     const ix = cx + gx * (w / 2 - rI * 0.7), iy = cy + ry * 0.05 + gy * ry * 0.68;
@@ -1143,7 +1190,7 @@
     ctx.stroke();
     // Tiga helai bulu mata kecil di sudut luar (kucing: tidak ada).
     ctx.lineWidth = 0.008 * U;
-    for (let k = 0; k < (kucing ? 0 : 3); k++) {
+    for (let k = 0; k < (kucing || anjing ? 0 : 3); k++) {
       const i = arah > 0 ? N - 2 - k * 2 : 2 + k * 2;
       const panjang = 0.035 * U * (1 - k * 0.2);
       ctx.beginPath();
@@ -1154,7 +1201,22 @@
 
     // Alis: naik/turun lewat p.alis, miring lewat p.tilt (marah = sisi dalam turun).
     // Kucing tidak beralis; emosinya terbaca dari kelopak, pupil dan mulut.
-    if (pakaiAlis && !kucing) {
+    // Anjing: "alis" = gumpalan bulu lembut (elips miring), sangat ekspresif: sedih = sisi dalam
+    // naik (puppy eyes), marah = sisi dalam turun. Rottweiler memakai titik cokelat khasnya.
+    if (pakaiAlis && anjing) {
+      const yAlis = cy - ry - 0.1 * U - p.alis * 0.06 * U;
+      const xAlis = cx + dalam * 0.06 * U;
+      ctx.save();
+      ctx.fillStyle = corakAnjingAktif() === 'alisTitik' ? kulit.alis : (corakAnjingAktif() === 'shiba' ? '#f7efe4' : campur(kulit.latar, kulitGelap() ? '#ffffff' : '#000000', 0.32));
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      // sudut + = sisi dalam turun (sama arah dengan alis manusia: p.tilt > 0 marah); dasar -0,12 =
+      // sisi dalam sedikit naik, raut anak anjing yang memelas
+      ctx.ellipse(xAlis, yAlis, 0.085 * U * skala, 0.035 * U, (p.tilt * 0.9 - 0.12) * dalam, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    else if (pakaiAlis && !kucing) {
       ctx.strokeStyle = kulit.alis;
       ctx.lineWidth = 0.034 * U * skala;
       const yAlis = cy - ry - 0.11 * U - p.alis * 0.05 * U;
@@ -1195,6 +1257,9 @@
   // Kelopak di dalam bercak calico / topeng siam ikut warna bercaknya, supaya
   // saat berkedip tidak muncul kelopak putih di tengah bercak gelap.
   function warnaKelopakMata(sisi) {
+    if (gaya === 'anjing') {
+      return corakAnjingAktif() === 'masker' ? '#e6e3de' : kulit.kelopak;   // husky: mata di dalam topeng putih
+    }
     const c = corakAktif();
     if (c === 'calico') return sisi === 'kiri' ? campur(CALICO_ORANYE, '#000000', 0.06) : campur(CALICO_HITAM, '#ffffff', 0.1);
     if (c === 'siam') return campur(kulit.kelopak, '#46302a', 0.45);
@@ -1337,6 +1402,7 @@
     else if (mood === 'senang' || mood === 'sayang') buka = 0.3;
     else if (mood === 'melet') buka = 0.35;
     if (ai.bicara) buka = Math.max(buka, kurangGerak ? 0.3 : 0.15 + 0.35 * Math.abs(Math.sin(now / 90)));
+    if (hewanBersuara(now)) buka = Math.max(buka, 0.55 + (kurangGerak ? 0 : 0.25 * Math.sin(now / 160)));   // mengeong
 
     const yW = yHidung + th / 2 + 0.03 * U;   // pusat "w"
     const rw = 0.042 * U;
@@ -1382,6 +1448,148 @@
       }
     }
     ctx.globalAlpha = 1;
+  }
+
+  // =====================================================================
+  //  GAYA ANJING (2026-10-24, pengguna: "coba create tampilan anjing")
+  // =====================================================================
+  // Urutan gambar: corak bulu -> mata -> moncong/hidung/mulut, jadi corak tidak pernah menutupi mata. Semua ukuran dalam U dari pusat wajah (layar landscape: tepi kiri/
+  // kanan +-1,15U, atas/bawah +-0,52U), sama seperti gaya kucing.
+  function corakAnjingAktif() { return gaya === 'anjing' && pakaiBelang ? jenisAnjing.corak : 'polos'; }
+  function pusatWajah(dyTambah) {
+    const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
+    return { x0: W / 2 + pandang.cur.x * 0.03 * U, cy: H / 2 + dy * U };
+  }
+
+  function gambarPolaAnjing(dyTambah) {
+    const c = corakAnjingAktif();
+    if (c === 'polos' || c === 'alisTitik') return;          // rottweiler: titik alis digambar bersama mata
+    const { x0, cy } = pusatWajah(dyTambah);
+    ctx.save();
+    if (c === 'shiba') {
+      // "urajiro": pipi bawah putih krem
+      ctx.fillStyle = '#f7efe4';
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x0 + s * 0.36 * U, cy + 0.34 * U, 0.3 * U, 0.17 * U, s * 0.2, 0, Math.PI * 2); ctx.fill(); }
+    } else if (c === 'masker') {
+      // husky: topeng putih di sekitar mata dan wajah bawah, dahi gelap berbentuk "V" di tengah
+      ctx.fillStyle = '#e6e3de';
+      ctx.beginPath(); ctx.ellipse(x0, cy + 0.32 * U, 0.66 * U, 0.3 * U, 0, 0, Math.PI * 2); ctx.fill();
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x0 + s * 0.47 * U, cy + 0.01 * U, 0.34 * U, 0.25 * U, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = kulit.latar;
+      ctx.beginPath();
+      ctx.moveTo(x0 - 0.17 * U, cy - 0.62 * U); ctx.lineTo(x0 + 0.17 * U, cy - 0.62 * U);
+      ctx.quadraticCurveTo(x0 + 0.05 * U, cy - 0.22 * U, x0, cy - 0.05 * U);
+      ctx.quadraticCurveTo(x0 - 0.05 * U, cy - 0.22 * U, x0 - 0.17 * U, cy - 0.62 * U);
+      ctx.fill();
+    } else if (c === 'blaze') {
+      // beagle: garis putih di tengah dahi yang melebar ke moncong
+      ctx.fillStyle = '#f3ede4';
+      ctx.beginPath();
+      ctx.moveTo(x0 - 0.045 * U, cy - 0.62 * U); ctx.lineTo(x0 + 0.045 * U, cy - 0.62 * U);
+      ctx.quadraticCurveTo(x0 + 0.06 * U, cy - 0.05 * U, x0 + 0.2 * U, cy + 0.2 * U);
+      ctx.lineTo(x0 - 0.2 * U, cy + 0.2 * U);
+      ctx.quadraticCurveTo(x0 - 0.06 * U, cy - 0.05 * U, x0 - 0.045 * U, cy - 0.62 * U);
+      ctx.fill();
+    } else if (c === 'totol') {
+      // dalmatian: totol hitam tetap (bukan acak tiap bingkai), dijauhkan dari mata
+      ctx.fillStyle = '#26221f';
+      for (const [x, y, r] of [[-0.98, -0.34, 0.05], [-0.22, -0.43, 0.04], [0.16, -0.31, 0.034], [0.86, -0.42, 0.05],
+                               [1.02, 0.06, 0.045], [-1.04, 0.13, 0.05], [-0.76, 0.36, 0.04], [0.72, 0.37, 0.045],
+                               [0.04, -0.5, 0.028], [-0.5, -0.36, 0.026], [0.42, 0.46, 0.03], [-0.36, 0.47, 0.026]]) {
+        ctx.beginPath(); ctx.ellipse(x0 + x * U, cy + y * U, r * U, r * 0.85 * U, x, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (c === 'topeng') {
+      // pug: kerut dahi di antara mata (topeng hitamnya = warna moncong)
+      ctx.strokeStyle = campur(kulit.latar, '#000000', 0.35); ctx.lineCap = 'round'; ctx.lineWidth = 0.012 * U;
+      for (let k = 0; k < 3; k++) {
+        const y = cy - (0.3 + k * 0.06) * U, l = (0.12 - k * 0.02) * U;
+        ctx.beginPath(); ctx.moveTo(x0 - l, y + 0.015 * U); ctx.quadraticCurveTo(x0, y - 0.02 * U, x0 + l, y + 0.015 * U); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Lidah anjing menjulur lurus ke bawah dari tengah mulut, terengah-engah naik-turun.
+  function gambarLidahAnjing(x, y, now, panjang) {
+    const r = 0.055 * U, naik = kurangGerak ? 0 : 0.012 * U * Math.sin(now / 130);
+    const p = panjang + naik;
+    ctx.save();
+    ctx.fillStyle = '#ef7f97'; ctx.strokeStyle = '#b8475f'; ctx.lineWidth = 0.006 * U;
+    ctx.beginPath();
+    ctx.moveTo(x - r, y); ctx.lineTo(x - r, y + p - r);
+    ctx.arc(x, y + p - r, r, Math.PI, 0, true);
+    ctx.lineTo(x + r, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y + 0.01 * U); ctx.lineTo(x, y + p * 0.6); ctx.stroke();   // alur tengah
+    ctx.restore();
+  }
+
+  function gambarWajahAnjing(mood, now, dyTambah) {
+    const { x0 } = pusatWajah(dyTambah);
+    const dy = (mata.kiri.cur.dy + mata.kanan.cur.dy) / 2 + dyTambah;
+    const yHidung = H / 2 + (0.21 + dy) * U + pandang.cur.y * 0.02 * U;
+    // Garis mulut: di topeng hitam pug dibuat terang (kalau gelap tidak terlihat); rottweiler bermoncong
+    // cokelat jadi garis gelap; lainnya warna aksen bulu.
+    const garis = corakAnjingAktif() === 'topeng' ? '#8a766a' : kulitGelap() ? '#120e0c' : warnaAksen();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Moncong: gundukan lebih terang (pug: topeng hitam; rottweiler: cokelat).
+    ctx.fillStyle = pakaiBelang ? jenisAnjing.moncong : campur(kulit.latar, '#ffffff', 0.3);
+    ctx.beginPath(); ctx.ellipse(x0, yHidung + 0.08 * U, 0.27 * U, 0.19 * U, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Mulut: seberapa terbuka (bicara / menggonggong membuka mulut).
+    let buka = 0;
+    if (mood === 'tertawa') buka = 0.8 + (kurangGerak ? 0 : 0.2 * Math.abs(Math.sin(now / 85)));
+    else if (mood === 'kaget') buka = 0.6;
+    else if (mood === 'senang' || mood === 'sayang' || mood === 'melet') buka = 0.45;
+    if (ai.bicara) buka = Math.max(buka, kurangGerak ? 0.3 : 0.15 + 0.35 * Math.abs(Math.sin(now / 90)));
+    if (hewanBersuara(now)) buka = Math.max(buka, kurangGerak ? 0.6 : 0.3 + 0.6 * Math.abs(Math.sin(now / 70)));
+    const lidah = mood === 'senang' || mood === 'tertawa' || mood === 'sayang' || mood === 'melet';
+
+    const th = 0.085 * U, lh = 0.15 * U;
+    const yM = yHidung + th / 2 + 0.055 * U;                   // pusat mulut "ω"
+    const rw = 0.065 * U;
+    if (buka > 0.05) {
+      ctx.fillStyle = '#5e1f27';
+      ctx.beginPath();
+      if (mood === 'kaget') ctx.ellipse(x0, yM + 0.035 * U, 0.035 * U, 0.045 * U * buka + 0.01 * U, 0, 0, Math.PI * 2);
+      else ctx.ellipse(x0, yM + 0.005 * U, rw * 1.35, 0.075 * U * buka, 0, 0, Math.PI);
+      ctx.fill();
+    }
+    if (lidah && mood !== 'kaget') gambarLidahAnjing(x0, yM + 0.004 * U, now, (mood === 'melet' ? 0.16 : 0.11 + 0.04 * buka) * U);
+
+    ctx.strokeStyle = garis; ctx.lineWidth = 0.011 * U;
+    ctx.beginPath();
+    ctx.moveTo(x0, yHidung + th / 2); ctx.lineTo(x0, yM);    // garis tengah di bawah hidung
+    if (mood === 'sedih') {
+      ctx.moveTo(x0 - 2 * rw, yM + rw * 0.8);
+      ctx.quadraticCurveTo(x0 - rw, yM - rw * 0.35, x0, yM);
+      ctx.quadraticCurveTo(x0 + rw, yM - rw * 0.35, x0 + 2 * rw, yM + rw * 0.8);
+    } else if (mood !== 'kaget') {
+      ctx.moveTo(x0 - 2 * rw, yM - rw * 0.15);
+      ctx.quadraticCurveTo(x0 - rw, yM + rw * 1.15, x0, yM);
+      ctx.quadraticCurveTo(x0 + rw, yM + rw * 1.15, x0 + 2 * rw, yM - rw * 0.15);
+    }
+    ctx.stroke();
+
+    // Pori kumis: tiga titik kecil di tiap sisi moncong.
+    ctx.fillStyle = garis; ctx.globalAlpha = 0.45;
+    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
+      ctx.beginPath(); ctx.arc(x0 + s * (0.12 + k * 0.035) * U, yHidung + (0.04 + (k % 2) * 0.025) * U, 0.008 * U, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Hidung: hitam besar membulat (lebar di atas, menyempit ke bawah) dengan kilap dan dua lubang.
+    ctx.fillStyle = '#1b1615';
+    ctx.beginPath();
+    ctx.moveTo(x0 - lh / 2, yHidung - th * 0.25);
+    ctx.bezierCurveTo(x0 - lh / 2, yHidung - th * 0.75, x0 + lh / 2, yHidung - th * 0.75, x0 + lh / 2, yHidung - th * 0.25);
+    ctx.bezierCurveTo(x0 + lh / 2, yHidung + th * 0.25, x0 + lh * 0.15, yHidung + th * 0.55, x0, yHidung + th * 0.55);
+    ctx.bezierCurveTo(x0 - lh * 0.15, yHidung + th * 0.55, x0 - lh / 2, yHidung + th * 0.25, x0 - lh / 2, yHidung - th * 0.25);
+    ctx.fill();
+    ctx.fillStyle = '#000000';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x0 + s * lh * 0.2, yHidung + th * 0.05, lh * 0.08, th * 0.12, s * 0.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.ellipse(x0 - lh * 0.16, yHidung - th * 0.38, lh * 0.14, th * 0.12, -0.2, 0, Math.PI * 2); ctx.fill();
   }
 
   // =====================================================================
@@ -1498,12 +1706,14 @@
     if (gaya !== 'robot') {
       aturTransformWajah(ctx);
       if (gaya === 'kucing' && !hanyaMata) gambarPolaKucing(dyTambah);
+      if (gaya === 'anjing' && !hanyaMata) gambarPolaAnjing(dyTambah);
       const alisLama = pakaiAlis;
       if (hanyaMata) pakaiAlis = false;
       gambarMataRealistis('kiri', mata.kiri.cur, kedipan, now, dyTambah);
       gambarMataRealistis('kanan', mata.kanan.cur, kedipan, now, dyTambah);
       pakaiAlis = alisLama;
       if (gaya === 'kucing' && !hanyaMata) gambarWajahKucing(mood, now, dyTambah);
+      else if (gaya === 'anjing' && !hanyaMata) gambarWajahAnjing(mood, now, dyTambah);
       else if (mood === 'melet' && !hanyaMata) gambarMeletPolos(ctx, now, dyTambah, false);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
@@ -1644,6 +1854,7 @@
     if (sentuh.elus) {
       sentuh.elus = false;
       ekspresiSingkat('senang', 1400);
+      if (Math.random() < 0.35) setTimeout(() => suaraHewan(false), 300);   // selesai dielus di layar -> kadang meong / guk
       return;
     }
     jumlahKetuk++;
@@ -2164,7 +2375,10 @@
   function terimaBaris(baris) {
     const [kode, nilai] = baris.trim().split(',');
     // T = badan mulai dielus (TTP223, firmware Ver 5); T,tahan = masih dielus (tiap 1 detik)
-    if (kode === 'T') { interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500); }
+    if (kode === 'T') {
+      interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
+      if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
+    }
     // C = sensor tepi melihat jurang (Ver 6: "C,depan" / "C,belakang"); base sudah mengerem
     else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
     // J = roda macet (Ver 8, encoder): ada tenaga tapi roda tidak berputar, base sudah mengerem
@@ -2456,18 +2670,46 @@
   warnaIris2 = muat('kiko.iris2') || '';
   tandaiJenis(muat('kiko.jenis') || '');
 
+  // ---------- Jenis anjing (2026-10-24; sama polanya dengan jenis kucing) ----------
+  const gridJenisAnjing = document.getElementById('gridJenisAnjing');
+  JENIS_ANJING.forEach(j => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pilih'; b.dataset.jenis = j.id;
+    b.innerHTML = `<span class="label-jenis"></span>`;
+    const contoh = document.createElement('kbd');
+    contoh.innerHTML = `<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KULIT.find(k => k.id === j.kulit).latar};border:1px solid #888"></i>`
+      + `<i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:3px;background:${j.warnaGelap};border:1px solid #888"></i>`;
+    b.appendChild(contoh);
+    b.addEventListener('click', () => setJenisAnjing(j.id));
+    gridJenisAnjing.appendChild(b);
+  });
+  function setJenisAnjing(id) {
+    jenisAnjing = JENIS_ANJING.find(x => x.id === id) || JENIS_ANJING[0];
+    setKulit(jenisAnjing.kulit);
+    setIris(jenisAnjing.iris);
+    setIris2('');
+    pakaiBelang = true; cekBelang.checked = true; simpan('kiko.belang', '1');
+    simpan('kiko.jenisAnjing', jenisAnjing.id);
+    gridJenisAnjing.querySelectorAll('.pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.jenis === jenisAnjing.id)));
+  }
+  jenisAnjing = JENIS_ANJING.find(x => x.id === muat('kiko.jenisAnjing')) || JENIS_ANJING[0];
+  gridJenisAnjing.querySelectorAll('.pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.jenis === muat('kiko.jenisAnjing'))));
+
   function setGaya(g) {
-    gaya = (g === 'robot' || g === 'kucing') ? g : 'realistis';
+    gaya = (g === 'robot' || g === 'kucing' || g === 'anjing') ? g : 'realistis';
     document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gaya === gaya)));
-    // Warna iris & wajah berlaku untuk gaya realistis dan kucing.
+    // Warna iris & wajah berlaku untuk gaya realistis, kucing dan anjing.
     document.querySelectorAll('.khusus-realistis').forEach(el => el.hidden = gaya === 'robot');
     document.querySelectorAll('.khusus-robot').forEach(el => el.hidden = gaya !== 'robot');
     document.querySelectorAll('.khusus-kucing').forEach(el => el.hidden = gaya !== 'kucing');
+    document.querySelectorAll('.khusus-anjing').forEach(el => el.hidden = gaya !== 'anjing');
+    document.querySelectorAll('.khusus-hewan').forEach(el => el.hidden = gaya !== 'kucing' && gaya !== 'anjing');
     simpan('kiko.gaya', gaya);
   }
   document.querySelectorAll('#pilihGaya .pilih').forEach(b => b.addEventListener('click', () => {
-    // Pertama pindah ke kucing: langsung pakai warna kucing (bisa diganti lagi di bawah).
+    // Pertama pindah ke kucing/anjing: langsung pakai warna jenisnya (bisa diganti lagi di bawah).
     if (b.dataset.gaya === 'kucing' && gaya !== 'kucing') setJenisKucing(muat('kiko.jenis') || 'oranye');
+    if (b.dataset.gaya === 'anjing' && gaya !== 'anjing') setJenisAnjing(muat('kiko.jenisAnjing') || 'golden');
     setGaya(b.dataset.gaya);
   }));
 
@@ -2925,6 +3167,8 @@
           if (!sedangTidur) ekspresiSingkat('senang', 1300);
           // Pergi cukup lama -> sapa dengan suara ("Selamat pagi, Benny!").
           if (lamaHilang > JEDA_SAPA_MS) sapaDenganSuara();
+          // Tanpa sapaan suara: kadang menyambut seperti hewannya (meong / guk guk).
+          else if (!sedangTidur && Math.random() < 0.5) setTimeout(() => suaraHewan(false), 700);
         } else {
           terakhirInteraksi = now;                             // ada orang: jangan mengantuk/tidur
         }
@@ -4336,6 +4580,7 @@
     }
     if (/baterai/.test(t) && /(berapa|sisa|masih|tinggal|level|habis|penuh|cukup)/.test(t)) { jawabBaterai(); return true; }
     if (jawabGerak(t)) return true;                           // "menoleh ke kanan", "angguk"
+    if (jawabSuaraHewan(t, false)) return true;               // "meong dong", "coba menggonggong"
     if (jawabEkspresi(t)) return true;                        // "coba senyum", "tunjukkan semua ekspresi"
     if (jawabAsisten(t)) return true;                         // telepon/WA, timer, radio, cuaca
     if (/(jam|pukul) berapa/.test(t)) {
@@ -4648,6 +4893,191 @@
       }
     } catch (_) {}
   }
+  // =====================================================================
+  //  SUARA HEWAN (2026-10-24, pengguna: "kadang beri gonggongan agar menunjukkan anjing, begitu
+  //  juga dengan kucing")
+  // =====================================================================
+  // Disintesis dengan WebAudio (tanpa berkas suara: ringan, jalan offline, tidak perlu unggah aset).
+  // Kapan berbunyi (gaya kucing/anjing saja, sakelar "Suara hewan"):
+  //  - orang baru datang (50 %, kalau tidak ada sapaan suara), badan/layar dielus (35 %),
+  //  - sesekali spontan selama ada orang (tiap 3-7 menit),
+  //  - diminta: "meong dong" / "gonggong dong" / "bark!".
+  // Diam saat malam, tidur, KiKo mendengar/bicara/menunggu jawaban, radio/YouTube, pembaruan,
+  // halaman tersembunyi; minimal 45 dtk antarbunyi (kecuali diminta). Selama bunyi, mic otomatis
+  // ditunda supaya KiKo tidak "mendengar" gonggongannya sendiri, dan mulut ikut terbuka
+  // (hewanBersuara() dipakai gambarWajahKucing / gambarWajahAnjing).
+  const hewan = { aktif: muat('kiko.suaraHewan') !== '0', terakhir: -1e9, sampai: 0, spontanBerikut: performance.now() + 120000 };
+  function hewanBersuara(now) { return now < hewan.sampai; }
+  let actxHewan = null;
+
+  // 2026-10-24 (pengguna: "suara belum terdengar natural"): bunyi dari REKAMAN ASLI (Wikimedia
+  // Commons, izin pengguna; kredit di suara/KREDIT_SUARA.txt dan panel ATUR): kucing CC0, anjing
+  // CC BY-SA 3.0 (Amada44). Berkas tidak dipotong; yang diputar potongan [mulai, selesai] dalam detik,
+  // dicari dengan analisis amplop suara (ambang 15 % puncak). Anjing: 1-2 gonggongan acak dari 8;
+  // kucing: salah satu dari 2 meong, nada diacak sedikit (+-6 %) supaya tidak terdengar sama terus.
+  // Gagal memuat (offline sebelum pernah dimuat, dll.) -> suara sintesis lama (sintesisMeong/Guk).
+  const SAMPEL_HEWAN = {
+    kucing: [['suara/kucing_1.ogg', 0, 1.15], ['suara/kucing_2.wav', 0.25, 1.06]],
+    anjing: [['suara/anjing_1.ogg', 0.16, 0.36], ['suara/anjing_1.ogg', 1.16, 1.36], ['suara/anjing_1.ogg', 1.86, 2.08],
+             ['suara/anjing_2.ogg', 0.02, 0.3], ['suara/anjing_2.ogg', 0.64, 0.84], ['suara/anjing_2.ogg', 1.48, 1.72],
+             ['suara/anjing_2.ogg', 2.4, 2.72], ['suara/anjing_2.ogg', 3.34, 3.66]],
+  };
+  const bufferHewan = new Map();                                // url -> Promise<AudioBuffer>
+  function muatSampelHewan(ac, url) {
+    if (!bufferHewan.has(url)) {
+      const p = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(b => ac.decodeAudioData(b));
+      p.catch(() => bufferHewan.delete(url));                   // coba lagi lain kali
+      bufferHewan.set(url, p);
+    }
+    return bufferHewan.get(url);
+  }
+  // Memutar potongan rekaman dengan masuk/keluar lembut (tanpa bunyi "klik"). Kembalian = lama (dtk).
+  function putarPotongan(ac, buf, t0, dari, sampai, vol, laju) {
+    const src = ac.createBufferSource(), g = ac.createGain();
+    src.buffer = buf; src.playbackRate.value = laju;
+    const lama = (sampai - dari) / laju;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+    g.gain.setValueAtTime(vol, t0 + Math.max(0.02, lama - 0.06));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + lama);
+    src.connect(g).connect(ac.destination);
+    src.start(t0, dari, sampai - dari);
+    return lama;
+  }
+  async function bunyiRekamanHewan(ac, jenis, vol) {
+    const acak = a => a[Math.floor(Math.random() * a.length)];
+    const t0 = ac.currentTime + 0.05;
+    if (jenis === 'kucing') {
+      const [url, dari, sampai] = acak(SAMPEL_HEWAN.kucing);
+      const buf = await muatSampelHewan(ac, url);
+      return putarPotongan(ac, buf, Math.max(t0, ac.currentTime + 0.02), dari, sampai, vol, 0.94 + Math.random() * 0.12);
+    }
+    const jumlah = Math.random() < 0.25 ? 1 : 2;                  // "guk" atau "guk guk"
+    const sisa = SAMPEL_HEWAN.anjing.slice(), pilih = [];         // dua gonggongan yang BERBEDA
+    for (let i = 0; i < jumlah; i++) pilih.push(sisa.splice(Math.floor(Math.random() * sisa.length), 1)[0]);
+    const bufs = await Promise.all(pilih.map(([url]) => muatSampelHewan(ac, url)));
+    let t = Math.max(t0, ac.currentTime + 0.02);
+    const laju = 0.95 + Math.random() * 0.1;                      // satu anjing = satu nada untuk kedua gonggongan
+    pilih.forEach(([, dari, sampai], i) => { t += putarPotongan(ac, bufs[i], t, dari, sampai, vol, laju) + (i < jumlah - 1 ? 0.08 + Math.random() * 0.08 : 0); });
+    return t - ac.currentTime;
+  }
+
+  function sintesisMeong(ac, t0, vol) {
+    const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(560, t0);                       // "me-" naik, "-ong" turun
+    o.frequency.linearRampToValueAtTime(930, t0 + 0.24);
+    o.frequency.exponentialRampToValueAtTime(470, t0 + 0.72);
+    lfo.frequency.value = 6; lg.gain.value = 14; lfo.connect(lg).connect(o.frequency);   // getar halus
+    f.type = 'bandpass'; f.Q.value = 3.2;                      // forman vokal "i -> a -> u"
+    f.frequency.setValueAtTime(1500, t0);
+    f.frequency.linearRampToValueAtTime(2100, t0 + 0.22);
+    f.frequency.exponentialRampToValueAtTime(850, t0 + 0.72);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.5 * vol, t0 + 0.06);
+    g.gain.setValueAtTime(0.5 * vol, t0 + 0.42);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.78);
+    o.connect(f).connect(g).connect(ac.destination);
+    o.start(t0); lfo.start(t0); o.stop(t0 + 0.8); lfo.stop(t0 + 0.8);
+    return 0.8;
+  }
+
+  function sintesisGuk(ac, t0, vol) {
+    // "guk guk": dua gonggongan pendek, masing-masing nada turun cepat + desis napas.
+    let derau = null;
+    for (const [mulai, f0, keras] of [[0, 470, 1], [0.27, 430, 0.85]]) {
+      const t = t0 + mulai;
+      const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * 0.55, t + 0.13);
+      lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 2;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.6 * vol * keras, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.connect(lp).connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + 0.18);
+      if (!derau) {
+        derau = ac.createBuffer(1, Math.round(ac.sampleRate * 0.2), ac.sampleRate);
+        const d = derau.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const n = ac.createBufferSource(), bp = ac.createBiquadFilter(), gn = ac.createGain();
+      n.buffer = derau; bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 1.3;
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(0.32 * vol * keras, t + 0.005);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      n.connect(bp).connect(gn).connect(ac.destination);
+      n.start(t); n.stop(t + 0.12);
+    }
+    return 0.48;
+  }
+
+  function bolehBersuaraHewan(now) {
+    return hewan.aktif && (gaya === 'kucing' || gaya === 'anjing') && fase === 'hidup' && !document.hidden
+      && !modeMalamAktif() && moodSaatIni(now) !== 'tidur' && !ai.bicara && ai.tahap === 'diam'
+      && !lanjutMenunggu() && !radioMain() && !videoMain() && !ota.aktif && !tari.aktif;
+  }
+
+  // jenis: 'kucing' | 'anjing' (default = gaya sekarang). paksa = diminta pengguna (tanpa jeda/syarat suasana).
+  function suaraHewan(paksa, jenis) {
+    const now = performance.now();
+    jenis = jenis || (gaya === 'anjing' ? 'anjing' : 'kucing');
+    if (!paksa && (!bolehBersuaraHewan(now) || now - hewan.terakhir < 45000)) return false;
+    try {
+      actxHewan = actxHewan || new (window.AudioContext || window.webkitAudioContext)();
+    } catch (_) { return false; }
+    hewan.terakhir = now;
+    // Tanpa sentuhan pengguna (dibuka dari stiker NFC) AudioContext masih "suspended": coba lanjutkan,
+    // bunyikan hanya kalau berhasil, selain itu diam (sentuhan pertama nanti membukanya).
+    actxHewan.resume().catch(() => {}).then(async () => {
+      if (actxHewan.state !== 'running') return;
+      const vol = Math.max(0.2, Math.min(1, typeof volSuara === 'number' ? volSuara : 1));
+      let dur;
+      try { dur = await bunyiRekamanHewan(actxHewan, jenis, vol); }
+      catch (_) { dur = jenis === 'anjing' ? sintesisGuk(actxHewan, actxHewan.currentTime + 0.03, vol) : sintesisMeong(actxHewan, actxHewan.currentTime + 0.03, vol); }
+      const t = performance.now();
+      hewan.sampai = t + dur * 1000 + 60;
+      ai.dengarBerikut = Math.max(ai.dengarBerikut || 0, t + dur * 1000 + 700);
+      bangunkanBingkai();
+      ekspresiSingkat('senang', dur * 1000 + 500);
+      if (jenis === 'anjing' && ble.terhubung && !hemat.zTerkirim) kirim('G,tawa');   // kepala ikut menyalak kecil
+    });
+    return true;
+  }
+
+  // Sesekali spontan selama ada orang di dekat KiKo.
+  setInterval(() => {
+    const now = performance.now();
+    if (now < hewan.spontanBerikut) return;
+    if (orangHadir(now) && suaraHewan(false)) hewan.spontanBerikut = now + (180 + Math.random() * 240) * 1000;
+    else hewan.spontanBerikut = now + 20000;
+  }, 10000);
+
+  const cekSuaraHewan = document.getElementById('cekSuaraHewan');
+  cekSuaraHewan.checked = hewan.aktif;
+  cekSuaraHewan.addEventListener('change', () => { hewan.aktif = cekSuaraHewan.checked; simpan('kiko.suaraHewan', hewan.aktif ? '1' : '0'); });
+  document.getElementById('tombolCobaSuaraHewan').addEventListener('click', () => suaraHewan(true));
+
+  // Perintah suara: "meong dong", "coba menggonggong", "guk guk", "bark!", "meow".
+  function jawabSuaraHewan(t, en) {
+    const anjingDiminta = en ? /\b(bark|barking|woof)\b/.test(t) : /\b(gonggong|menggonggong|gonggongan|guk ?guk|suara anjing)\b/.test(t);
+    const kucingDiminta = en ? /\b(meow|miaow|mew|purr)\b/.test(t) : /\b(meong|mengeong|miaw|meow|suara kucing)\b/.test(t);
+    if (!anjingDiminta && !kucingDiminta) return false;
+    const pendek = t.trim().split(/\s+/).length <= 4;
+    const minta = en ? /(can you|could you|please|let me hear|make|do a|go)/.test(t) : /(coba|ayo|dong|tolong|bisa|bunyi|suara|gimana|seperti apa|kayak apa)/.test(t);
+    if (!pendek && !minta) return false;                       // "anjingku suka menggonggong" -> ke AI
+    const diminta = anjingDiminta ? 'anjing' : 'kucing';
+    const hewanku = gaya === 'anjing' || gaya === 'kucing' ? gaya : diminta;
+    if (hewanku !== diminta) {
+      tampilTeks(hewanku === 'anjing' ? L('Aku kan anjing. Guk guk!', "I'm a dog, silly. Woof woof!") : L('Aku kucing, bukan anjing. Meong!', "I'm a cat, not a dog. Meow!"), 2500);
+    } else {
+      tampilTeks(diminta === 'anjing' ? L('Guk guk!', 'Woof woof!') : L('Meong~', 'Meow~'), 1800);
+    }
+    suaraHewan(true, hewanku);
+    return true;
+  }
+
   document.querySelectorAll('#tombolTimerCepat [data-detik]').forEach(b =>
     b.addEventListener('click', () => { if (fitur.timer) mulaiTimer(Number(b.dataset.detik)); }));
   document.getElementById('tombolHentiTimer').addEventListener('click', () => hentikanTimer(false));
@@ -5142,6 +5572,7 @@
     }
     if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
     if (jawabGerak(t)) return true;                           // "look to the right", "nod"
+    if (jawabSuaraHewan(t, true)) return true;                // "meow!", "can you bark?"
     if (jawabEkspresi(t)) return true;                        // "show me happy", "show all expressions"
     if (jawabNontonEn(t)) return true;
     if (fitur.telepon && jawabTeleponEn(t)) return true;
@@ -5949,6 +6380,9 @@
     gridJenis.querySelectorAll('.pilih').forEach(b => {
       const j = JENIS_KUCING.find(x => x.id === b.dataset.jenis);
       b.querySelector('.label-jenis').textContent = L(j.nama, JENIS_EN[j.id] || j.nama);
+    });
+    gridJenisAnjing.querySelectorAll('.pilih').forEach(b => {
+      b.querySelector('.label-jenis').textContent = JENIS_ANJING.find(x => x.id === b.dataset.jenis).nama;   // nama ras sama di kedua bahasa
     });
     document.querySelectorAll('#pilihBahasa .pilih').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bahasa === bahasa)));
     perbaruiChip(); tampilkanMalam(); tampilkanIngatan(); tampilkanPengingat(); tampilkanKontak(); tampilkanRadio(); tampilkanLokasi(); statusPesan();
