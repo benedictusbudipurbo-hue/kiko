@@ -6306,7 +6306,14 @@
     { k: 'menari', n: ['Menari', 'Dance'], cara: ['Nyalakan "Menari ikut musik" di bawah, putar lagu di dekat KiKo', 'Turn on "Dance to music" below, play a song near KiKo'],
       hasil: ['Mata dan kepala bergoyang ikut ketukan', 'Eyes and head move to the beat'] },
     { k: 'dudukan', n: ['Dudukan HP', 'Phone cradle'], cara: ['Angkat HP, lalu pasang lagi', 'Lift the phone out, then put it back'],
-      hasil: ['Wajah tidur saat diangkat, bangun lagi saat dipasang', 'The face sleeps when lifted, wakes again when put back'] }
+      hasil: ['Wajah tidur saat diangkat, bangun lagi saat dipasang', 'The face sleeps when lifted, wakes again when put back'] },
+    // 2026-10-24: uji 20-22 manual (tempel otomatis lewat NFC, pesan WA, wajah & suara hewan).
+    { k: 'tempel', n: ['Tempel otomatis', 'Auto dock'], cara: ['Tutup KiKo di HP, lalu tempel HP ke dudukan tanpa menyentuh layar', 'Close KiKo on the phone, then dock the phone without touching the screen'],
+      hasil: ['KiKo terbuka sendiri lewat stiker NFC dan tersambung ke base dalam beberapa detik', 'KiKo opens by itself via the NFC sticker and connects to the base within seconds'] },
+    { k: 'pesan', n: ['Pesan WA', 'WhatsApp message'], ucap: ['Bacakan pesannya', 'Read the message'],
+      hasil: ['Minta seseorang mengirim WA dulu: "Ada WA dari …", lalu isinya dibacakan (butuh KiKo Notif)', 'Ask someone to send a WhatsApp first: "WhatsApp from …", then it is read out (needs KiKo Notif)'] },
+    { k: 'hewan', n: ['Suara hewan', 'Animal sounds'], ucap: ['Gonggong dong', 'Bark please'],
+      hasil: ['Gaya Anjing: "guk guk"; ganti gaya Kucing dan bilang "meong dong": "meong"', 'Dog style: "woof"; switch to Cat style and say "meow please": "meow"'] }
   ];
   const elDaftarUji = document.getElementById('daftarUji');
   const elStatusUji = document.getElementById('statusUji');
