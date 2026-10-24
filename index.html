@@ -1784,9 +1784,23 @@
   function nyalakanNfcLagi() {
     try { navigator.permissions.query({ name: 'nfc' }).then(p => { if (p.state === 'granted') mulaiNfc(); }).catch(() => {}); } catch (_) {}
   }
+  // 2026-10-24 (uji ADB + Chrome remote debugging, Xiaomi 12 Lite): di APLIKASI TERPASANG (WebAPK)
+  // pemindaian Web NFC halaman membuat LINGKARAN: halaman memindai -> base tersambung ->
+  // hentikanNfc() -> Android memulai ulang polling NFC, melihat stiker yang masih menempel lagi,
+  // mengirimnya ke WebAPK (AAR) -> Chrome MEMUAT ULANG halaman ke ?nfc=1 -> sambungan BLE putus ->
+  // halaman memindai lagi ... (tercatat 4 muat ulang tiap +-4 dtk; yang ke-4 gagal "Base tidak
+  // ditemukan" karena base belum beriklan lagi). Aplikasi terpasang tidak butuh Web NFC: stiker
+  // (URL + AAR paket WebAPK) sudah membuka/membangunkan KiKo lewat Android. Di tab Chrome biasa
+  // pemindaian tetap seperti dulu. (sebagaiAplikasi() didefinisikan lebih bawah; di sini dipakai
+  // matchMedia langsung karena mulaiNfc() bisa dipanggil sebelum konstanta itu ada.)
+  const aplikasiTerpasang = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
   async function mulaiNfc() {
     if (nfcAktif) return;
     if (ble.terhubung) return;                       // sudah tersambung: tidak perlu memindai
+    if (aplikasiTerpasang()) {
+      statusNfc(L('NFC lewat stiker: tempelkan HP ke dudukan untuk membangunkan KiKo.', 'NFC via the sticker: put the phone on the mount to wake KiKo.'));
+      return;
+    }
     if (!('NDEFReader' in window)) { statusNfc(L('Web NFC tidak tersedia di sini (butuh Chrome Android + HTTPS).', 'Web NFC is not available here (needs Chrome on Android + HTTPS).')); return; }
     try {
       const pembaca = new NDEFReader();
