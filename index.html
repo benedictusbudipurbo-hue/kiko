@@ -2209,6 +2209,7 @@
       daftar.sort((a, b) => (b.id === idTerakhir) - (a.id === idTerakhir));
       for (const base of daftar) {
         try {
+          await tungguIklanBase(base, 6000);
           await Promise.race([
             sambungkanPerangkat(base),
             new Promise((_, gagal) => setTimeout(() => gagal(new Error('waktu habis')), 7000))
@@ -2220,6 +2221,29 @@
       }
       return false;
     } catch (_) { return false; }
+  }
+
+  // 2026-10-24 (uji NFC di Xiaomi 12 Lite lewat Chrome remote debugging): dengan "permissions
+  // backend" baru (chrome://flags/#enable-web-bluetooth-new-permissions-backend, wajib agar
+  // getDevices() ada di Chrome Android 147), gatt.connect() pada perangkat yang diingat langsung
+  // gagal dalam 1 ms: "Bluetooth Device is no longer in range", karena Chrome belum melihat iklan
+  // base sejak dibuka. Dengarkan iklannya dulu (watchAdvertisements; base terdengar +-0,2 dtk),
+  // baru sambung (+-0,3 dtk). Browser tanpa watchAdvertisements langsung lanjut seperti dulu.
+  async function tungguIklanBase(device, batasMs) {
+    if (!device.watchAdvertisements) return;
+    const henti = new AbortController();
+    try {
+      // Tidak pernah melempar: kalau watch tidak didukung atau base tidak terdengar dalam batasMs,
+      // tetap lanjut ke gatt.connect() (yang lalu gagal cepat dan base berikutnya dicoba).
+      await new Promise(selesai => {
+        const dengar = () => { device.removeEventListener('advertisementreceived', dengar); selesai(); };
+        device.addEventListener('advertisementreceived', dengar);
+        device.watchAdvertisements({ signal: henti.signal }).catch(selesai);
+        setTimeout(() => { device.removeEventListener('advertisementreceived', dengar); selesai(); }, batasMs);
+      });
+    } finally {
+      henti.abort();
+    }
   }
 
   async function sambungkanPerangkat(device) {
