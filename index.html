@@ -390,6 +390,7 @@
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol utama" id="tombolDiagnosa" type="button" data-en="Start diagnostics">Mulai diagnosa</button>
       <button class="tombol" id="tombolSalinDiag" type="button" hidden data-en="Copy report">Salin laporan</button>
+      <button class="tombol" id="tombolNolDiag" type="button" hidden data-en="Clear fault history">Nolkan riwayat gangguan</button>
     </div>
     <div id="diagTanya" class="diag-tanya" hidden>
       <p id="diagTanyaTeks"></p>
@@ -6607,6 +6608,7 @@
           diagTambah('rst', L('Menyala terakhir karena', 'Last start reason'), buruk ? 'periksa' : 'ok',
             L(rst[0], rst[1]) + ' · ' + L('menyala ', 'up ') + Math.round((+info.up || 0) / 60) + L(' menit', ' min'));
           const bo = +info.bo || 0, pn = +info.pn || 0, wd = +info.wd || 0;
+          document.getElementById('tombolNolDiag').hidden = bo + pn + wd === 0;
           if (bo + pn + wd === 0) diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'ok', L('Tidak ada brownout, crash atau macet.', 'No brownouts, crashes or hangs.'));
           else diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'periksa',
             (bo ? L(`${bo}× tegangan turun: periksa kabel/adaptor/baterai, servo bisa menarik arus besar. `, `${bo}× voltage drop: check wires, adapter or battery; the servos can draw high current. `) : '') +
@@ -6650,7 +6652,18 @@
       else {
         const t = await ambilDenganBatas(ai.url, 8000);
         const m = t && /KiKo Worker OK (v\d+)/.exec(t);
-        diagTambah('ai', L('Otak AI (ngobrol)', 'AI brain (chat)'), m ? 'ok' : 'periksa', m ? L('Menjawab · ', 'Answering · ') + m[1] : L('Tidak menjawab. Periksa alamat Worker dan internet.', 'No answer. Check the Worker address and the internet.'));
+        // Worker <= v9 tidak memberi izin CORS untuk GET (hanya POST), jadi isi jawabannya tidak bisa
+        // dibaca walau Worker hidup (video uji 25-10: "Tidak menjawab" padahal ngobrol jalan).
+        // Cadangan: no-cors = jawaban tertutup, tapi kalau berhasil berarti Worker bisa dihubungi.
+        let tersambung = !!m;
+        if (!m) {
+          const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 8000);
+          try { await fetch(ai.url, { mode: 'no-cors', cache: 'no-store', signal: ac.signal }); tersambung = true; } catch (_) {} finally { clearTimeout(tm); }
+        }
+        diagTambah('ai', L('Otak AI (ngobrol)', 'AI brain (chat)'), tersambung ? 'ok' : 'periksa',
+          m ? L('Menjawab · ', 'Answering · ') + m[1]
+            : tersambung ? L('Bisa dihubungi (versi Worker tidak terbaca; tempel ulang Worker v10 untuk melihatnya).', 'Reachable (Worker version not readable; re-paste Worker v10 to see it).')
+            : L('Tidak menjawab. Periksa alamat Worker dan internet.', 'No answer. Check the Worker address and the internet.'));
       }
       if (!cekPesan.checked) diagTambah('notif', L('Pesan masuk (KiKo Notif)', 'Incoming messages (KiKo Notif)'), 'lewat', L('Fitur mati.', 'Turned off.'));
       else {
@@ -6671,10 +6684,18 @@
           const okLed = await tanyaDiag(L('Lampu kecil di depan badan berkedip cepat?', 'Is the small light on the front of the body blinking fast?'));
           diagTambah('led', L('Lampu status', 'Status light'), okLed === null ? 'lewat' : okLed ? 'ok' : 'periksa', okLed === false ? L('Periksa colokan J6 dan arah LED (kaki panjang = +).', 'Check plug J6 and the LED direction (long leg = +).') : '');
         }
-        elDiagStatus.textContent = L('Elus area elus di atas badan dalam 10 detik…', 'Stroke the touch area on top of the body within 10 seconds…');
-        elDiagTanyaTeks.textContent = elDiagStatus.textContent;
-        const okSentuh = await tungguSentuhDiag(10000);
-        diagTambah('sentuh', L('Sensor elus', 'Touch sensor'), okSentuh ? 'ok' : 'periksa', okSentuh ? '' : L('Tidak terasa elusan. Periksa colokan J5 (GND, OUT, 3V3) dan apakah sensor menempel di bawah atap.', 'No stroke detected. Check plug J5 (GND, OUT, 3V3) and that the sensor sits under the roof.'));
+        // Video uji 25-10: instruksi hanya di baris status, mudah terlewat -> kotak + suara + tombol Lewati.
+        elDiagStatus.textContent = L('Uji sensor elus: elus area elus di atas badan KiKo (15 detik).', 'Touch test: stroke the touch area on top of the body (15 seconds).');
+        elDiagTanyaTeks.textContent = L('Sekarang ELUS area elus di atas badan KiKo (lingkaran kecil di atap belakang).', 'Now STROKE the touch area on top of KiKo (the small circle on the back of the roof).');
+        document.getElementById('diagYa').hidden = document.getElementById('diagTidak').hidden = true;
+        elDiagTanya.hidden = false;
+        ucapkan(L('Sekarang elus badanku ya.', 'Now stroke my body, please.'), 'sayang');
+        const okSentuh = await Promise.race([tungguSentuhDiag(15000), new Promise(r => { diag.jawab = v => { diag.jawab = null; r(v === null ? null : false); }; })]);
+        if (diag.tungguSentuh) diag.tungguSentuh = null;
+        elDiagTanya.hidden = true; diag.jawab = null;
+        document.getElementById('diagYa').hidden = document.getElementById('diagTidak').hidden = false;
+        if (okSentuh === null) diagTambah('sentuh', L('Sensor elus', 'Touch sensor'), 'lewat', '');
+        else diagTambah('sentuh', L('Sensor elus', 'Touch sensor'), okSentuh ? 'ok' : 'periksa', okSentuh ? '' : L('Tidak terasa elusan. Periksa colokan J5 (GND, OUT, 3V3) dan apakah sensor menempel di bawah atap.', 'No stroke detected. Check plug J5 (GND, OUT, 3V3) and that the sensor sits under the roof.'));
       }
       ucapkan(L('Halo, ini tes suara KiKo.', 'Hello, this is the KiKo sound test.'), 'senang');
       const okSuara = await tanyaDiag(L('Terdengar suara KiKo dari HP?', "Did you hear KiKo's voice from the phone?"));
@@ -6695,6 +6716,15 @@
     return baris.join('\n');
   }
   tombolDiagnosa.addEventListener('click', jalankanDiagnosa);
+  // Setelah gangguan diperiksa / diperbaiki, hitungannya dinolkan (Y,nol) supaya diagnosa berikutnya
+  // hanya menunjukkan gangguan baru.
+  document.getElementById('tombolNolDiag').addEventListener('click', async () => {
+    const info = await new Promise(selesai => { diag.tungguInfo = selesai; kirim('Y,nol'); setTimeout(() => { if (diag.tungguInfo === selesai) { diag.tungguInfo = null; selesai(null); } }, 3000); });
+    if (info && !(+info.bo || +info.pn || +info.wd)) {
+      document.getElementById('tombolNolDiag').hidden = true;
+      diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'ok', L('Dinolkan. Diagnosa berikutnya hanya menunjukkan gangguan baru.', 'Cleared. The next check only shows new faults.'));
+    } else elDiagStatus.textContent = L('Badan tidak menjawab. Coba lagi.', 'The body did not answer. Try again.');
+  });
   tombolSalinDiag.addEventListener('click', async () => {
     const t = laporanDiagTeks();
     try { await navigator.clipboard.writeText(t); elDiagStatus.textContent = L('Laporan disalin. Tempel di WhatsApp ke ELI.', 'Report copied. Paste it into WhatsApp to ELI.'); }
