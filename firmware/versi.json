@@ -1,10 +1,10 @@
 {
- "versi": 27,
- "file": "kiko_base_Ver_27.bin",
- "ukuran": 682144,
- "sha256": "bafaaa0c85a0abd50a39f007653d19153028e3218debfc22ad414df4132dd55e",
- "tanggal": "2026-10-21",
- "catatan": "Saat tidur, kepala KiKo kini hampir tegak (tidak lagi mendongak), lebih alami dan lebih cepat melihat orang yang datang.",
- "catatan_en": "While asleep, KiKo's head now stays nearly upright instead of looking up, which looks more natural and spots people sooner.",
+ "versi": 28,
+ "file": "kiko_base_Ver_28.bin",
+ "ukuran": 685888,
+ "sha256": "0adfcbf3fffe02d88637ba1a19fec6d6c1ab4d310eaff9a7599b9ade325b41ae",
+ "tanggal": "2026-10-25",
+ "catatan": "Menu Diagnosa: KiKo kini bisa melaporkan sebab menyala terakhir, riwayat gangguan daya, dan menguji leher serta lampu dari HP.",
+ "catatan_en": "Diagnostics menu: KiKo can now report why it last started, its power-fault history, and test the neck and light from the phone.",
  "partisi": "min_spiffs"
 }
