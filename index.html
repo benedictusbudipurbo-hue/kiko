@@ -121,6 +121,17 @@
   .daftar-uji .coba-uji { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
     border: 1px solid var(--mata); background: transparent; color: var(--mata); min-width: 44px; min-height: 32px; }
   .daftar-uji .coba-uji:focus-visible { outline: 2px solid var(--mata); outline-offset: 2px; }
+  /* Diagnosa (2026-10-25): hasil per pemeriksaan; warna status dari bentuk (ikon) + teks, bukan warna saja */
+  .diag-hasil { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .diag-hasil li { display: grid; grid-template-columns: 26px 1fr; gap: 2px 8px; padding: 8px 10px;
+    border: 1px solid var(--garis); border-radius: 10px; font-size: 14px; }
+  .diag-hasil .ikon { font-weight: 700; text-align: center; }
+  .diag-hasil li.ok .ikon { color: var(--mata); }
+  .diag-hasil li.periksa { border-color: #e0a040; }
+  .diag-hasil li.periksa .ikon { color: #e0a040; }
+  .diag-hasil .ket { grid-column: 2; font-size: 12px; color: var(--redup); line-height: 1.5; }
+  .diag-tanya { border: 1px solid var(--mata); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; }
+  .diag-tanya p { margin: 0; font-size: 14px; }
 
   /* ---------- Ngobrol: tombol mikrofon & teks ---------- */
   /* Mikrofon di pojok kanan bawah: dulu di tengah bawah dan menutupi mulut kucing.
@@ -373,6 +384,25 @@
     <p class="petunjuk" data-en="Keep the phone in the cradle and the battery above 50 % (or the charger plugged in). It takes about 1–2 minutes. If anything goes wrong, KiKo goes back to the old version by itself.">Biarkan HP di dudukan dan baterai di atas 50 % (atau charger tercolok). Lama +-1–2 menit. Kalau ada yang gagal, KiKo kembali ke versi lama sendiri.</p>
   </div>
 
+  <div class="bagian" id="bagianDiagnosa">
+    <h2 data-en="Diagnostics">Diagnosa</h2>
+    <p class="petunjuk" data-en="Checks the body, the phone and the connections one by one. Some steps ask you to look or touch. Takes about 1 minute.">Memeriksa badan, HP dan sambungan satu per satu. Beberapa langkah meminta Anda melihat atau menyentuh. Lama +-1 menit.</p>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol utama" id="tombolDiagnosa" type="button" data-en="Start diagnostics">Mulai diagnosa</button>
+      <button class="tombol" id="tombolSalinDiag" type="button" hidden data-en="Copy report">Salin laporan</button>
+    </div>
+    <div id="diagTanya" class="diag-tanya" hidden>
+      <p id="diagTanyaTeks"></p>
+      <div class="baris" style="justify-content:flex-start">
+        <button class="tombol utama" id="diagYa" type="button" data-en="Yes">Ya</button>
+        <button class="tombol" id="diagTidak" type="button" data-en="No">Tidak</button>
+        <button class="tombol" id="diagLewati" type="button" data-en="Skip">Lewati</button>
+      </div>
+    </div>
+    <ul id="diagHasil" class="diag-hasil"></ul>
+    <p class="petunjuk" id="diagStatus" role="status"></p>
+  </div>
+
   <div class="bagian">
     <h2 data-en="App">Aplikasi</h2>
     <div class="baris" style="justify-content:flex-start">
@@ -444,18 +474,21 @@
     <h2 data-en="Incoming messages">Pesan masuk</h2>
     <label class="saklar"><input type="checkbox" id="cekPesan"> <span data-en="Show incoming messages briefly (needs the KiKo Notif app)">Tampilkan pesan masuk sekejap (butuh aplikasi KiKo Notif)</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanIsi" checked> <span data-en="Also show the message text (off = sender only)">Tampilkan juga isi pesan (mati = hanya pengirim)</span></label>
-    <label class="saklar"><input type="checkbox" id="cekPesanSuara" checked> <span data-en="KiKo says who sent it (&quot;WhatsApp from Budi&quot;); text is read only when you ask">KiKo menyebut pengirimnya ("Ada WA dari Budi"); isi dibacakan hanya kalau diminta</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanSuara" checked> <span data-en="Announce messages out loud (&quot;WhatsApp from Budi&quot;). Off = bubble only, no voice. The text is read only when you ask">Umumkan pesan dengan suara ("Ada WA dari Budi"). Mati = hanya gelembung, tanpa suara. Isi dibacakan hanya kalau diminta</span></label>
+    <label class="saklar"><input type="checkbox" id="cekPesanEmail" checked> <span data-en="Include e-mail (Gmail, Outlook, Yahoo, …)">Termasuk email (Gmail, Outlook, Yahoo, …)</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanRingkas" checked> <span data-en="Summary of messages when you come back">Ringkasan pesan saat kamu kembali</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanGrup" checked> <span data-en="Ignore group chats">Abaikan obrolan grup</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanTenang" checked> <span data-en="Quiet during night mode and while watching (kept for the summary)">Diam saat mode malam dan menonton (disimpan untuk ringkasan)</span></label>
     <label class="saklar" for="pesanSaring"><span data-en="Messages from">Pesan dari</span>
       <select class="isian" id="pesanSaring" style="width:auto">
-        <option value="semua" data-en="All chat apps">Semua aplikasi chat</option>
+        <option value="semua" data-en="All apps (chat, SMS, e-mail)">Semua aplikasi (chat, SMS, email)</option>
+        <option value="chat" data-en="Chat and SMS, no e-mail">Chat dan SMS, tanpa email</option>
         <option value="wa" data-en="WhatsApp only">Hanya WhatsApp</option>
+        <option value="email" data-en="E-mail only">Hanya email</option>
         <option value="kontak" data-en="Only contacts in KiKo's list">Hanya kontak di daftar KiKo</option>
       </select></label>
     <p class="petunjuk" id="statusPesan" role="status"></p>
-    <p class="petunjuk" data-en="Say: &quot;read the message&quot;, &quot;any messages?&quot;, &quot;reply to Budi I'm on my way&quot; (KiKo opens WhatsApp with the text filled in, you tap send).">Bilang: "bacakan pesannya", "ada pesan apa?", "balas Budi aku sudah di jalan" (KiKo membuka WhatsApp dengan pesan terisi, Anda yang menekan kirim).</p>
+    <p class="petunjuk" data-en="Say: &quot;read the message&quot;, &quot;read my e-mail&quot;, &quot;any messages?&quot;, &quot;reply to Budi I'm on my way&quot; (KiKo replies in the app the message came from, e.g. Telegram or SMS, after you tap the green button; otherwise it opens WhatsApp with the text filled in), &quot;stop announcing messages&quot;.">Bilang: "bacakan pesannya", "bacakan email", "ada pesan apa?", "balas Budi aku sudah di jalan" (KiKo membalas di aplikasi asal pesannya, misalnya Telegram atau SMS, setelah Anda menekan tombol hijau; kalau tidak bisa, membuka WhatsApp dengan pesan terisi), "jangan umumkan pesan".</p>
     <p class="petunjuk" data-en="KiKo Notif (Android app) reads message notifications from any app (WhatsApp, SMS, Telegram, …) and hands them to KiKo inside the phone only (127.0.0.1); nothing goes to the internet. The bubble appears for a few seconds at the bottom without covering the face.">KiKo Notif (aplikasi Android) membaca notifikasi pesan dari aplikasi apa pun (WhatsApp, SMS, Telegram, …) dan memberikannya ke KiKo hanya di dalam HP (127.0.0.1); tidak ada yang dikirim ke internet. Gelembung muncul beberapa detik di bawah tanpa menutupi wajah.</p>
   </div>
 
@@ -2375,7 +2408,9 @@
   function terimaBaris(baris) {
     const [kode, nilai] = baris.trim().split(',');
     // T = badan mulai dielus (TTP223, firmware Ver 5); T,tahan = masih dielus (tiap 1 detik)
+    if (kode === 'Y') { terimaDiag(baris.trim()); return; }   // Ver 28: laporan diagnosa
     if (kode === 'T') {
+      if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
@@ -5622,9 +5657,10 @@
   const cekPesanRingkas = document.getElementById('cekPesanRingkas');
   const cekPesanGrup = document.getElementById('cekPesanGrup');
   const cekPesanTenang = document.getElementById('cekPesanTenang');
+  const cekPesanEmail = document.getElementById('cekPesanEmail');   // 2026-10-25 (KiKo Notif v1.4: jenis email)
   const pilihPesanSaring = document.getElementById('pesanSaring');
   const SAKLAR_PESAN = [[cekPesanSuara, 'kiko.pesanSuara'], [cekPesanRingkas, 'kiko.pesanRingkas'],
-                        [cekPesanGrup, 'kiko.pesanGrup'], [cekPesanTenang, 'kiko.pesanTenang']];
+                        [cekPesanGrup, 'kiko.pesanGrup'], [cekPesanTenang, 'kiko.pesanTenang'], [cekPesanEmail, 'kiko.pesanEmail']];
   try {
     cekPesan.checked = localStorage.getItem('kiko.pesanMasuk') === '1';
     cekPesanIsi.checked = localStorage.getItem('kiko.pesanIsi') !== '0';
@@ -5643,10 +5679,21 @@
   }
   function namaPengirim(p) { const k = kontakDari(p); return k ? hurufBesar(k.nama) : (bersihNama(p.dari) || L('seseorang', 'someone')); }
   const adalahWa = p => /whats ?app/i.test(p.app || '');
-  function jenisPesan(p) { return adalahWa(p) ? 'WA' : L('pesan ' + (p.app || ''), (p.app || '') + ' message').trim(); }
+  // 2026-10-25 (pengguna: "jangan hanya WhatsApp, juga yang lain dan email"): KiKo Notif v1.4 mengirim
+  // jenis chat | sms | email. Versi lama tanpa jenis dianggap chat (email Gmail ditebak dari nama app).
+  const adalahEmail = p => p.jenis === 'email' || (!p.jenis && /\b(gmail|outlook|mail)\b/i.test(p.app || ''));
+  function jenisPesan(p) {
+    if (adalahWa(p)) return 'WA';
+    if (adalahEmail(p)) return 'email';
+    if (p.jenis === 'sms') return 'SMS';
+    return L('pesan ' + (p.app || ''), (p.app || '') + ' message').trim();
+  }
   function lolosSaring(p) {
     if (p.grup && cekPesanGrup.checked) return false;
+    if (adalahEmail(p) && !cekPesanEmail.checked) return false;
     if (pilihPesanSaring.value === 'wa' && !adalahWa(p)) return false;
+    if (pilihPesanSaring.value === 'chat' && adalahEmail(p)) return false;
+    if (pilihPesanSaring.value === 'email' && !adalahEmail(p)) return false;
     if (pilihPesanSaring.value === 'kontak' && !kontakDari(p)) return false;
     return true;
   }
@@ -5708,13 +5755,27 @@
   // Perintah suara pesan (A bacakan, B daftar, C balas). Dipanggil sebelum jawabTelepon,
   // karena "siapa yang kirim pesan" mengandung "kirim pesan".
   function jawabPesan(t, en) {
+    // 2026-10-25 (pengguna: "beri opsi pesan suara dimatikan"): pengumuman pesan bisa dimatikan
+    // dengan suara juga (sama dengan saklar "Umumkan pesan dengan suara").
+    const diam = en ? /\b(stop|don'?t|do not) (announc\w*|read\w*|say\w*)( the| my)? (messages?|e-?mails?|whatsapps?)\b|\bmute (the )?messages?\b/.test(t)
+                    : /\b(jangan|stop|berhenti|gak usah|nggak usah|tidak usah) (umumkan|mengumumkan|sebut|menyebut|bacakan|kasih tahu)( soal| tentang)? (pesan|wa|email|chat)|\b(matikan|diamkan|bisukan) (suara |pengumuman )?(pesan|notifikasi)\b/.test(t);
+    const umum = en ? /\b(announce|start announcing|read out) (the |my )?(messages?|e-?mails?) again\b|\bunmute (the )?messages?\b/.test(t)
+                    : /\b(umumkan|sebutkan|kasih tahu) (pesan|wa|email)( masuk)? lagi\b|\bnyalakan (suara |pengumuman )?(pesan|notifikasi)\b/.test(t);
+    if (diam || umum) {
+      cekPesanSuara.checked = !!umum;
+      try { localStorage.setItem('kiko.pesanSuara', umum ? '1' : '0'); } catch (_) {}
+      ucapkan(umum ? L('Oke, pesan masuk aku umumkan lagi.', "Okay, I'll announce incoming messages again.")
+                   : L('Oke, pesan masuk tidak aku umumkan lagi. Gelembungnya tetap muncul sebentar.', "Okay, I won't announce messages anymore. The bubble still shows briefly."), 'senang');
+      return true;
+    }
     const balas = en ? t.match(/^(?:please |kiko,? )?reply(?: back)?(?: to)?\s*(.*)$/) : t.match(/^(?:tolong |kiko,? )?(?:balas|bales|balaskan)(?: pesan| wa| chat)?(?: (?:ke|untuk|buat))?\s*(.*)$/);
     if (balas) { balasPesan(balas[1].trim(), en); return true; }
-    const baca = en ? /\bread\b.*\b(messages?|texts?|whatsapp|it)\b/.test(t)
-                    : /\b(bacakan|bacain|bacakanlah)\b|\bbaca(kan)? (pesan|wa|chat)|\bisi(nya)? (pesan|wa|chat)/.test(t);
-    const tanya = en ? /\b(any|new|who)\b.*\b(messages?|texts?|whatsapps?)\b|\bwho (messaged|texted)\b/.test(t) && !/\bsend\b/.test(t)
+    const baca = en ? /\bread\b.*\b(messages?|texts?|whatsapp|e-?mails?|it)\b/.test(t)
+                    : /\b(bacakan|bacain|bacakanlah)\b|\bbaca(kan)? (pesan|wa|chat|email|surel)|\bisi(nya)? (pesan|wa|chat|email)/.test(t);
+    const soalEmail = en ? /\be-?mails?\b/.test(t) : /\b(email|e-mail|imel|surel)\b/.test(t);
+    const tanya = en ? /\b(any|new|who)\b.*\b(messages?|texts?|whatsapps?|e-?mails?)\b|\bwho (messaged|texted|e-?mailed)\b/.test(t) && !/\bsend\b/.test(t)
                      // di awal kalimat saja: "aku ada pesan buat kamu" tetap ke AI
-                     : /^(?:kiko,? |tadi )?(ada (pesan|wa|chat)( baru| masuk)?( apa| gak| nggak| tidak| enggak| dari siapa)?|siapa (yang )?(wa|chat|kirim pesan|ngechat|nge ?wa)|pesan (masuk|baru))\b/.test(t);
+                     : /^(?:kiko,? |tadi )?(ada (pesan|wa|chat|email|imel)( baru| masuk)?( apa| gak| nggak| tidak| enggak| dari siapa)?|siapa (yang )?(wa|chat|kirim pesan|kirim email|ngechat|nge ?wa)|(pesan|email) (masuk|baru))\b/.test(t);
     if (!baca && !tanya) return false;
     if (!cekPesan.checked) {
       ucapkan(L('Pesan masuk belum dinyalakan. Nyalakan di ATUR, bagian Pesan masuk, dan pasang aplikasi KiKo Notif.',
@@ -5723,6 +5784,7 @@
     }
     if (baca) {
       let list = notif.belumDibaca.length ? notif.belumDibaca : notif.riwayat.slice(-1);
+      if (soalEmail) list = (notif.belumDibaca.some(adalahEmail) ? notif.belumDibaca : notif.riwayat).filter(adalahEmail).slice(-3);
       const orang = list.filter(p => t.includes(namaPengirim(p).toLowerCase()));
       if (orang.length) list = orang;
       list = list.slice(-3);
@@ -5730,12 +5792,19 @@
       notif.belumDibaca = notif.belumDibaca.filter(p => !list.includes(p));
       notif.terlewat = notif.terlewat.filter(p => !list.includes(p));
       const kalimat = s => /[.!?…]$/.test(s) ? s : s + '.';
-      ucapkan(list.map(p => kalimat(L(`Dari ${namaPengirim(p)}: ${p.isi || 'tanpa teks'}`, `From ${namaPengirim(p)}: ${p.isi || 'no text'}`))).join(' '), 'normal');
+      ucapkan(list.map(p => adalahEmail(p)
+        ? kalimat(L(`Email dari ${namaPengirim(p)}: ${p.isi || p.subjek || 'tanpa judul'}`, `E-mail from ${namaPengirim(p)}: ${p.isi || p.subjek || 'no subject'}`))
+        : kalimat(L(`Dari ${namaPengirim(p)}: ${p.isi || 'tanpa teks'}`, `From ${namaPengirim(p)}: ${p.isi || 'no text'}`))).join(' '), 'normal');
       return true;
     }
-    const list = notif.belumDibaca.length ? notif.belumDibaca : [];
-    if (!list.length) { ucapkan(L('Tidak ada pesan baru.', 'No new messages.'), 'normal'); return true; }
+    const list = (notif.belumDibaca.length ? notif.belumDibaca : []).filter(p => !soalEmail || adalahEmail(p));
+    if (!list.length) { ucapkan(soalEmail ? L('Tidak ada email baru.', 'No new e-mail.') : L('Tidak ada pesan baru.', 'No new messages.'), 'normal'); return true; }
     notif.terlewat = [];
+    if (soalEmail) {
+      ucapkan(L(`Ada ${list.length} email belum dibaca, dari ${daftarPengirim(list)}. Bilang "bacakan email" kalau mau dengar.`,
+                `${list.length} unread e-mail, from ${daftarPengirim(list)}. Say "read my e-mail" to hear it.`), 'normal');
+      return true;
+    }
     ucapkan(L(`Ada ${list.length} pesan belum dibaca: ${daftarPengirim(list)}. Bilang "bacakan pesannya" kalau mau dengar.`,
               `${list.length} unread: ${daftarPengirim(list)}. Say "read the messages" to hear them.`), 'normal');
     return true;
@@ -5754,6 +5823,24 @@
     const nama = penerima.nama;
     if (!isi) {
       tanyaLanjut(L(`Mau balas apa ke ${nama}?`, `What should I reply to ${nama}?`), j => `${en ? 'reply to' : 'balas'} ${nama} ${j}`);
+      return;
+    }
+    // 2026-10-25: balas di aplikasi asal pesan (Telegram, SMS, Messenger, LINE, ...) lewat tombol "Balas"
+    // notifikasinya (KiKo Notif v1.4, bisaBalas). Tetap lewat tombol hijau: auto-dengar bisa salah dengar.
+    const asal = notif.riwayat.slice().reverse().find(p => namaPengirim(p).toLowerCase() === nama.toLowerCase());
+    if (asal && asal.bisaBalas) {
+      tawarkanAksi(L(`Balas ${nama} lewat ${asal.app}: "${isi}"`, `Reply to ${nama} in ${asal.app}: "${isi}"`), L('Kirim balasan', 'Send reply'), async () => {
+        let hasil = '';
+        try { hasil = (await (await fetch(`${ALAMAT_NOTIF}/balas?id=${asal.id}&teks=${encodeURIComponent(isi)}`, { cache: 'no-store' })).json()).hasil; } catch (_) {}
+        ucapkan(hasil === 'ok' ? L(`Balasan untuk ${nama} sudah terkirim lewat ${asal.app}.`, `Reply to ${nama} sent in ${asal.app}.`)
+          : hasil === 'tidak_ada' ? L('Pesannya sudah hilang dari notifikasi. Balas langsung di aplikasinya ya.', 'That notification is gone. Please reply in the app itself.')
+          : L(`Balasan gagal dikirim lewat ${asal.app}. Coba balas langsung di aplikasinya.`, `Could not send the reply in ${asal.app}. Please reply in the app.`), hasil === 'ok' ? 'senang' : 'bingung');
+      });
+      ucapkan(L('Tekan tombol hijau untuk mengirim balasannya.', 'Tap the green button to send the reply.'), 'normal');
+      return;
+    }
+    if (asal && adalahEmail(asal)) {
+      ucapkan(L('Email ini belum bisa aku balas dari sini. Balas lewat aplikasi email-nya ya.', "I can't reply to this e-mail from here yet. Please reply in your mail app."), 'bingung');
       return;
     }
     if (penerima.k) aksiKontak(penerima.k, 'pesan', isi);
@@ -5848,8 +5935,9 @@
     if (notif.tampil || !notif.antre.length) return;
     notif.antre = notif.antre.slice(-3);                 // banjir pesan grup: cukup 3 terakhir
     const p = notif.antre.shift();
-    const isi = cekPesanIsi.checked && p.isi ? ': ' + (p.isi.length > 70 ? p.isi.slice(0, 70) + '…' : p.isi) : '';
-    elTeksPesan.textContent = `💬 ${namaPengirim(p)}${p.grup && p.namaGrup ? ' · ' + bersihNama(p.namaGrup) : ''}${p.app ? ' · ' + p.app : ''}${isi}`;
+    const teksPesan = adalahEmail(p) && p.subjek ? p.subjek : p.isi;
+    const isi = cekPesanIsi.checked && teksPesan ? ': ' + (teksPesan.length > 70 ? teksPesan.slice(0, 70) + '…' : teksPesan) : '';
+    elTeksPesan.textContent = `${adalahEmail(p) ? '✉️' : '💬'} ${namaPengirim(p)}${p.grup && p.namaGrup ? ' · ' + bersihNama(p.namaGrup) : ''}${p.app ? ' · ' + p.app : ''}${isi}`;
     elTeksPesan.hidden = false;
     notif.tampil = true;
     if (fase === 'hidup' && !modeMalamAktif()) {
@@ -6427,6 +6515,192 @@
     else if (k === 'd') { cekMenari.checked = !cekMenari.checked; cekMenari.dispatchEvent(new Event('change')); }
     else if (k === 'escape') tutupPanel();
   });
+
+  // ---- Diagnosa (2026-10-25, Cetak Biru w9) ----
+  // Pengguna: menu diagnosa untuk membantu pembeli memeriksa kesalahan / malfungsi hardware.
+  // Pemeriksaan otomatis (badan lewat perintah "Y" firmware Ver 28: sebab reset, hitungan brownout/
+  // panic/watchdog, baterai, sensor; HP: kamera, mikrofon, internet, Worker AI, KiKo Notif,
+  // sambung otomatis) + uji yang perlu dilihat/disentuh (leher, lampu, sensor elus, suara HP).
+  // Hasil: daftar ✓ / ! / – dan laporan teks yang bisa disalin untuk dikirim ke ELI.
+  const diag = { jalan: false, hasil: [], info: null, tungguInfo: null, tungguSentuh: null, jawab: null };
+  const elDiagHasil = document.getElementById('diagHasil');
+  const elDiagStatus = document.getElementById('diagStatus');
+  const elDiagTanya = document.getElementById('diagTanya');
+  const elDiagTanyaTeks = document.getElementById('diagTanyaTeks');
+  const tombolDiagnosa = document.getElementById('tombolDiagnosa');
+  const tombolSalinDiag = document.getElementById('tombolSalinDiag');
+  const IKON_DIAG = { ok: '✓', periksa: '!', info: 'i', lewat: '–' };
+
+  function diagTambah(k, judul, status, ket) {
+    const h = { k, judul, status, ket: ket || '' };
+    const i = diag.hasil.findIndex(x => x.k === k);
+    if (i >= 0) diag.hasil[i] = h; else diag.hasil.push(h);
+    elDiagHasil.textContent = '';
+    for (const x of diag.hasil) {
+      const li = document.createElement('li'); li.className = x.status;
+      const ik = document.createElement('span'); ik.className = 'ikon'; ik.textContent = IKON_DIAG[x.status] || '?';
+      ik.setAttribute('aria-label', { ok: L('baik', 'good'), periksa: L('perlu diperiksa', 'needs checking'), info: L('info', 'info'), lewat: L('dilewati', 'skipped') }[x.status] || '');
+      const jd = document.createElement('span'); jd.textContent = x.judul;
+      const kt = document.createElement('span'); kt.className = 'ket'; kt.textContent = x.ket;
+      li.append(ik, jd, kt); elDiagHasil.appendChild(li);
+    }
+  }
+  const tidurDiag = ms => new Promise(r => setTimeout(r, ms));
+  function tanyaDiag(teks) {
+    return new Promise(selesai => {
+      elDiagTanyaTeks.textContent = teks; elDiagTanya.hidden = false;
+      diag.jawab = v => { elDiagTanya.hidden = true; diag.jawab = null; selesai(v); };
+    });
+  }
+  document.getElementById('diagYa').addEventListener('click', () => diag.jawab && diag.jawab(true));
+  document.getElementById('diagTidak').addEventListener('click', () => diag.jawab && diag.jawab(false));
+  document.getElementById('diagLewati').addEventListener('click', () => diag.jawab && diag.jawab(null));
+  function terimaDiag(baris) {
+    if (!baris.startsWith('Y,info')) return;
+    const info = {};
+    for (const bagian of baris.split(',').slice(2)) { const [k, v] = bagian.split('='); if (k) info[k] = v; }
+    diag.info = info;
+    if (diag.tungguInfo) { const f = diag.tungguInfo; diag.tungguInfo = null; f(info); }
+  }
+  function mintaInfoDiag() {
+    return new Promise(selesai => {
+      diag.tungguInfo = selesai; kirim('Y');
+      setTimeout(() => { if (diag.tungguInfo === selesai) { diag.tungguInfo = null; selesai(null); } }, 3000);
+    });
+  }
+  function tungguSentuhDiag(ms) {
+    return new Promise(selesai => {
+      diag.tungguSentuh = v => { diag.tungguSentuh = null; selesai(v); };
+      setTimeout(() => { if (diag.tungguSentuh) { diag.tungguSentuh = null; selesai(false); } }, ms);
+    });
+  }
+  async function ambilDenganBatas(url, ms) {
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+    try { const r = await fetch(url, { signal: ac.signal, cache: 'no-store' }); return r.ok ? await r.text() : null; }
+    catch (_) { return null; } finally { clearTimeout(t); }
+  }
+  const NAMA_RESET = {
+    nyala: ['dinyalakan', 'power on'], sw: ['restart program (normal setelah pembaruan)', 'software restart (normal after an update)'],
+    panic: ['PROGRAM CRASH', 'PROGRAM CRASH'], wdt: ['WATCHDOG (program macet)', 'WATCHDOG (program hung)'],
+    brownout: ['TEGANGAN TURUN (brownout)', 'VOLTAGE DROP (brownout)'], tidur: ['bangun dari tidur dalam', 'woke from deep sleep'],
+    tombol: ['tombol reset', 'reset button'], lain: ['lain', 'other'],
+  };
+
+  async function jalankanDiagnosa() {
+    if (diag.jalan) return;
+    diag.jalan = true; diag.hasil = []; diag.info = null; elDiagHasil.textContent = '';
+    tombolDiagnosa.disabled = true; tombolSalinDiag.hidden = true;
+    elDiagStatus.textContent = L('Memeriksa…', 'Checking…');
+    try {
+      // 1. Badan KiKo
+      const v = ble.versiBase || 0;
+      if (!ble.terhubung) {
+        diagTambah('base', L('Badan KiKo', 'KiKo body'), 'periksa', L('Belum tersambung. Saklar ON, lalu tempel HP ke dudukan atau tekan "Hubungkan base".', 'Not connected. Switch it ON, then dock the phone or press "Connect base".'));
+      } else {
+        diagTambah('base', L('Badan KiKo', 'KiKo body'), 'ok', L('Tersambung lewat Bluetooth · firmware Ver ', 'Connected over Bluetooth · firmware Ver ') + (v || '?'));
+        const info = v >= 28 ? await mintaInfoDiag() : null;
+        if (v < 28) diagTambah('fw', L('Firmware', 'Firmware'), 'info', L('Perbarui ke Ver 28 (ATUR > Perbarui KiKo) untuk laporan badan lengkap.', 'Update to Ver 28 (Settings > Update KiKo) for the full body report.'));
+        else if (!info) diagTambah('fw', L('Laporan badan', 'Body report'), 'periksa', L('Badan tidak menjawab. Matikan-nyalakan saklar lalu ulangi.', 'The body did not answer. Switch it off and on, then try again.'));
+        if (info) {
+          const rst = NAMA_RESET[info.rst] || NAMA_RESET.lain;
+          const buruk = info.rst === 'panic' || info.rst === 'wdt' || info.rst === 'brownout';
+          diagTambah('rst', L('Menyala terakhir karena', 'Last start reason'), buruk ? 'periksa' : 'ok',
+            L(rst[0], rst[1]) + ' · ' + L('menyala ', 'up ') + Math.round((+info.up || 0) / 60) + L(' menit', ' min'));
+          const bo = +info.bo || 0, pn = +info.pn || 0, wd = +info.wd || 0;
+          if (bo + pn + wd === 0) diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'ok', L('Tidak ada brownout, crash atau macet.', 'No brownouts, crashes or hangs.'));
+          else diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'periksa',
+            (bo ? L(`${bo}× tegangan turun: periksa kabel/adaptor/baterai, servo bisa menarik arus besar. `, `${bo}× voltage drop: check wires, adapter or battery; the servos can draw high current. `) : '') +
+            (pn ? L(`${pn}× crash: kirim laporan ini ke ELI. `, `${pn}× crash: send this report to ELI. `) : '') +
+            (wd ? L(`${wd}× program macet: kirim laporan ini ke ELI.`, `${wd}× hang: send this report to ELI.`) : ''));
+          const bat = parseFloat(info.bat);
+          if (!(bat > 3)) diagTambah('bat', L('Daya', 'Power'), 'ok', L('Tanpa baterai (KiKo Lite, adaptor USB-C).', 'No battery (KiKo Lite, USB-C adapter).'));
+          else {
+            const p = persenBaterai(bat);
+            diagTambah('bat', L('Baterai', 'Battery'), p != null && p < 20 ? 'periksa' : 'ok',
+              `${p != null ? p + ' % · ' : ''}${bat.toFixed(2)} V` + (info.cas === '1' ? L(' · sedang dicas', ' · charging') : '') + (p != null && p < 20 ? L(' · cas KiKo sekarang', ' · charge KiKo now') : ''));
+          }
+          const heap = +info.heap || 0;
+          diagTambah('mem', L('Memori badan', 'Body memory'), heap && heap < 40 ? 'periksa' : 'ok', heap + ' KB' + L(' bebas', ' free'));
+          if (info.tepi && info.tepi !== '00') diagTambah('tepi', L('Sensor tepi meja', 'Table-edge sensors'), 'periksa', L('Sensor melihat "jurang" padahal KiKo di meja? Bersihkan sensor di bawah modul roda.', 'A sensor sees a "cliff" while KiKo is on the table? Clean the sensors under the wheel module.'));
+        } else if (ble.baterai != null) {
+          diagTambah('bat', L('Baterai', 'Battery'), 'info', ble.baterai > 3 ? (ble.persen + ' % · ' + ble.baterai.toFixed(2) + ' V') : L('Tanpa baterai (KiKo Lite).', 'No battery (KiKo Lite).'));
+        }
+      }
+      // 2. HP
+      const auto = !!(navigator.bluetooth && navigator.bluetooth.getDevices);
+      diagTambah('auto', L('Sambung otomatis saat ditempel', 'Auto-connect on docking'), auto ? 'ok' : 'periksa',
+        auto ? L('Didukung Chrome.', 'Supported by Chrome.') : L('Aktifkan chrome://flags "enable-web-bluetooth-new-permissions-backend", lalu buka ulang Chrome.', 'Enable chrome://flags "enable-web-bluetooth-new-permissions-backend", then restart Chrome.'));
+      if (!cekWajah.checked) diagTambah('kamera', L('Kamera depan', 'Front camera'), 'info', L('"Ikuti wajah orang" mati, jadi KiKo tidak melihatmu.', '"Follow faces" is off, so KiKo cannot see you.'));
+      else if (hemat.kamTidur) diagTambah('kamera', L('Kamera depan', 'Front camera'), 'ok', L('Sengaja mati saat tidur hemat, mengintip berkala.', 'Off on purpose during power-saving sleep, peeks now and then.'));
+      else {
+        const tr = wajah.stream && wajah.stream.getVideoTracks()[0];
+        diagTambah('kamera', L('Kamera depan', 'Front camera'), tr && tr.readyState === 'live' ? 'ok' : 'periksa',
+          tr && tr.readyState === 'live' ? L('Aktif', 'Running') + (wajah.ada ? L(' · wajah terlihat', ' · a face is visible') : '') : L('Tidak jalan. Izinkan kamera untuk KiKo di setelan situs Chrome.', 'Not running. Allow the camera for KiKo in Chrome site settings.'));
+      }
+      let mic = SR ? 'ok' : 'periksa', ketMic = SR ? L('Pengenal suara tersedia.', 'Speech recognition available.') : L('Browser ini tidak punya pengenal suara. Pakai Google Chrome.', 'This browser has no speech recognition. Use Google Chrome.');
+      try {
+        const st = await navigator.permissions.query({ name: 'microphone' });
+        if (st.state === 'denied') { mic = 'periksa'; ketMic = L('Mikrofon diblokir. Izinkan "selalu" di setelan situs Chrome.', 'Microphone blocked. Allow it "always" in Chrome site settings.'); }
+        else if (st.state === 'prompt' && SR) ketMic += L(' Izin mikrofon akan ditanya saat pertama bicara.', ' The microphone permission is asked the first time you talk.');
+      } catch (_) {}
+      diagTambah('mic', L('Mikrofon', 'Microphone'), mic, ketMic);
+      if (!navigator.onLine) diagTambah('net', L('Internet', 'Internet'), 'periksa', L('HP sedang offline. Ngobrol, suara dan cuaca butuh internet.', 'The phone is offline. Chat, voice and weather need the internet.'));
+      else diagTambah('net', L('Internet', 'Internet'), 'ok', L('Tersambung', 'Connected'));
+      if (!ai.url) diagTambah('ai', L('Otak AI (ngobrol)', 'AI brain (chat)'), 'periksa', L('Alamat Worker belum diisi (ATUR > Ngobrol).', 'The Worker address is empty (Settings > Chat).'));
+      else {
+        const t = await ambilDenganBatas(ai.url, 8000);
+        const m = t && /KiKo Worker OK (v\d+)/.exec(t);
+        diagTambah('ai', L('Otak AI (ngobrol)', 'AI brain (chat)'), m ? 'ok' : 'periksa', m ? L('Menjawab · ', 'Answering · ') + m[1] : L('Tidak menjawab. Periksa alamat Worker dan internet.', 'No answer. Check the Worker address and the internet.'));
+      }
+      if (!cekPesan.checked) diagTambah('notif', L('Pesan masuk (KiKo Notif)', 'Incoming messages (KiKo Notif)'), 'lewat', L('Fitur mati.', 'Turned off.'));
+      else {
+        const t = await ambilDenganBatas(ALAMAT_NOTIF + '/status', 3000);
+        diagTambah('notif', L('Pesan masuk (KiKo Notif)', 'Incoming messages (KiKo Notif)'), t ? 'ok' : 'periksa',
+          t ? L('KiKo Notif menjawab.', 'KiKo Notif answers.') : L('Tidak ditemukan. Buka aplikasi KiKo Notif, izinkan akses notifikasi, dan izinkan "Apps on device" untuk situs KiKo di Chrome.', 'Not found. Open the KiKo Notif app, allow notification access, and allow "Apps on device" for the KiKo site in Chrome.'));
+      }
+      // 3. Uji yang dilihat / disentuh
+      if (ble.terhubung) {
+        elDiagStatus.textContent = L('Uji leher: kepala bergerak sebentar.', 'Neck test: the head moves for a moment.');
+        if (v >= 28) kirim('Y,servo'); else { kirim('G,angguk'); setTimeout(() => kirim('G,geleng'), 2600); }
+        await tidurDiag(1200);
+        const okLeher = await tanyaDiag(L('Kepala bergerak atas-bawah lalu kiri-kanan dengan halus, tanpa tersendat atau bunyi keras?', 'Did the head move up-down and left-right smoothly, without stalling or loud noise?'));
+        diagTambah('leher', L('Leher (servo)', 'Neck (servos)'), okLeher === null ? 'lewat' : okLeher ? 'ok' : 'periksa',
+          okLeher === false ? L('Periksa kabel servo J3/J4, baut horn, dan apakah kepala tersangkut. Servo panas = macet atau tilt terlalu berat.', 'Check servo cables J3/J4, the horn screws, and whether the head catches. A hot servo = jammed or the tilt is too heavy.') : '');
+        if (v >= 28) {
+          kirim('Y,led');
+          const okLed = await tanyaDiag(L('Lampu kecil di depan badan berkedip cepat?', 'Is the small light on the front of the body blinking fast?'));
+          diagTambah('led', L('Lampu status', 'Status light'), okLed === null ? 'lewat' : okLed ? 'ok' : 'periksa', okLed === false ? L('Periksa colokan J6 dan arah LED (kaki panjang = +).', 'Check plug J6 and the LED direction (long leg = +).') : '');
+        }
+        elDiagStatus.textContent = L('Elus area elus di atas badan dalam 10 detik…', 'Stroke the touch area on top of the body within 10 seconds…');
+        elDiagTanyaTeks.textContent = elDiagStatus.textContent;
+        const okSentuh = await tungguSentuhDiag(10000);
+        diagTambah('sentuh', L('Sensor elus', 'Touch sensor'), okSentuh ? 'ok' : 'periksa', okSentuh ? '' : L('Tidak terasa elusan. Periksa colokan J5 (GND, OUT, 3V3) dan apakah sensor menempel di bawah atap.', 'No stroke detected. Check plug J5 (GND, OUT, 3V3) and that the sensor sits under the roof.'));
+      }
+      ucapkan(L('Halo, ini tes suara KiKo.', 'Hello, this is the KiKo sound test.'), 'senang');
+      const okSuara = await tanyaDiag(L('Terdengar suara KiKo dari HP?', "Did you hear KiKo's voice from the phone?"));
+      diagTambah('suara', L('Suara HP', 'Phone sound'), okSuara === null ? 'lewat' : okSuara ? 'ok' : 'periksa', okSuara === false ? L('Naikkan volume media HP. Setelan > Aplikasi > Speech Services by Google > baterai tanpa batasan.', 'Turn up the media volume. Settings > Apps > Speech Services by Google > battery unrestricted.') : '');
+      const n = diag.hasil.filter(h => h.status === 'periksa').length;
+      elDiagStatus.textContent = n ? L(`Selesai: ${n} hal perlu diperiksa (tanda !).`, `Done: ${n} item(s) need checking (marked !).`) : L('Selesai: semua baik.', 'Done: everything looks good.');
+      tombolSalinDiag.hidden = false;
+    } finally {
+      elDiagTanya.hidden = true; diag.jawab = null; diag.tungguSentuh = null;
+      tombolDiagnosa.disabled = false; diag.jalan = false;
+    }
+  }
+  function laporanDiagTeks() {
+    const baris = ['Laporan diagnosa KiKo ' + new Date().toLocaleString('id-ID'),
+      'Firmware: Ver ' + (ble.versiBase || '?') + ' · HP: ' + navigator.userAgent];
+    for (const h of diag.hasil) baris.push(`[${IKON_DIAG[h.status]}] ${h.judul}: ${h.ket}`);
+    if (diag.info) baris.push('Badan: ' + Object.entries(diag.info).map(([k, v]) => k + '=' + v).join(' '));
+    return baris.join('\n');
+  }
+  tombolDiagnosa.addEventListener('click', jalankanDiagnosa);
+  tombolSalinDiag.addEventListener('click', async () => {
+    const t = laporanDiagTeks();
+    try { await navigator.clipboard.writeText(t); elDiagStatus.textContent = L('Laporan disalin. Tempel di WhatsApp ke ELI.', 'Report copied. Paste it into WhatsApp to ELI.'); }
+    catch (_) { elDiagStatus.textContent = t; }
+  });
+  if (MODE_PENGEMBANG) { window.kikoDiag = jalankanDiagnosa; window.kikoDiagJawab = v => diag.jawab && diag.jawab(v); }
 
   tandaiEkspresi();
   perbaruiChip();
