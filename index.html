@@ -583,7 +583,7 @@
       <button class="tombol" id="tombolCobaSuaraHewan" type="button" data-en="Try the sound">Coba suaranya</button>
     </div>
     <p class="petunjuk" data-en="Plays when someone arrives, when KiKo is petted and now and then while someone is near. Silent at night, while asleep, while listening/talking and while the radio or YouTube plays. Ask &quot;meow!&quot; or &quot;bark!&quot; to hear it.">Bunyi saat ada orang datang, saat dielus, dan sesekali selama ada orang di dekatnya. Diam saat malam, tidur, mendengar/bicara, dan saat radio atau YouTube main. Bisa juga diminta: "meong dong" / "gonggong dong".</p>
-    <p class="petunjuk" data-en="Recordings from Wikimedia Commons: cat meows by George Miquilena and freemaster2 (CC0); dog barks by Amada44, CC BY-SA 3.0.">Rekaman dari Wikimedia Commons: meong kucing oleh George Miquilena dan freemaster2 (CC0); gonggongan anjing oleh Amada44, CC BY-SA 3.0.</p>
+    <p class="petunjuk" data-en="Recordings from Wikimedia Commons: cat meow by Heismark (public domain); dog barks by Amada44, CC BY-SA 3.0.">Rekaman dari Wikimedia Commons: meong kucing oleh Heismark (domain publik); gonggongan anjing oleh Amada44, CC BY-SA 3.0.</p>
   </div>
 
   <div class="bagian khusus-realistis">
@@ -4950,10 +4950,16 @@
   // Commons, izin pengguna; kredit di suara/KREDIT_SUARA.txt dan panel ATUR): kucing CC0, anjing
   // CC BY-SA 3.0 (Amada44). Berkas tidak dipotong; yang diputar potongan [mulai, selesai] dalam detik,
   // dicari dengan analisis amplop suara (ambang 15 % puncak). Anjing: 1-2 gonggongan acak dari 8;
-  // kucing: salah satu dari 2 meong, nada diacak sedikit (+-6 %) supaya tidak terdengar sama terus.
+  // kucing: salah satu meong, nada diacak sedikit supaya tidak terdengar sama terus.
+  // 2026-10-30 (pengguna: "suara kucing jelek, kurang cute"): meong Siam lama bernada rendah (+-250 Hz)
+  // dan panjang. Diganti meong pendek kucing rumahan (kucing_4 domain publik, nada asli
+  // +-565 Hz) yang diputar 1,18-1,30x lebih cepat -> nada +-700-850 Hz dan lebih singkat, seperti
+  // anak kucing. Kandidat "MeowUSA.wav" ditolak: ternyata suara MANUSIA menirukan "meow".
   // Gagal memuat (offline sebelum pernah dimuat, dll.) -> suara sintesis lama (sintesisMeong/Guk).
+  const LAJU_KUCING = [1.18, 1.30];
   const SAMPEL_HEWAN = {
-    kucing: [['suara/kucing_1.ogg', 0, 1.15], ['suara/kucing_2.wav', 0.25, 1.06]],
+    // Pengguna mendengar 4 kandidat (uji 30-10) dan memilih no. 3 -> hanya potongan ini.
+    kucing: [['suara/kucing_4.oga', 9.44, 9.92]],
     anjing: [['suara/anjing_1.ogg', 0.16, 0.36], ['suara/anjing_1.ogg', 1.16, 1.36], ['suara/anjing_1.ogg', 1.86, 2.08],
              ['suara/anjing_2.ogg', 0.02, 0.3], ['suara/anjing_2.ogg', 0.64, 0.84], ['suara/anjing_2.ogg', 1.48, 1.72],
              ['suara/anjing_2.ogg', 2.4, 2.72], ['suara/anjing_2.ogg', 3.34, 3.66]],
@@ -4987,7 +4993,7 @@
     if (jenis === 'kucing') {
       const [url, dari, sampai] = acak(SAMPEL_HEWAN.kucing);
       const buf = await muatSampelHewan(ac, url);
-      return putarPotongan(ac, buf, Math.max(t0, ac.currentTime + 0.02), dari, sampai, vol, 0.94 + Math.random() * 0.12);
+      return putarPotongan(ac, buf, Math.max(t0, ac.currentTime + 0.02), dari, sampai, vol, LAJU_KUCING[0] + Math.random() * (LAJU_KUCING[1] - LAJU_KUCING[0]));
     }
     const jumlah = Math.random() < 0.25 ? 1 : 2;                  // "guk" atau "guk guk"
     const sisa = SAMPEL_HEWAN.anjing.slice(), pilih = [];         // dua gonggongan yang BERBEDA
