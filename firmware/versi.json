@@ -1,10 +1,10 @@
 {
- "versi": 28,
- "file": "kiko_base_Ver_28.bin",
- "ukuran": 685888,
- "sha256": "0adfcbf3fffe02d88637ba1a19fec6d6c1ab4d310eaff9a7599b9ade325b41ae",
- "tanggal": "2026-10-25",
- "catatan": "Menu Diagnosa: KiKo kini bisa melaporkan sebab menyala terakhir, riwayat gangguan daya, dan menguji leher serta lampu dari HP.",
- "catatan_en": "Diagnostics menu: KiKo can now report why it last started, its power-fault history, and test the neck and light from the phone.",
- "partisi": "min_spiffs"
+  "versi": 30,
+  "file": "kiko_base_Ver_30.bin",
+  "ukuran": 686752,
+  "sha256": "1d359b537976d528bfa16e785b007cde895090ea9fdfc359a779d2908edec3f7",
+  "tanggal": "2026-11-03",
+  "catatan": "Putar di tempat (R) lebih tepat: ada faktor putar untuk roda yang selip, bisa disetel dengan W,<faktor>.",
+  "catatan_en": "In-place turns (R) are more accurate: a turn factor compensates wheel slip, adjustable with W,<factor>.",
+  "partisi": "min_spiffs"
 }
