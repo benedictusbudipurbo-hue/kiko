@@ -1682,6 +1682,109 @@
   //  khas kelinci), mulut "Y" dengan dua gigi depan saat bicara/senang, kumis tipis panjang.
   //  TANPA telinga di layar (sama seperti anjing): telinga panjangnya ada di bando dudukan.
   // =====================================================================
+  // Wortel: properti yang langsung bilang "ini kelinci". Ngemil 3,5 dtk, sesekali (70-150 dtk) selama
+  // ada di layar dan tidak tidur/bicara/malam, saat pertama memilih gaya kelinci, dan saat diminta
+  // ("makan wortel dong", "mau wortel?", EN "eat a carrot").
+  const WORTEL_MS = 3500;
+  const wortel = { sampai: 0, berikut: performance.now() + 20000 };
+  function kelinciNgemil() {
+    const now = performance.now();
+    wortel.sampai = now + WORTEL_MS;
+    wortel.berikut = now + (70 + Math.random() * 80) * 1000;
+    // sesudah makan, kelinci sering langsung "cuci muka"
+    if (Math.random() < 0.6) setTimeout(() => { if (gaya === 'kelinci' && !ai.bicara) kelinciDandan(); }, WORTEL_MS + 300);
+    if (typeof bangunkanBingkai === 'function') bangunkanBingkai();
+  }
+  // Cuci muka / grooming (2026-11-03, pengguna: "sekali-kali kaki juga mengusap mulut pada karakter
+  // kelinci? bukankah itu karakter kelinci yang menonjol?"): dua kaki depan naik dari bawah layar,
+  // bergantian mengusap mulut & pipi dengan gerakan melingkar, mata menyipit nyaman, lalu turun lagi.
+  const DANDAN_MS = 3200;
+  const dandan = { sampai: 0 };
+  function kelinciDandan() {
+    const now = performance.now();
+    dandan.sampai = now + DANDAN_MS;
+    wortel.berikut = Math.max(wortel.berikut, now + 40000);
+    ekspresiSingkat('senang', DANDAN_MS);
+    if (typeof bangunkanBingkai === 'function') bangunkanBingkai();
+  }
+  setInterval(() => {
+    const now = performance.now();
+    if (gaya !== 'kelinci' || fase !== 'hidup' || document.hidden || now < wortel.berikut || wortel.sampai > now || dandan.sampai > now) return;
+    if (modeMalamAktif() || moodSaatIni(now) === 'tidur' || ai.bicara || ai.tahap !== 'diam') { wortel.berikut = now + 15000; return; }
+    if (Math.random() < 0.5) kelinciNgemil();
+    else { kelinciDandan(); wortel.berikut = now + (70 + Math.random() * 80) * 1000; }
+  }, 5000);
+  // Kaki depan kelinci: oval berbulu warna wajah, garis tepi tipis, dua garis jari di ujung atas.
+  function gambarKakiKelinci(x, y, sudut, s) {
+    const rx = 0.085 * U, ry = 0.13 * U;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(sudut);
+    // Sedikit lebih gelap dari wajah + bayangan lembut, supaya kaki putih tetap terlihat di wajah putih.
+    ctx.fillStyle = kulitGelap() ? campur(kulit.latar, '#ffffff', 0.12) : campur(kulit.latar, kulit.lipatan, 0.16);
+    ctx.strokeStyle = kulitGelap() ? 'rgba(240,230,224,0.6)' : campur(kulit.lipatan, '#000000', 0.25);
+    ctx.lineWidth = 0.006 * U;
+    ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = 0.03 * U * DPR; ctx.shadowOffsetY = 0.008 * U * DPR;
+    ctx.beginPath(); ctx.ellipse(0, ry * 0.55, rx, ry * 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.stroke();
+    // bantalan jari pink kecil di ujung (yang menyentuh mulut)
+    ctx.fillStyle = 'rgba(242,155,176,0.75)';
+    ctx.beginPath(); ctx.ellipse(0, -ry * 0.48, rx * 0.42, ry * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 0.005 * U; ctx.lineCap = 'round';
+    for (const f of [-0.33, 0.33]) {                              // dua garis jari
+      ctx.beginPath(); ctx.moveTo(f * rx, -ry * 0.62); ctx.lineTo(f * rx * 0.9, -ry * 0.38); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function gambarDandanKelinci(x0, yMulut, now) {
+    const u = 1 - (dandan.sampai - now) / DANDAN_MS;           // 0..1
+    if (u < 0 || u > 1) return;
+    // naik 0-0,18, mengusap 0,18-0,82, turun 0,82-1
+    const naik = u < 0.18 ? u / 0.18 : u > 0.82 ? (1 - u) / 0.18 : 1;
+    const mulus = naik * naik * (3 - 2 * naik);
+    const bawah = H + 0.3 * U;                                   // mulai dari luar layar bawah
+    for (const s of [-1, 1]) {
+      const fase2 = now / 140 + (s > 0 ? Math.PI : 0);            // bergantian kiri / kanan
+      const usap = kurangGerak ? 0 : (u > 0.18 && u < 0.82 ? 1 : 0);
+      const xt = x0 + s * (0.1 * U + usap * 0.035 * U * Math.cos(fase2));
+      const yt = yMulut + 0.06 * U + usap * 0.03 * U * Math.sin(fase2);
+      const y = bawah + (yt - bawah) * mulus;
+      gambarKakiKelinci(xt, y, -s * (0.35 + usap * 0.12 * Math.sin(fase2)), s);
+    }
+  }
+  // Wortel miring keluar dari sudut mulut: ujung yang digigit di mulut, daun hijau di luar.
+  // Makin lama makin pendek (dimakan), sedikit bergoyang ikut kunyahan.
+  function gambarWortel(xm, ym, ngemil, kunyah) {
+    const a = 0.5, L = 0.3 * U * (1 - 0.6 * ngemil), wb = 0.068 * U;
+    const ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
+    const goy = kunyah * 0.004 * U;
+    const xt = xm, yt = ym + goy;                               // ujung di mulut (bekas gigitan)
+    const xb = xt + ux * L, yb = yt + uy * L;                   // pangkal (tempat daun)
+    ctx.save();
+    // daun: tiga helai hijau dari pangkal
+    ctx.strokeStyle = '#4f9a3a'; ctx.lineWidth = 0.016 * U; ctx.lineCap = 'round';
+    for (const d of [-0.55, 0, 0.55]) {
+      const aa = a + d, ld = 0.11 * U;
+      ctx.beginPath(); ctx.moveTo(xb, yb);
+      ctx.quadraticCurveTo(xb + Math.cos(aa) * ld * 0.6 + px * d * 0.01 * U, yb + Math.sin(aa) * ld * 0.6, xb + Math.cos(aa) * ld, yb + Math.sin(aa) * ld);
+      ctx.stroke();
+    }
+    // badan wortel: lebar di pangkal, menyempit ke mulut, ujung gigitan rata
+    const wt = wb * (0.45 + 0.4 * ngemil);
+    ctx.fillStyle = '#f08a24'; ctx.strokeStyle = '#c4611a'; ctx.lineWidth = 0.004 * U;
+    ctx.beginPath();
+    ctx.moveTo(xt + px * wt / 2, yt + py * wt / 2);
+    ctx.lineTo(xb + px * wb / 2, yb + py * wb / 2);
+    ctx.quadraticCurveTo(xb + ux * wb * 0.35, yb + uy * wb * 0.35, xb - px * wb / 2, yb - py * wb / 2);
+    ctx.lineTo(xt - px * wt / 2, yt - py * wt / 2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // garis-garis melintang khas wortel
+    ctx.strokeStyle = 'rgba(160,70,15,0.55)'; ctx.lineWidth = 0.003 * U;
+    for (const f of [0.3, 0.55, 0.78]) {
+      const xc = xt + ux * L * f, yc = yt + uy * L * f, w = (wt + (wb - wt) * f) * 0.35;
+      ctx.beginPath(); ctx.moveTo(xc + px * w, yc + py * w); ctx.lineTo(xc + px * w * 0.1 + ux * 0.004 * U, yc + py * w * 0.1 + uy * 0.004 * U); ctx.stroke();
+    }
+    ctx.restore();
+  }
   function corakKelinciAktif() { return gaya === 'kelinci' && pakaiBelang ? jenisKelinci.corak : 'polos'; }
   function gambarPolaKelinci(dyTambah) {
     const c = corakKelinciAktif();
@@ -1721,43 +1824,44 @@
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // Hidung berkedut: sesekali (tiap +-4 dtk) bergetar cepat 0,6 dtk.
     // Saat menghentak kaki (hewan.sampai, suara kelinci) hidung terus berkedut cepat.
-    const kedut = kurangGerak ? 0 : ((now % 4200) < 650 || hewanBersuara(now) ? Math.sin(now / 38) : 0);
-    const yN = yHidung + kedut * 0.006 * U;
+    // 2026-11-03 (pengguna: "hidung kadang bergerak-gerak?"): dulu 0,006U tiap 4,2 dtk = hampir tak
+    // terlihat. Sekarang semburan kedut tiap +-2,6 dtk (kadang dua semburan beruntun), amplitudo 2x,
+    // dan hidung ikut melebar-menyempit (lihat skala ln di bawah); terus-menerus saat ngemil/menghentak.
+    const fk = now % 2600, burst = fk < 520 || (Math.floor(now / 2600) % 3 === 0 && fk > 900 && fk < 1300);
+    const kedut = kurangGerak ? 0 : (burst || hewanBersuara(now) || wortel.sampai > now ? Math.sin(now / 34) : 0);
+    const yN = yHidung + kedut * 0.012 * U;
 
     // Gundukan pipi (dua bulatan di bawah hidung, tempat kumis tumbuh).
     ctx.fillStyle = pakaiBelang ? jenisKelinci.pipi : campur(kulit.latar, '#ffffff', 0.35);
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x0 + s * 0.072 * U, yN + 0.075 * U, 0.095 * U, 0.072 * U, 0, 0, Math.PI * 2); ctx.fill(); }
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x0 + s * 0.09 * U, yN + 0.09 * U, 0.12 * U, 0.09 * U, 0, 0, Math.PI * 2); ctx.fill(); }
 
-    // Mulut: seberapa terbuka (bicara membuka, senang/tertawa memperlihatkan gigi depan).
+    // Ngemil wortel (2026-11-03, pengguna: "agak sulit membedakan kucing dan kelinci ... gigi kelinci
+    // harus lebih besar ato properti yang mempertegas itu kelinci"): sesekali muncul wortel di sudut
+    // mulut yang digigit sedikit demi sedikit sambil mulut mengunyah (lihat kelinciNgemil()).
+    const ngemil = wortel.sampai > now ? 1 - (wortel.sampai - now) / WORTEL_MS : -1;   // 0..1 selama ngemil
+    const kunyah = ngemil >= 0 && !kurangGerak ? Math.abs(Math.sin(now / 70)) : 0;
+
+    // Mulut: seberapa terbuka (bicara membuka, senang/tertawa membuka lebih lebar).
     let buka = 0;
     if (mood === 'tertawa') buka = 0.8 + (kurangGerak ? 0 : 0.2 * Math.abs(Math.sin(now / 85)));
     else if (mood === 'kaget') buka = 0.6;
     else if (mood === 'senang' || mood === 'sayang' || mood === 'melet') buka = 0.35;
     if (ai.bicara) buka = Math.max(buka, kurangGerak ? 0.3 : 0.15 + 0.35 * Math.abs(Math.sin(now / 90)));
+    if (ngemil >= 0) buka = Math.max(buka, 0.15 + 0.35 * kunyah);
     const ySplit = yN + 0.05 * U;                                // titik cabang mulut "Y"
-    const rw = 0.05 * U;
+    const rw = 0.095 * U;
     if (buka > 0.05) {
-      // rongga mulut + dua gigi depan putih (gigi kelinci)
+      // rongga mulut di belakang gigi
       ctx.fillStyle = '#5e1f27';
       ctx.beginPath();
-      if (mood === 'kaget') ctx.ellipse(x0, ySplit + 0.035 * U, 0.03 * U, 0.04 * U * buka + 0.01 * U, 0, 0, Math.PI * 2);
-      else ctx.ellipse(x0, ySplit + 0.012 * U, rw * 1.1, 0.06 * U * buka + 0.008 * U, 0, 0, Math.PI);
+      if (mood === 'kaget') ctx.ellipse(x0, ySplit + 0.06 * U, 0.032 * U, 0.04 * U * buka + 0.012 * U, 0, 0, Math.PI * 2);
+      else ctx.ellipse(x0, ySplit + 0.012 * U, rw * 1.05, 0.075 * U * buka + 0.012 * U, 0, 0, Math.PI);
       ctx.fill();
-      if (mood !== 'kaget') {
-        ctx.fillStyle = '#fffdf8'; ctx.strokeStyle = campur(kulit.lipatan, '#000000', 0.2); ctx.lineWidth = 0.004 * U;
-        const tg = (0.026 + 0.012 * buka) * U, lg = 0.02 * U;
-        for (const s of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(x0 + s * 0.002 * U, ySplit); ctx.lineTo(x0 + s * (lg + 0.002 * U), ySplit);
-          ctx.lineTo(x0 + s * (lg + 0.002 * U), ySplit + tg - 0.006 * U);
-          ctx.quadraticCurveTo(x0 + s * (lg + 0.002 * U), ySplit + tg, x0 + s * (lg * 0.6), ySplit + tg);
-          ctx.lineTo(x0 + s * 0.002 * U, ySplit + tg); ctx.closePath(); ctx.fill(); ctx.stroke();
-        }
-      }
     }
     if (mood === 'melet') gambarLidahAnjing(x0, ySplit + 0.03 * U, now, 0.07 * U);
 
     // Garis mulut "Y": turun dari hidung, lalu dua lengkung ke bawah-luar (senyum = ujung naik).
+    // Lengkungnya dilebarkan (rw 0,095U) supaya membingkai gigi depan yang besar.
     ctx.strokeStyle = garis; ctx.lineWidth = 0.009 * U;
     ctx.beginPath();
     ctx.moveTo(x0, yN + 0.022 * U); ctx.lineTo(x0, ySplit);
@@ -1769,6 +1873,31 @@
       }
     }
     ctx.stroke();
+
+    // Gigi depan BESAR yang SELALU terlihat (ciri paling jelas kelinci; dulu hanya kecil saat mulut
+    // terbuka, sehingga mirip wajah kucing). Dua kotak putih membulat di bawah cabang "Y", celah tipis
+    // di tengah; saat mulut terbuka / mengunyah sedikit lebih panjang. Kaget: mulut "o", gigi di atasnya.
+    {
+      const tg = (0.1 + 0.025 * buka) * U, lg = 0.044 * U, ry = 0.012 * U;
+      const yT = ySplit - 0.004 * U;
+      ctx.fillStyle = '#fffdf6'; ctx.strokeStyle = campur(kulit.lipatan, '#000000', 0.3); ctx.lineWidth = 0.005 * U;
+      for (const s of [-1, 1]) {
+        const xa = x0 + s * 0.0035 * U, xb = x0 + s * (lg + 0.0035 * U);
+        ctx.beginPath();
+        ctx.moveTo(xa, yT); ctx.lineTo(xb, yT);
+        ctx.lineTo(xb, yT + tg - ry);
+        ctx.quadraticCurveTo(xb, yT + tg, xb - s * ry, yT + tg);
+        ctx.lineTo(xa + s * ry * 0.5, yT + tg);
+        ctx.quadraticCurveTo(xa, yT + tg, xa, yT + tg - ry * 0.5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // kilap tipis di tiap gigi
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillRect(Math.min(xa, xb) + lg * 0.25, yT + tg * 0.18, lg * 0.18, tg * 0.45);
+        ctx.fillStyle = '#fffdf6';
+      }
+    }
+
+    if (ngemil >= 0) gambarWortel(x0 + 0.075 * U, ySplit + 0.07 * U, ngemil, kunyah);
 
     // Kumis: tiga helai tipis panjang tiap sisi, ikut berkedut bersama hidung.
     ctx.strokeStyle = garis; ctx.lineWidth = 0.005 * U; ctx.globalAlpha = 0.7;
@@ -1782,7 +1911,7 @@
     ctx.globalAlpha = 1;
 
     // Hidung: segitiga terbalik membulat, merah muda, dengan kilap kecil.
-    const ln = 0.075 * U, tn = 0.045 * U;
+    const ln = 0.095 * U * (1 + 0.14 * kedut), tn = 0.058 * U * (1 - 0.08 * kedut);
     ctx.fillStyle = '#f29bb0'; ctx.strokeStyle = '#c96a82'; ctx.lineWidth = 0.004 * U;
     ctx.beginPath();
     ctx.moveTo(x0 - ln / 2, yN - tn / 2);
@@ -1792,6 +1921,8 @@
     ctx.fill(); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.beginPath(); ctx.ellipse(x0 - ln * 0.15, yN - tn * 0.25, ln * 0.12, tn * 0.16, -0.3, 0, Math.PI * 2); ctx.fill();
+
+    if (dandan.sampai > now) gambarDandanKelinci(x0, ySplit, now);   // kaki depan mengusap mulut (di atas wajah)
   }
 
   // =====================================================================
@@ -2954,8 +3085,10 @@
     // Pertama pindah ke kucing/anjing: langsung pakai warna jenisnya (bisa diganti lagi di bawah).
     if (b.dataset.gaya === 'kucing' && gaya !== 'kucing') setJenisKucing(muat('kiko.jenis') || 'oranye');
     if (b.dataset.gaya === 'anjing' && gaya !== 'anjing') setJenisAnjing(muat('kiko.jenisAnjing') || 'golden');
-    if (b.dataset.gaya === 'kelinci' && gaya !== 'kelinci') setJenisKelinci(muat('kiko.jenisKelinci') || 'putih');
+    const jadiKelinci = b.dataset.gaya === 'kelinci' && gaya !== 'kelinci';
+    if (jadiKelinci) setJenisKelinci(muat('kiko.jenisKelinci') || 'putih');
     setGaya(b.dataset.gaya);
+    if (jadiKelinci) setTimeout(kelinciNgemil, 400);   // langsung terlihat: kelinci ngemil wortel
   }));
 
   setIris(muat('kiko.iris') || warnaIris);
@@ -5773,6 +5906,19 @@
   // Perintah suara: "meong dong", "coba menggonggong", "guk guk", "bark!", "meow",
   // kelinci (2026-11-03): "hentak kakimu", "suara kelinci", "thump".
   function jawabSuaraHewan(t, en) {
+    // Wortel (gaya kelinci): "makan wortel dong", "mau wortel?", EN "eat a carrot", "want a carrot?"
+    if (gaya === 'kelinci' && (en ? /\bcarrots?\b/.test(t) : /\bwortel\b/.test(t)) && t.trim().split(/\s+/).length <= 6) {
+      kelinciNgemil();
+      tampilTeks(L('Nyam nyam, wortel!', 'Nom nom, carrot!'), 2500);
+      ekspresiSingkat('senang', WORTEL_MS);
+      return true;
+    }
+    // Cuci muka (gaya kelinci): "cuci muka dong", "bersihkan mukamu", EN "wash your face", "groom"
+    if (gaya === 'kelinci' && (en ? /\b(wash your face|groom|grooming|clean your face)\b/.test(t) : /\b(cuci muka|bersihkan muka|usap muka|usap mulut|lap mulut|dandan)\w*/.test(t)) && t.trim().split(/\s+/).length <= 6) {
+      kelinciDandan();
+      tampilTeks(L('Bersih-bersih dulu~', 'Washing up~'), 2500);
+      return true;
+    }
     const anjingDiminta = en ? /\b(bark|barking|woof)\b/.test(t) : /\b(gonggong|menggonggong|gonggongan|guk ?guk|suara anjing)\b/.test(t);
     const kucingDiminta = en ? /\b(meow|miaow|mew|purr)\b/.test(t) : /\b(meong|mengeong|miaw|meow|suara kucing)\b/.test(t);
     const kelinciDiminta = en ? /\b(thump|stomp|rabbit sound|bunny sound)\b/.test(t) : /\b(hentak|hentakkan|menghentak|suara kelinci|dug ?dug)\b/.test(t);
