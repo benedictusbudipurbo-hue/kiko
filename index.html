@@ -348,6 +348,21 @@
   </div>
 
   <div class="bagian">
+    <h2 data-en="Moving on wheels (wheeled version)">Gerak roda (versi beroda)</h2>
+    <label class="saklar"><input type="checkbox" id="cekRoda"> <span data-en="Allow KiKo to move on its wheels (only with table-edge protection on)">Boleh bergerak dengan roda (hanya kalau proteksi jatuh dari meja nyala)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekRodaHadap" checked> <span data-en="Body turns to face people when the neck reaches its limit">Badan ikut menghadap orang saat leher sudah mentok</span></label>
+    <label class="saklar"><input type="checkbox" id="cekRodaTari" checked> <span data-en="Dance with the wheels too">Menari juga dengan roda</span></label>
+    <label class="saklar"><input type="checkbox" id="cekRodaEkspresi" checked> <span data-en="Small body moves with expressions (wiggle when happy, back off when startled)">Gerak badan kecil saat berekspresi (goyang saat senang, mundur saat kaget)</span></label>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" type="button" id="tombolRodaRumah" data-en="Remember this spot as home">Jadikan tempat ini rumah</button>
+      <button class="tombol" type="button" id="tombolRodaPulang" data-en="Go home">Pulang</button>
+      <button class="tombol" type="button" id="tombolRodaStop" data-en="Stop">Berhenti</button>
+    </div>
+    <p class="petunjuk" id="statusRoda"></p>
+    <p class="petunjuk" data-en="Voice: &quot;forward&quot;, &quot;back up a little&quot;, &quot;turn left&quot;, &quot;turn around&quot;, &quot;spin&quot;, &quot;dance&quot;, &quot;look at me&quot;, &quot;come here&quot;, &quot;follow me&quot;, &quot;this is your home&quot;, &quot;go home&quot;, &quot;stop&quot;. Left/right = yours, facing KiKo.">Suara: "maju", "mundur sedikit", "putar ke kiri", "putar balik", "berputar", "joget", "lihat aku", "ke sini", "ikuti aku", "ini rumahmu", "pulang ke tempatmu", "berhenti". Kiri/kanan = kiri/kanan kamu yang menghadap KiKo.</p>
+  </div>
+
+  <div class="bagian">
     <h2 data-en="Behaviour">Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> <span data-en="Spontaneous expressions; falls asleep when left alone">Ekspresi spontan dan tidur sendiri saat didiamkan</span></label>
     <label class="saklar"><input type="checkbox" id="cekHemat" checked> <span data-en="Energy saving (battery): falls asleep sooner, screen dims when nobody is there, neck rests and camera slows down while asleep">Hemat energi (baterai): cepat tidur, layar redup saat tidak ada orang, leher istirahat &amp; kamera pelan saat tidur</span></label>
@@ -1850,6 +1865,8 @@
   kanvas.addEventListener('pointerdown', e => {
     if (fase !== 'hidup') return;
     if (panelTerbuka) { tutupPanel(); return; }
+    // 2026-11-03: menyentuh wajah saat KiKo bergerak dengan roda = rem darurat.
+    if (roda.sibuk) { rodaBerhenti(true); return; }
     interaksi();
     sentuh.aktif = true; sentuh.id = e.pointerId; sentuh.elus = false;
     arahkanPandang(e);
@@ -2410,6 +2427,8 @@
     const [kode, nilai] = baris.trim().split(',');
     // T = badan mulai dielus (TTP223, firmware Ver 5); T,tahan = masih dielus (tiap 1 detik)
     if (kode === 'Y') { terimaDiag(baris.trim()); return; }   // Ver 28: laporan diagnosa
+    rodaTerimaBaris(kode, baris.trim().split(','));           // gerak roda: D,selesai / O / C / J / ?,D (2026-11-03)
+    if (kode === 'W' && nilai) { const f = parseFloat(nilai); if (f > 0) ble.faktorPutar = f; return; }   // Ver 30: faktor putar
     if (kode === 'T') {
       if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
@@ -2536,6 +2555,8 @@
       kirim(document.getElementById('cekTepi').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
       kirim('U');                    // Ver 12: tanya colokan cas (firmware lama membalas ?,U, diabaikan)
       kirim('P');                    // Ver 25: versi firmware (balasan OK,KiKo-Base,<versi>) -> cek pembaruan
+      kirim('W');                    // Ver 30: faktor putar (dipakai menghitung posisi roda); firmware lama membalas ?,W
+      rodaSaatTersambung();
       setTimeout(cekPembaruan, 2500);
       if (fase === 'pasang') mulaiMemuat();
     }
@@ -2546,6 +2567,7 @@
     hemat.zTerkirim = false;
     if (ota.aktif) gagalOta(L('sambungan putus di tengah pembaruan, coba lagi', 'the connection dropped mid-update, try again'));
     ble.lemahHitung = 0; ble.lemahDiumumkan = false;
+    roda.batal = true; if (roda.tunggu) roda.tunggu.gagal('batal');   // gerak roda yang sedang jalan dibatalkan
     aturCas(false, true);
     perbaruiChip();
     perbaruiBaterai();
@@ -2862,6 +2884,7 @@
         if (Math.abs(ey) > MATA_AMBANG_Y) kepala.tilt += -ey * DERAJAT_PER_LIRIK_Y * f;
         kepala.lompat = now; kepala.tepiSejak = 0;
         kepala.jedaIni = KEPALA_JEDA_MS * (cekGerakHidup.checked ? acak(0.85, 1.3) : 1);
+        rodaCekHadap(now, ex, true);   // 2026-11-03: leher mentok -> badan ikut menghadap (kalau roda diizinkan)
       }
     } else {
       // Tanpa wajah: lirikan acak cukup MATA saja, kepala diam (video 20:45: lirikan acak saat
@@ -3201,6 +3224,7 @@
           const sedangTidur = moodSaatIni(now) === 'tidur';
           interaksi();
           if (!sedangTidur) ekspresiSingkat('senang', 1300);
+          if (!sedangTidur && Math.random() < 0.5) rodaEkspresi('senang');   // kadang goyang menyambut (roda)
           // Pergi cukup lama -> sapa dengan suara ("Selamat pagi, Benny!").
           if (lamaHilang > JEDA_SAPA_MS) sapaDenganSuara();
           // Tanpa sapaan suara: kadang menyambut seperti hewannya (meong / guk guk).
@@ -3212,6 +3236,7 @@
           wajah.terakhirKaget = now;
           kedipSekarang();
           ekspresiSingkat('kaget', 900);
+          rodaEkspresi('kaget');                               // mundur sedikit (roda)
         }
       }
       statusWajah(L('Aktif. Wajah terdeteksi.', 'On. Face detected.'));
@@ -3783,10 +3808,12 @@
     setir.x = setir.y = 0;
     kirim(modeSetir === 'kepala' ? 'S,90,90' : 'X');   // lepas: kepala kembali ke tengah / roda direm
     berikutLirik = performance.now() + 500;
+    if (modeSetir === 'roda' && cekRoda.checked && ble.terhubung) setTimeout(sinkronPose, 700);   // posisi ikut joystick
   }
 
   pad.addEventListener('pointerdown', e => {
     interaksi();
+    if (modeSetir === 'roda' && roda.sibuk) rodaBerhenti(false);   // joystick mengambil alih gerak roda
     setir.aktif = true; setir.id = e.pointerId;
     try { pad.setPointerCapture(e.pointerId); } catch (_) {}
     posisiSetir(e);
@@ -3828,6 +3855,404 @@
     try { localStorage.setItem('kiko.tepi', cekTepi.checked ? '1' : '0'); } catch (_) {}
     kirim(cekTepi.checked ? 'K,1' : 'K,0');
   });
+
+  // =====================================================================
+  //  GERAK RODA (2026-11-03, pengguna: "buat semuanya dan kita uji satu per satu nanti sambil
+  //  didevelop lebih lanjut"). Semua di HP; firmware cukup Ver 8+ (D/R/O terukur, encoder),
+  //  Ver 30 untuk faktor putar W. Enam bagian:
+  //   1. perintah suara gerak: maju / mundur [N cm | sedikit | jauh], putar ke kiri/kanan [N derajat],
+  //      putar balik, berputar, berhenti
+  //   2. badan ikut menghadap orang saat leher sudah mentok (hitungKepala -> rodaCekHadap)
+  //   3. menari dengan roda: tiap ketukan musik goyang kecil (ketukanTari), atau "joget" tanpa musik
+  //   4. "ini rumahmu" / "pulang ke tempatmu": posisi dihitung dari odometri encoder (O)
+  //   5. "ke sini": cari wajah, putar menghadap, maju sedikit-sedikit sampai wajah cukup besar
+  //   6. gerak badan kecil saat berekspresi (goyang saat orang datang, mundur saat kaget)
+  //  KESELAMATAN: semua hanya jalan kalau saklar "Boleh bergerak dengan roda" (bawaan MATI) dan
+  //  proteksi tepi meja nyala, base tersambung, tidak sedang dicas / OTA. Gerak terukur pelan
+  //  (RODA_KEC) dan pendek; firmware tetap mengerem sendiri di tepi meja (C) dan saat macet (J).
+  //  Kiri/kanan = kiri/kanan ORANG yang menghadap KiKo (sama dengan perintah menoleh, 20-10-2026):
+  //  kanan orang = kiri KiKo = R negatif. Firmware: R + = KiKo berputar ke kanannya sendiri.
+  // =====================================================================
+  const RODA_PULSA_PER_MM = 1050 / (Math.PI * 33.8);   // = PULSA_PER_MM firmware (1050 pulsa / keliling roda)
+  const RODA_JARAK_MM = 124;                           // = JARAK_RODA_MM firmware
+  const RODA_KEC = 110;                                 // kecepatan gerak terukur (firmware 60..255)
+  const cekRoda = document.getElementById('cekRoda');
+  const cekRodaHadap = document.getElementById('cekRodaHadap');
+  const cekRodaTari = document.getElementById('cekRodaTari');
+  const cekRodaEkspresi = document.getElementById('cekRodaEkspresi');
+  const elStatusRoda = document.getElementById('statusRoda');
+  const roda = { sibuk: false, batal: false, tunggu: null, odo: null, acuan: null, x: 0, y: 0, th: 0,
+                 hadapTerakhir: 0, ekspresiTerakhir: 0 };
+  for (const [el, kunci, bawaan] of [[cekRoda, 'kiko.roda', '0'], [cekRodaHadap, 'kiko.rodaHadap', '1'],
+                                      [cekRodaTari, 'kiko.rodaTari', '1'], [cekRodaEkspresi, 'kiko.rodaEkspresi', '1']]) {
+    try { el.checked = (localStorage.getItem(kunci) || bawaan) === '1'; } catch (_) {}
+    el.addEventListener('change', () => {
+      try { localStorage.setItem(kunci, el.checked ? '1' : '0'); } catch (_) {}
+      if (el === cekRoda && !el.checked) rodaBerhenti(false);
+      if (el === cekRoda && el.checked) simpanRumah();   // dinyalakan: tempat sekarang = rumah
+      perbaruiStatusRoda();
+    });
+  }
+
+  function alasanRodaTidakBoleh() {
+    if (!cekRoda.checked) return L('Rodaku belum boleh bergerak. Nyalakan "Boleh bergerak dengan roda" di ATUR dulu ya.',
+                                   'My wheels are not allowed to move yet. Turn on "Allow KiKo to move on its wheels" in SETTINGS first.');
+    if (!ble.terhubung) return L('Badanku belum tersambung, jadi aku belum bisa jalan.', "My body isn't connected yet, so I can't move.");
+    if (!cekTepi.checked) return L('Proteksi jatuh dari meja sedang mati, jadi aku tidak berani jalan. Nyalakan dulu di ATUR.',
+                                   "Table-edge protection is off, so I won't drive. Please turn it on in SETTINGS first.");
+    if (ble.cas) return L('Aku sedang dicas, rodaku dikunci.', "I'm charging, so my wheels are locked.");
+    if (ota.aktif) return L('Aku sedang memperbarui badan, tunggu sebentar ya.', "I'm updating my body, please wait.");
+    if (ble.versiBase && ble.versiBase < 8) return L('Badanku perlu firmware yang lebih baru untuk gerak terukur.', 'My body needs newer firmware for measured moves.');
+    return '';
+  }
+  // Untuk gerak otomatis (menghadap, menari, ekspresi): diam-diam tidak jalan kalau tidak boleh / sedang sibuk.
+  function rodaBolehOtomatis(cek) {
+    return cek.checked && !alasanRodaTidakBoleh() && !roda.sibuk && !setir.aktif && fase === 'hidup';
+  }
+
+  // Jawaban base (dipanggil dari terimaBaris): D,selesai / O,... / C / J / ?,D|R,...
+  function rodaTerimaBaris(kode, bagian) {
+    if (kode === 'D' && bagian[1] === 'selesai') { if (roda.tunggu) roda.tunggu.ok(); }
+    else if (kode === 'O') { const pk = parseInt(bagian[1], 10), pkn = parseInt(bagian[2], 10); if (roda.odo && !isNaN(pk) && !isNaN(pkn)) roda.odo([pk, pkn]); }
+    // C/J saat gerak tanpa D/R (ikuti aku, joget pakai M): hentikan rangkaian dengan alasannya.
+    else if (kode === 'C') { if (roda.tunggu) roda.tunggu.gagal('tepi'); else if (roda.sibuk) { roda.alasan = 'tepi'; roda.batal = true; } }
+    else if (kode === 'J') { if (roda.tunggu) roda.tunggu.gagal('macet'); else if (roda.sibuk) { roda.alasan = 'macet'; roda.batal = true; } }
+    else if (kode === '?' && /^(D|R)\b/.test(bagian[1] || '')) { if (roda.tunggu) roda.tunggu.gagal('encoder'); }
+  }
+  function rodaSaatTersambung() { roda.acuan = null; }   // base mungkin baru menyala: hitungan pulsa mulai dari 0 lagi
+
+  function tungguGerak(batasMs = 11000) {
+    return new Promise((ok, gagal) => {
+      const t = setTimeout(() => { roda.tunggu = null; gagal(new Error('waktu')); }, batasMs);
+      roda.tunggu = {
+        ok: () => { clearTimeout(t); roda.tunggu = null; ok(); },
+        gagal: e => { clearTimeout(t); roda.tunggu = null; gagal(new Error(e)); },
+      };
+    });
+  }
+  function mintaOdometri() {
+    return new Promise(ok => {
+      const t = setTimeout(() => { roda.odo = null; ok(null); }, 1500);
+      roda.odo = v => { clearTimeout(t); roda.odo = null; ok(v); };
+      kirim('O');
+    });
+  }
+  // Posisi KiKo terhadap "rumah" dari selisih pulsa kedua roda sejak acuan terakhir. Sumbu x = arah
+  // hadap KiKo saat rumah disimpan, th + = berputar ke kiri KiKo (berlawanan jarum jam dilihat dari atas).
+  // Putaran dibagi faktor putar (Ver 30): saat berputar di tempat roda selip, jadi encoder melebih-lebihkan.
+  async function sinkronPose() {
+    const v = await mintaOdometri();
+    if (!v) return;
+    if (roda.acuan) {
+      const dl = (v[0] - roda.acuan[0]) / RODA_PULSA_PER_MM, dr = (v[1] - roda.acuan[1]) / RODA_PULSA_PER_MM;
+      if (Math.abs(dl) < 5000 && Math.abs(dr) < 5000) {   // lompatan besar = base reset, abaikan
+        const ds = (dl + dr) / 2;
+        const dth = (dr - dl) / RODA_JARAK_MM / (ble.faktorPutar || 1.33);
+        roda.x += ds * Math.cos(roda.th + dth / 2);
+        roda.y += ds * Math.sin(roda.th + dth / 2);
+        roda.th = Math.atan2(Math.sin(roda.th + dth), Math.cos(roda.th + dth));
+      }
+    }
+    roda.acuan = v;
+    perbaruiStatusRoda();
+  }
+  function perbaruiStatusRoda() {
+    if (!elStatusRoda) return;
+    if (!cekRoda.checked) { elStatusRoda.textContent = L('Roda tidak dipakai.', 'Wheels not in use.'); return; }
+    const alasan = alasanRodaTidakBoleh();
+    const jarak = Math.hypot(roda.x, roda.y) / 10;
+    elStatusRoda.textContent = (alasan ? alasan + ' ' : '')
+      + L(`Dari rumah: ${jarak.toFixed(0)} cm, menghadap ${Math.round(-roda.th * 180 / Math.PI)}° (+ = ke kanan KiKo).`,
+          `From home: ${jarak.toFixed(0)} cm, facing ${Math.round(-roda.th * 180 / Math.PI)}° (+ = KiKo's right).`)
+      + (roda.sibuk ? L(' Sedang bergerak.', ' Moving.') : '');
+  }
+
+  // Satu gerak terukur: jenis 'D' (mm, + maju) atau 'R' (derajat, + = kanan KiKo). Melempar galat
+  // 'tepi' | 'macet' | 'encoder' | 'waktu' | 'batal' supaya rangkaian berhenti.
+  async function langkahRoda(jenis, nilai) {
+    if (roda.batal) throw new Error(roda.alasan || 'batal');
+    nilai = Math.round(nilai);
+    if (!nilai) return;
+    if (!roda.acuan) await sinkronPose();
+    interaksi();
+    kirim(`${jenis},${nilai},${RODA_KEC}`);
+    let galat = null;
+    try { await tungguGerak(); } catch (e) { galat = e; }
+    await sinkronPose();
+    if (galat) throw galat;
+    if (roda.batal) throw new Error(roda.alasan || 'batal');
+  }
+  async function jedaRoda(ms) { await tunggu(ms); if (roda.batal) throw new Error(roda.alasan || 'batal'); }
+
+  // Menjalankan rangkaian gerak satu per satu; hanya satu rangkaian pada satu waktu.
+  async function jalankanRoda(rangkaian, kalimatSelesai) {
+    if (roda.sibuk) rodaBerhenti(false);
+    while (roda.sibuk) await tunggu(50);
+    roda.sibuk = true; roda.batal = false; perbaruiStatusRoda();
+    try {
+      await rangkaian();
+      if (kalimatSelesai) ucapkan(kalimatSelesai, 'senang');
+    } catch (e) {
+      const m = e && e.message;
+      if (m === 'tepi') ucapkan(L('Hampir jatuh! Aku berhenti di sini.', 'Whoa, an edge! I stopped here.'), 'kaget');
+      else if (m === 'macet') ucapkan(L('Rodaku macet, ada yang menahan.', 'My wheels are stuck, something is blocking them.'), 'bingung');
+      else if (m === 'encoder') ucapkan(L('Aku tidak bisa merasakan rodaku berputar. Encodernya perlu dicek.', "I can't feel my wheels turning. The encoders need checking."), 'bingung');
+      else if (m === 'waktu') ucapkan(L('Gerakku tidak selesai.', "My move didn't finish."), 'bingung');
+      // 'batal' = dihentikan dengan sengaja: diam saja
+    } finally {
+      roda.sibuk = false; roda.batal = false; roda.alasan = ''; perbaruiStatusRoda();
+    }
+  }
+  function rodaBerhenti(bilang) {
+    const tadi = roda.sibuk;
+    roda.batal = true; roda.alasan = '';
+    if (ble.terhubung) kirim('X');
+    if (roda.tunggu) roda.tunggu.gagal('batal');
+    if (bilang && tadi) ucapkan(L('Oke, berhenti.', 'Okay, stopping.'), 'normal');
+    return tadi;
+  }
+  function mulaiGerakSuara(rangkaian, kalimatMulai, kalimatSelesai) {
+    const alasan = alasanRodaTidakBoleh();
+    if (alasan) { ucapkan(alasan, 'sedih'); return true; }
+    interaksi();
+    ucapkan(kalimatMulai || L('Oke!', 'Okay!'), 'senang');   // tanda perintah tertangkap
+    jalankanRoda(rangkaian, kalimatSelesai);
+    return true;
+  }
+
+  // ---- 4. Rumah ----
+  function simpanRumah() { roda.x = 0; roda.y = 0; roda.th = 0; roda.acuan = null; if (ble.terhubung) sinkronPose(); perbaruiStatusRoda(); }
+  async function rangkaianPulang() {
+    await sinkronPose();
+    const jarak = Math.hypot(roda.x, roda.y);
+    if (jarak > 15) {
+      const arahRumah = Math.atan2(-roda.y, -roda.x);
+      const belok = Math.atan2(Math.sin(arahRumah - roda.th), Math.cos(arahRumah - roda.th));   // + = ke kiri
+      if (Math.abs(belok) > 0.1) await langkahRoda('R', -belok * 180 / Math.PI);
+      await langkahRoda('D', Math.min(jarak, 1000));
+    }
+    if (Math.abs(roda.th) > 0.12) await langkahRoda('R', roda.th * 180 / Math.PI);   // hadap ke arah semula
+  }
+
+  // ---- 3. Joget tanpa musik (perintah suara) ----
+  async function rangkaianJoget() {
+    ekspresiSingkat('tertawa', 6000);
+    kirim('G,tawa');
+    for (let i = 0; i < 6; i++) {                       // goyang kiri-kanan di tempat
+      const s = i % 2 ? 1 : -1;
+      kirim(`M,${s * 120},${-s * 120},180`);
+      await jedaRoda(330);
+    }
+    kirim('M,120,120,250'); await jedaRoda(450);        // maju-mundur kecil
+    kirim('M,-120,-120,250'); await jedaRoda(450);
+    await langkahRoda('R', 360);                         // satu putaran penuh
+    ekspresiSingkat('senang', 2500);
+  }
+
+  // ---- 5. Datang ke orang ----
+  function arahWajah() {   // derajat, + = kanan KiKo; posisi wajah di gambar + posisi kepala sekarang
+    return kepala.pan + ARAH_PAN_LIRIK * wajah.x * DERAJAT_PER_LIRIK_X;
+  }
+  async function rangkaianDatang() {
+    if (!wajah.ada) {                                    // cari: putar 45 derajat sampai wajah terlihat
+      for (let i = 0; i < 8 && !wajah.ada; i++) { await langkahRoda('R', 45); await jedaRoda(1300); }
+      if (!wajah.ada) { ucapkan(L('Aku tidak melihatmu. Kamu di mana?', "I can't see you. Where are you?"), 'bingung'); return; }
+    }
+    for (let i = 0; i < 6; i++) {
+      if (!wajah.ada) { await jedaRoda(900); if (!wajah.ada) break; }
+      const arah = arahWajah();
+      if (Math.abs(arah) > 12) { kepala.pan = 0; await langkahRoda('R', arah); await jedaRoda(600); }
+      if (wajah.ada && wajah.lebar >= 0.28) break;      // sudah cukup dekat
+      await langkahRoda('D', 80);
+      await jedaRoda(400);
+    }
+    ucapkan(L('Aku sudah di sini!', "Here I am!"), 'senang');
+  }
+
+  // ---- 7. Ikuti aku (2026-11-03, pengguna: "apakah dah kemungkinan beri perintah ikuti aku?") ----
+  // Kendali terus-menerus seperti joystick: tiap 0,1 dtk M,kiri,kanan dari posisi & ukuran wajah.
+  // Wajah di samping -> belok; wajah kecil (jauh) -> maju; terlalu besar (dekat) -> mundur sedikit.
+  // Leher ditahan di tengah supaya yang mengejar badannya (kalau leher ikut menoleh, keduanya saling
+  // mengoreksi dan berayun). Wajah hilang > 1,5 dtk -> berputar pelan ke arah terakhir mencari;
+  // > 6 dtk -> berhenti. Selesai juga setelah 1 menit, "berhenti", joystick, tepi meja, macet.
+  // Base mengerem sendiri kalau M tidak datang lagi dalam 0,6 dtk (failsafe firmware).
+  const IKUT_LEBAR = 0.22;        // lebar wajah (bagian gambar) yang dianggap jarak pas (+-60-80 cm)
+  const IKUT_MAKS_MS = 60000;
+  async function rangkaianIkut() {
+    const mulai = performance.now();
+    let hilangSejak = 0, arahTerakhir = 0;
+    try {
+      for (;;) {
+        const now = performance.now();
+        if (now - mulai > IKUT_MAKS_MS) { ucapkan(L('Sudah semenit, aku berhenti mengikuti ya.', "That's a minute, I'll stop following now."), 'senang'); break; }
+        if (alasanRodaTidakBoleh()) break;
+        kepala.pan = 0; kepala.paksaSampai = now + 400;   // leher diam di tengah (hitungKepala menahan)
+        let kiri = 0, kanan = 0;
+        if (wajah.ada) {
+          hilangSejak = 0;
+          const arah = ARAH_PAN_LIRIK * wajah.x * DERAJAT_PER_LIRIK_X;   // derajat, + = kanan KiKo
+          arahTerakhir = arah;
+          const belok = Math.abs(arah) < 4 ? 0 : batas(arah * 3, -80, 80);
+          const selisih = IKUT_LEBAR - wajah.lebar;
+          let maju = Math.abs(selisih) < 0.04 ? 0 : batas(selisih * 700, -70, 120);
+          if (Math.abs(arah) > 25) maju = 0;                              // menghadap dulu, baru maju
+          kiri = maju + belok; kanan = maju - belok;
+        } else {
+          if (!hilangSejak) hilangSejak = now;
+          const lama = now - hilangSejak;
+          if (lama > 6000) { ucapkan(L('Aku kehilangan kamu.', 'I lost you.'), 'sedih'); break; }
+          if (lama > 1500) { const s = arahTerakhir >= 0 ? 1 : -1; kiri = s * 70; kanan = -s * 70; }   // cari pelan
+        }
+        kirim(`M,${Math.round(kiri)},${Math.round(kanan)}`);
+        await jedaRoda(100);
+      }
+    } finally {
+      if (ble.terhubung) kirim('X');
+      kepala.paksaSampai = 0;
+      sinkronPose();
+    }
+  }
+
+  // ---- 2. Badan menghadap orang saat leher mentok (dipanggil dari hitungKepala) ----
+  function rodaCekHadap(now, ex, diTepi) {
+    if (!wajah.ada || !diTepi || tari.aktif) return;
+    if (Math.abs(kepala.pan) < KEPALA_PAN_MAKS - 2 || now - roda.hadapTerakhir < 5000) return;
+    if (!rodaBolehOtomatis(cekRodaHadap)) return;
+    const arah = kepala.pan + ARAH_PAN_LIRIK * ex * DERAJAT_PER_LIRIK_X;
+    if (Math.abs(arah) < 15) return;
+    roda.hadapTerakhir = now;
+    kepala.pan = 0; kepala.lompat = now;                 // leher kembali ke tengah sementara badan berputar
+    jalankanRoda(() => langkahRoda('R', batas(arah, -120, 120)));
+  }
+
+  // ---- 3. Menari ikut musik: dipanggil tiap ketukan dari ketukanTari ----
+  function rodaKetukanTari() {
+    if (!rodaBolehOtomatis(cekRodaTari) || !(tari.ibi > 300)) return;
+    const s = tari.sisi;
+    if (tari.hitung % 8 === 0) {                          // tiap 8 ketukan: maju lalu mundur sedikit
+      kirim('M,110,110,200');
+      setTimeout(() => { if (tari.aktif && !roda.sibuk) kirim('M,-110,-110,200'); }, Math.min(400, tari.ibi * 0.5));
+    } else {
+      kirim(`M,${s * 110},${-s * 110},${Math.round(Math.min(180, tari.ibi * 0.35))}`);   // goyang kiri-kanan
+    }
+  }
+  function rodaTariSelesai() { if (cekRoda.checked && ble.terhubung) setTimeout(sinkronPose, 800); }
+
+  // ---- 6. Gerak badan kecil saat berekspresi ----
+  function rodaEkspresi(jenis) {
+    const now = performance.now();
+    if (now - roda.ekspresiTerakhir < 30000 || tari.aktif || !rodaBolehOtomatis(cekRodaEkspresi)) return;
+    roda.ekspresiTerakhir = now;
+    if (jenis === 'kaget') jalankanRoda(() => langkahRoda('D', -30));       // mundur 3 cm
+    else if (jenis === 'senang') jalankanRoda(async () => {                 // goyang kecil menyambut
+      kirim('M,90,-90,150'); await jedaRoda(300);
+      kirim('M,-90,90,150'); await jedaRoda(400);
+    });
+  }
+
+  // ---- 1. Perintah suara ----
+  function angkaCm(t, bawaan) {
+    let m = t.match(/(\d+(?:[.,]\d+)?)\s*(cm|senti|centi|sentimeter|centimeter|centimetre|centimeters)\b/);
+    if (m) return parseFloat(m[1].replace(',', '.'));
+    if ((m = t.match(/(\d+(?:[.,]\d+)?)\s*(meter|metre|m)\b/))) return parseFloat(m[1].replace(',', '.')) * 100;
+    if (/\b(sedikit|dikit|sebentar|pelan|a little|a bit|slightly)\b/.test(t)) return 5;
+    if (/\b(jauh|banyak|lebih jauh|far|a lot)\b/.test(t)) return 25;
+    return bawaan;
+  }
+  function angkaDerajat(t, bawaan) {
+    const m = t.match(/(\d+)\s*(derajat|degrees?|°)/);
+    return m ? parseInt(m[1], 10) : bawaan;
+  }
+  function jawabRoda(t) {
+    const en = bahasa === 'en';
+    const u = t.replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim()
+               .replace(/^(ayo|coba|tolong|yuk|please|can you|could you)\s+/, '').replace(/\s+(dong|ya|yuk|deh|please)$/, '');
+    const kata = u.split(' ').length;
+    // Berhenti (2026-11-03, pengguna: "juga mengenal kata 'stop' sebagai 'berhenti' ato kata umum lainnya").
+    // Hanya saat roda sedang bergerak ("stop" di luar itu tetap untuk radio/video dll.). Kata berhenti boleh
+    // di mana saja dalam ucapan pendek ("kiko stop", "aduh stop stop", "eh berhenti"), termasuk ejaan yang
+    // sering keluar dari pengenal suara (setop, stopp) dan kedua bahasa sekaligus (orang panik memakai kata
+    // apa saja). Ucapan panjang tidak dihitung supaya obrolan yang kebetulan memuat "sudah" tidak mengerem.
+    const KATA_BERHENTI = /\b(stop+|setop|berhenti|henti|hentikan|diam|diem|jangan (jalan|bergerak|gerak|maju|mundur)|cukup|udah|udahan|sudah|wis|rem|tahan|awas|jangan|halt|freeze|stay|wait|hold on|enough|whoa|careful)\b/;
+    if (roda.sibuk && kata <= 5 && KATA_BERHENTI.test(u)) {
+      rodaBerhenti(true); return true;
+    }
+    if (/\b(kepala|head)\b/.test(u)) return false;         // "putar kepala" = leher (jawabGerak)
+    if (kata > 8) return false;                             // kalimat panjang = obrolan, ke AI
+    let m;
+    if (en) {
+      if (/^(this is your home|remember this (spot|place)|this is home)\b/.test(u)) { simpanRumah(); ucapkan("Okay, this is my home now.", 'senang'); return true; }
+      if (/^(go home|go back home|go back to your (spot|place|home)|return home|back to your spot)\b/.test(u))
+        return mulaiGerakSuara(rangkaianPulang, 'Okay, going home.', "I'm home!");
+      if (/^(come here|come to me|come closer)\b/.test(u)) {
+        if (!document.getElementById('cekWajah').checked) { ucapkan('I need face tracking on to find you.', 'bingung'); return true; }
+        return mulaiGerakSuara(rangkaianDatang, "I'm coming!", '');
+      }
+      if (/^(follow me|come with me|chase me)\b/.test(u)) {
+        if (!document.getElementById('cekWajah').checked) { ucapkan('I need face tracking on to follow you.', 'bingung'); return true; }
+        return mulaiGerakSuara(rangkaianIkut, "Okay, I'll follow you! Keep facing me.", '');
+      }
+      if (/^(look at me|face me|turn to me)\b/.test(u)) {
+        if (!wajah.ada) { ucapkan("I can't see you right now.", 'bingung'); return true; }
+        return mulaiGerakSuara(() => langkahRoda('R', arahWajah()), '', '');
+      }
+      if (/^(dance|let'?s dance|do a dance|wiggle)\b/.test(u)) return mulaiGerakSuara(rangkaianJoget, "Let's dance!", '');
+      if (/^(turn around|about face)\b/.test(u)) return mulaiGerakSuara(() => langkahRoda('R', 180), '', '');
+      if (/^(spin|do a spin|spin around)\b/.test(u)) return mulaiGerakSuara(() => langkahRoda('R', 360), 'Wheee!', '');
+      if ((m = u.match(/^(turn|rotate)( to)?( the| your)? (left|right)\b/))) {
+        const d = batas(angkaDerajat(u, 90), 5, 360);
+        return mulaiGerakSuara(() => langkahRoda('R', m[4] === 'right' ? -d : d), '', '');   // kanan orang = kiri KiKo
+      }
+      if (/^((go|move|drive|come) )?(forward|ahead)\b/.test(u)) {
+        const cm = batas(angkaCm(u, 10), 2, 30);
+        return mulaiGerakSuara(() => langkahRoda('D', cm * 10), '', '');
+      }
+      if (/^((go|move|drive) )?back(wards)?\b|^back up\b|^reverse\b/.test(u)) {
+        const cm = batas(angkaCm(u, 10), 2, 30);
+        return mulaiGerakSuara(() => langkahRoda('D', -cm * 10), '', '');
+      }
+      return false;
+    }
+    if (/^(ini rumahmu|di sini rumahmu|ingat tempat ini|ini tempatmu|jadikan (ini|tempat ini) rumah(mu)?)\b/.test(u)) {
+      simpanRumah(); ucapkan('Oke, ini rumahku sekarang.', 'senang'); return true;
+    }
+    if (/^(pulang ke (tempatmu|rumahmu|tempat semula|tempat asal)|(kembali|balik) ke (tempat|rumah)(mu| semula| asal)?)\b/.test(u) || (kata <= 2 && /^pulang\b/.test(u)))
+      return mulaiGerakSuara(rangkaianPulang, 'Oke, aku pulang.', 'Sudah sampai rumah!');
+    if (/^(ke sini|kemari|sini|datang ke sini|datang kemari|mendekat|deketin aku|dekati aku|samperin aku)\b/.test(u)) {
+      if (!document.getElementById('cekWajah').checked) { ucapkan('Aku perlu "Ikuti wajah orang" nyala supaya bisa menemukanmu.', 'bingung'); return true; }
+      return mulaiGerakSuara(rangkaianDatang, 'Aku datang!', '');
+    }
+    if (/^(ikuti aku|ikut aku|ikuti saya|ikut saya|ikutin aku|ayo ikut aku|kejar aku)\b/.test(u)) {
+      if (!document.getElementById('cekWajah').checked) { ucapkan('Aku perlu "Ikuti wajah orang" nyala supaya bisa mengikutimu.', 'bingung'); return true; }
+      return mulaiGerakSuara(rangkaianIkut, 'Oke, aku ikuti kamu! Tetap menghadap aku ya.', '');
+    }
+    if (/^(lihat aku|hadap(kan)? (ke )?aku|hadap sini|menghadap (ke )?aku|lihat sini|lihat ke aku)\b/.test(u)) {
+      if (!wajah.ada) { ucapkan('Aku belum melihatmu sekarang.', 'bingung'); return true; }
+      return mulaiGerakSuara(() => langkahRoda('R', arahWajah()), '', '');
+    }
+    if (/^(joget|goyang|menari|nari|dansa|berjoget|bergoyang)\b/.test(u)) return mulaiGerakSuara(rangkaianJoget, 'Ayo joget!', '');
+    if (/^(putar balik|balik badan|balik kanan|berbalik|putar ke belakang)\b/.test(u)) return mulaiGerakSuara(() => langkahRoda('R', 180), '', '');
+    if (/^(berputar|muter|putar putar|putar-putar|keliling|putar satu (putaran|kali)|putar 360)\b/.test(u))
+      return mulaiGerakSuara(() => langkahRoda('R', 360), 'Wiii!', '');
+    if ((m = u.match(/^(putar|belok|hadap|menghadap|serong)( badan)?( ke)? (kiri|kanan)\b/))) {
+      const d = batas(angkaDerajat(u, 90), 5, 360);
+      return mulaiGerakSuara(() => langkahRoda('R', m[4] === 'kanan' ? -d : d), '', '');   // kanan orang = kiri KiKo
+    }
+    if (/^(maju|jalan maju|jalan ke depan|ke depan)\b/.test(u)) {
+      const cm = batas(angkaCm(u, 10), 2, 30);
+      return mulaiGerakSuara(() => langkahRoda('D', cm * 10), '', '');
+    }
+    if (/^(mundur|jalan mundur|ke belakang)\b/.test(u)) {
+      const cm = batas(angkaCm(u, 10), 2, 30);
+      return mulaiGerakSuara(() => langkahRoda('D', -cm * 10), '', '');
+    }
+    return false;
+  }
+
+  document.getElementById('tombolRodaRumah').addEventListener('click', () => { simpanRumah(); statusAi(L('Tempat ini disimpan sebagai rumah.', 'This spot is saved as home.')); });
+  document.getElementById('tombolRodaPulang').addEventListener('click', () => { tutupPanel(); mulaiGerakSuara(rangkaianPulang, '', L('Sudah sampai rumah!', "I'm home!")); });
+  document.getElementById('tombolRodaStop').addEventListener('click', () => rodaBerhenti(false));
+  perbaruiStatusRoda();
 
   document.getElementById('tombolSetir').addEventListener('click', ev => {
     elSetir.hidden = !elSetir.hidden;
@@ -3981,6 +4406,7 @@
     if (ble.terhubung) kirim('L,0,0');
     lirik.waktu = 0;                                // kirimLirikan() langsung mengirim lirikan biasa lagi
     ekspresiSingkat('senang', 1200);
+    rodaTariSelesai();                              // perbarui posisi setelah goyang roda
   }
 
   function ketukanTari(now) {
@@ -4001,6 +4427,7 @@
       const pan = Math.round(ARAH_PAN_LIRIK * tari.sisi * TARI_PAN);
       kirim(`L,${pan},-6`);
       setTimeout(() => { if (tari.aktif) kirim(`L,${pan},3`); }, Math.min(220, tari.ibi * 0.35));
+      rodaKetukanTari();                              // 2026-11-03: goyang dengan roda juga (kalau diizinkan)
     }
   }
 
@@ -4364,6 +4791,9 @@
     B.push({ k: 'ekspresi', judul: L('Ekspresi', 'Expressions'), bisa: L('menunjukkan ekspresi', 'show my expressions'),
       contoh: L(['"Coba senyum" / "Tunjukkan wajah marah"', '"Melet dong" / "Julurkan lidah"', '"Tahan ekspresi sedih" lalu "kembali normal"', '"Tunjukkan semua ekspresi" (uji semuanya, "stop" untuk berhenti)'],
                 ['"Show me happy" / "Make an angry face"', '"Stick your tongue out" / "Tease me"', '"Hold a sad face", then "back to normal"', '"Show all expressions" (test them all, "stop" to end)']) });
+    if (cekRoda.checked) B.push({ k: 'roda', judul: L('Gerak roda', 'Moving'), bisa: L('jalan dan menari dengan roda', 'drive and dance on my wheels'),
+      contoh: L(['"Maju" / "Mundur sedikit" / "Maju 20 cm"', '"Putar ke kiri" / "Putar balik" / "Berputar"', '"Joget"', '"Lihat aku" / "Ke sini" / "Ikuti aku"', '"Ini rumahmu", lalu "Pulang ke tempatmu"', '"Berhenti"'],
+                ['"Forward" / "Back up a little" / "Forward 20 cm"', '"Turn left" / "Turn around" / "Spin"', '"Dance"', '"Look at me" / "Come here" / "Follow me"', '"This is your home", then "Go home"', '"Stop"']) });
     B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
       contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
                 ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
@@ -4406,11 +4836,12 @@
       ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
       : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
     const topik = bahasa === 'en'
-      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch)/)
-      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton)/);
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch|drive|move|wheels?|dance)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton|roda|jalan|bergerak|joget)/);
     if (topik) {
       const w = topik[2];
-      const k = /youtube|yutub|nonton|watch/.test(w) ? 'youtube' : /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
+      const k = /roda|jalan|bergerak|joget|drive|move|wheel|dance/.test(w) ? 'roda'
+              : /youtube|yutub|nonton|watch/.test(w) ? 'youtube' : /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
               : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : /ekspresi|wajah|expression|face/.test(w) ? 'ekspresi' : 'telepon';
       if (tampilkanBantuan(k)) return true;
     }
@@ -4615,6 +5046,7 @@
       return true;
     }
     if (/baterai/.test(t) && /(berapa|sisa|masih|tinggal|level|habis|penuh|cukup)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabRoda(t)) return true;                            // "maju", "putar balik", "joget", "pulang ke tempatmu"
     if (jawabGerak(t)) return true;                           // "menoleh ke kanan", "angguk"
     if (jawabSuaraHewan(t, false)) return true;               // "meong dong", "coba menggonggong"
     if (jawabEkspresi(t)) return true;                        // "coba senyum", "tunjukkan semua ekspresi"
@@ -5613,6 +6045,7 @@
       return true;
     }
     if (/battery/.test(t) && /(how|level|left|much|charge|full|low|percent)/.test(t)) { jawabBaterai(); return true; }
+    if (jawabRoda(t)) return true;                            // "forward", "turn around", "dance", "go home"
     if (jawabGerak(t)) return true;                           // "look to the right", "nod"
     if (jawabSuaraHewan(t, true)) return true;                // "meow!", "can you bark?"
     if (jawabEkspresi(t)) return true;                        // "show me happy", "show all expressions"
