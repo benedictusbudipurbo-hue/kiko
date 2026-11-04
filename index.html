@@ -2126,7 +2126,7 @@
 
   const SAMBUT_MS = 60000;
   const sambut = { sampai: 0, sudah: false, anggukDari: 0, sudahBicara: false };
-  const MIK_SIAP_MS = 3000, MIK_JENDELA_S = 8;
+  const MIK_SIAP_MS = 3000, MIK_JENDELA_S = 8, DENGAR_RODA_MS = 20000;
   function mulaiHidup() {
     fase = 'hidup';
     // Mata mulai dari garis tipis lebar lalu "terbuka" memantul.
@@ -3854,7 +3854,12 @@
     }
     const menunggu = lanjutMenunggu();      // KiKo baru bertanya: dengarkan jawabannya
     if ((!cekDengarOtomatis.checked && !menunggu) || !ai.url || fase !== 'hidup' || document.hidden || (modeMalamAktif() && !menunggu) || tari.mik || tari.tungguMulai || radioMain() || videoMain()) return;
-    if ((!adaWajah && !menunggu) || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
+    // 2026-11-04 (foto log pengguna: "sulit menjalankan perintah modul roda", 8-9 sesi sunyi sebelum ucapan
+    // berikutnya): dengar otomatis butuh wajah di kamera, padahal "hadap kiri" membuat kamera berpaling
+    // dari pemiliknya, jadi perintah berikutnya tidak didengar. Selama bergerak dan DENGAR_RODA_MS
+    // sesudahnya KiKo mendengar tanpa perlu melihat wajah; "berhenti" juga terdengar saat bergerak.
+    const bebas = roda.sibuk || now < (ai.dengarBebasSampai || 0);
+    if ((!adaWajah && !menunggu && !bebas) || ai.tahap !== 'diam' || ai.bicara || now < ai.dengarBerikut) return;
     mulaiDengar(true);
   }, 300);
 
@@ -3884,6 +3889,8 @@
       else if (!wajah.ada) teks = wajah.aktif ? L('Tatap aku dulu, baru aku bisa mendengar', 'Look at me so I can listen') : L('Mataku sedang bersiap…', 'My eyes are getting ready…');
       else teks = L('Mic siap…', 'Mic ready…');   // sesaat sebelum sesi dengar dimulai, supaya tulisan tidak berkedip hilang
     }
+    if (!teks && fase === 'hidup' && !hemat.tidur && !wajah.ada && now < (ai.dengarBebasSampai || 0) && !ai.bicara && ai.tahap === 'dengar')
+      teks = L('🎤 Sebut perintah berikutnya…', '🎤 Say the next command…');
     if (elTeksMik.textContent !== teks) elTeksMik.textContent = teks;
     elTeksMik.hidden = !teks;
   }, 200);
@@ -3948,8 +3955,15 @@
   // 2026-10-20 (pengguna: "test telp WA masih sulit"): catatan yang didengar KiKo, supaya
   // kelihatan apakah masalahnya di pendengaran (kata salah/tidak tertangkap) atau di pemahaman.
   const logDengar = [];
+  function tambahLogDengar(baris) {
+    logDengar.unshift(new Date().toTimeString().slice(0, 5) + ' ' + baris);
+    logDengar.length = Math.min(logDengar.length, 10);
+    const ol = document.getElementById('logDengar'); ol.textContent = '';
+    for (const b of logDengar) { const li = document.createElement('li'); li.textContent = b; ol.append(li); }
+  }
   function catatDengar(teks, hasil) {
     sambut.sudahBicara = true;                       // sudah terbukti saling dengar: tulisan mic tidak perlu lagi
+    if (ai.catatGerak) { hasil += ` [${ai.catatGerak}]`; ai.catatGerak = ''; }   // "dijawab di HP" belum tentu berarti bergerak
     const jam = new Date().toTimeString().slice(0, 5);
     const alt = (ai.alternatif || []).filter(x => x && x.toLowerCase() !== teks.toLowerCase()).slice(0, 3);
     const sunyi = ai.sunyiBeruntun || 0; ai.sunyiBeruntun = 0;
@@ -4397,6 +4411,7 @@
       if (kalimatSelesai) ucapkan(kalimatSelesai, 'senang');
     } catch (e) {
       const m = e && e.message;
+      if (m && m !== 'batal') tambahLogDengar(L('roda berhenti: ', 'wheels stopped: ') + m);
       if (m === 'tepi') ucapkan(L('Hampir jatuh! Aku berhenti di sini.', 'Whoa, an edge! I stopped here.'), 'kaget');
       else if (m === 'macet') ucapkan(L('Rodaku macet, ada yang menahan.', 'My wheels are stuck, something is blocking them.'), 'bingung');
       else if (m === 'encoder') ucapkan(L('Aku tidak bisa merasakan rodaku berputar. Encodernya perlu dicek.', "I can't feel my wheels turning. The encoders need checking."), 'bingung');
@@ -4404,6 +4419,8 @@
       // 'batal' = dihentikan dengan sengaja: diam saja
     } finally {
       roda.sibuk = false; roda.batal = false; roda.alasan = ''; perbaruiStatusRoda();
+      ai.dengarBebasSampai = performance.now() + DENGAR_RODA_MS;
+      ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = Math.min(ai.dengarBerikut, performance.now() + 600);
     }
   }
   function rodaBerhenti(bilang) {
@@ -4424,6 +4441,7 @@
       return true;
     }
     const alasan = alasanRodaTidakBoleh();
+    ai.catatGerak = alasan ? L('roda ditolak: ', 'wheels refused: ') + alasan : L('roda jalan', 'wheels moving');
     if (alasan) { ucapkan(alasan, 'sedih'); return true; }
     interaksi();
     ucapkan(kalimatMulai || L('Oke!', 'Okay!'), 'senang');   // tanda perintah tertangkap
@@ -5511,7 +5529,7 @@
     do {
       lama = u;
       u = u.replace(/^(hai|halo|hei|hey|hi|hello|eh|oke|ok|okay|ya|nah)\s+/, '')
-           .replace(/^kiko\s+/, '')
+           .replace(/^(kiko|kikoh|keko|eko|iko|kiku|kikuk|ciko|chico|kico)\s+/, '')   // log 04-11: "KiKo" tertulis "Eko"
            .replace(/^(tolong|coba|bisa|bisakah|mohon|ayo|please|can you|could you|would you)\s+/, '')
            .replace(/^(saya|aku|gue|gw|i)\s+(mau|ingin|pengen|pengin|minta|perlu|butuh|want to|wanna|need to|would like to)\s+/, '')
            .replace(/^(kamu|kiko)\s+(bisa|tolong)\s+/, '');
@@ -5709,6 +5727,7 @@
                     : /\bbawah\b/.test(t) ? 'bawah' : /\b(depan|tengah|lurus)\b/.test(t) ? 'depan' : null);
     }
     if (!g && !arah) return false;
+    ai.catatGerak = L('leher saja', 'neck only');
     if (!ble.terhubung) { ucapkan(L('Kepalaku belum tersambung ke badan, jadi belum bisa bergerak.', "My head isn't connected to my body yet, so I can't move it."), 'sedih'); return true; }
     interaksi();
     if (g) {
