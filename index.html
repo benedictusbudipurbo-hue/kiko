@@ -428,6 +428,25 @@
     <p class="petunjuk" id="statusApp" role="status">Buka dari GitHub Pages di Chrome untuk memasang KiKo sebagai aplikasi (atau menu ⋮ → Instal aplikasi).</p>
   </div>
 
+  <div class="bagian" id="bagianCadangan">
+    <h2 data-en="Backup">Cadangan data</h2>
+    <p class="petunjuk" data-en="Saves dances, memory, contacts, reminders and settings to one file, so they can move to another phone. The file holds your contacts and memory: keep it private.">Menyimpan tarian, ingatan, kontak, pengingat dan setelan ke satu file, supaya bisa dipindah ke HP lain. File ini berisi kontak dan ingatan: simpan di tempat pribadi.</p>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol utama" id="tombolSimpanCadangan" type="button" data-en="Save to file">Simpan ke file</button>
+      <button class="tombol" id="tombolBagiCadangan" type="button" hidden data-en="Share">Bagikan</button>
+      <button class="tombol" id="tombolBukaCadangan" type="button" data-en="Restore from file">Pulihkan dari file</button>
+    </div>
+    <input id="fileCadangan" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+    <div id="tanyaCadangan" class="diag-tanya" hidden>
+      <p id="tanyaCadanganTeks"></p>
+      <div class="baris" style="justify-content:flex-start">
+        <button class="tombol utama" id="tombolPulihkan" type="button" data-en="Restore now">Pulihkan sekarang</button>
+        <button class="tombol" id="tombolBatalPulih" type="button" data-en="Cancel">Batal</button>
+      </div>
+    </div>
+    <p class="petunjuk" id="statusCadangan" role="status"></p>
+  </div>
+
   <div class="bagian">
     <h2 data-en="Face tracking">Pelacakan wajah</h2>
     <label class="saklar"><input type="checkbox" id="cekWajah"> <span data-en="Follow people&#x27;s faces (front camera)">Ikuti wajah orang (kamera depan)</span></label>
@@ -5133,6 +5152,94 @@
   kepekaanTari.addEventListener('change', simpanTari);
   // AudioContext yang dibuat tanpa sentuhan (mis. dinyalakan ulang saat dibuka) mulai "suspended".
   window.addEventListener('pointerup', () => { if (tari.actx && tari.actx.state === 'suspended') tari.actx.resume().catch(() => {}); });
+
+  // =====================================================================
+  //  CADANGAN DATA (2026-11-04, pengguna minta setelah tahu data KiKo hanya ada di localStorage Chrome
+  //  dan tidak ikut pindah HP). Semua kunci kiko.* ditulis ke satu file JSON, kecuali yang hanya berlaku
+  //  untuk HP/base ini. "Bagikan" memakai .txt karena Web Share Chrome menolak file .json.
+  //  File cadangan datang dari luar aplikasi: hanya kunci kiko.* bernilai teks yang diterima, dan
+  //  ringkasannya (termasuk alamat Worker) ditunjukkan dulu sebelum menimpa data.
+  // =====================================================================
+  const KUNCI_TANPA_CADANGAN = new Set(['kiko.baseId', 'kiko.pernahBase', 'kiko.lajuBaterai', 'kiko.menari']);
+  const CADANGAN_MAKS_BYTE = 2 * 1024 * 1024;
+  const elStatusCadangan = document.getElementById('statusCadangan');
+  const elFileCadangan = document.getElementById('fileCadangan');
+  const elTanyaCadangan = document.getElementById('tanyaCadangan');
+  const cadangan = { tunda: null };
+
+  function jumlahIsi(data, kunci, ambil) {
+    try { const v = JSON.parse(data[kunci]); return (ambil ? ambil(v) : Array.isArray(v) ? v.length : Object.keys(v).length) || 0; } catch (_) { return 0; }
+  }
+  function ringkasCadangan(data) {
+    const n = {
+      tarian: jumlahIsi(data, 'kiko.tarian'), kontak: jumlahIsi(data, 'kiko.kontak'),
+      pengingat: jumlahIsi(data, 'kiko.pengingat'), ingatan: jumlahIsi(data, 'kiko.ingatan', v => (v.fakta || []).length + (v.nama ? 1 : 0)),
+    };
+    return L(`${n.tarian} tarian, ${n.ingatan} ingatan, ${n.kontak} kontak, ${n.pengingat} pengingat`,
+             `${n.tarian} dances, ${n.ingatan} memories, ${n.kontak} contacts, ${n.pengingat} reminders`);
+  }
+  function isiCadangan() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith('kiko.') && !KUNCI_TANPA_CADANGAN.has(k)) data[k] = localStorage.getItem(k);
+    }
+    return { aplikasi: 'KiKo', versi: 1, tanggal: new Date().toISOString(), data };
+  }
+  function namaCadangan(akhiran) {
+    const d = new Date(), dua = x => String(x).padStart(2, '0');
+    return `KiKo_cadangan_${d.getFullYear()}-${dua(d.getMonth() + 1)}-${dua(d.getDate())}.${akhiran}`;
+  }
+  document.getElementById('tombolSimpanCadangan').addEventListener('click', () => {
+    try {
+      const c = isiCadangan(), nama = namaCadangan('json');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(c, null, 1)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = nama; document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      elStatusCadangan.textContent = L(`Tersimpan: ${nama} (${ringkasCadangan(c.data)}). Cari di folder Download HP.`, `Saved: ${nama} (${ringkasCadangan(c.data)}). Look in the phone's Download folder.`);
+    } catch (e) { elStatusCadangan.textContent = L('Gagal menyimpan: ', 'Could not save: ') + e.message; }
+  });
+  const tombolBagiCadangan = document.getElementById('tombolBagiCadangan');
+  const fileBagiCadangan = () => new File([JSON.stringify(isiCadangan(), null, 1)], namaCadangan('txt'), { type: 'text/plain' });
+  try { tombolBagiCadangan.hidden = !(navigator.canShare && navigator.canShare({ files: [fileBagiCadangan()] })); } catch (_) {}
+  tombolBagiCadangan.addEventListener('click', async () => {
+    try { await navigator.share({ files: [fileBagiCadangan()], title: 'KiKo' }); }
+    catch (e) { if (e.name !== 'AbortError') elStatusCadangan.textContent = L('Gagal membagikan: ', 'Could not share: ') + e.message; }
+  });
+  document.getElementById('tombolBukaCadangan').addEventListener('click', () => { elFileCadangan.value = ''; elFileCadangan.click(); });
+  elFileCadangan.addEventListener('change', async () => {
+    const f = elFileCadangan.files[0];
+    elTanyaCadangan.hidden = true; cadangan.tunda = null;
+    if (!f) return;
+    const salah = L('File ini bukan cadangan KiKo.', 'This file is not a KiKo backup.');
+    if (f.size > CADANGAN_MAKS_BYTE) { elStatusCadangan.textContent = salah; return; }
+    let c;
+    try { c = JSON.parse(await f.text()); } catch (_) { elStatusCadangan.textContent = salah; return; }
+    if (!c || c.aplikasi !== 'KiKo' || c.versi !== 1 || !c.data || typeof c.data !== 'object') { elStatusCadangan.textContent = salah; return; }
+    const data = {};
+    for (const [k, v] of Object.entries(c.data))
+      if (/^kiko\.[A-Za-z0-9._-]+$/.test(k) && typeof v === 'string' && !KUNCI_TANPA_CADANGAN.has(k)) data[k] = v;
+    if (!Object.keys(data).length) { elStatusCadangan.textContent = salah; return; }
+    cadangan.tunda = data;
+    const tgl = new Date(c.tanggal);
+    let alamat = '';
+    try { if (data['kiko.worker']) alamat = L(' Alamat AI: ', ' AI address: ') + new URL(data['kiko.worker']).host + '.'; } catch (_) { alamat = ''; }
+    document.getElementById('tanyaCadanganTeks').textContent = L('Cadangan ', 'Backup from ') + (isNaN(tgl) ? '?' : tgl.toLocaleDateString(L('id-ID', 'en-GB')))
+      + ': ' + ringkasCadangan(data) + '.' + alamat + L(' Data di HP ini dengan nama yang sama akan diganti.', ' Data with the same names on this phone will be replaced.');
+    elStatusCadangan.textContent = '';
+    elTanyaCadangan.hidden = false;
+  });
+  document.getElementById('tombolBatalPulih').addEventListener('click', () => { cadangan.tunda = null; elTanyaCadangan.hidden = true; });
+  document.getElementById('tombolPulihkan').addEventListener('click', () => {
+    const data = cadangan.tunda;
+    if (!data) return;
+    try { for (const [k, v] of Object.entries(data)) localStorage.setItem(k, v); }
+    catch (e) { elStatusCadangan.textContent = L('Gagal memulihkan: ', 'Could not restore: ') + e.message; return; }
+    cadangan.tunda = null; elTanyaCadangan.hidden = true;
+    elStatusCadangan.textContent = L('Pulih. KiKo dimuat ulang…', 'Restored. Reloading KiKo…');
+    setTimeout(() => location.reload(), 1200);       // semua setelan dibaca saat halaman dimuat
+  });
 
   // =====================================================================
   //  JAM & PENGINGAT
