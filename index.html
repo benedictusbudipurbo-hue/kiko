@@ -174,6 +174,9 @@
   .isian:focus-visible { outline: 2px solid var(--mata); outline-offset: 2px; }
 
   /* ---------- Pratinjau kamera (uji pelacakan wajah) ---------- */
+  #bidikKamera { position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(0, 0, 0, 0.82); color: #fff; font: 700 18px/1.3 system-ui, sans-serif; text-align: center; padding: 12px; }
+  #bidikKamera.tampil { display: flex; }
+  #bidikKamera video { max-height: 72vh; max-width: 92vw; border: 3px solid #fff; border-radius: 12px; transform: scaleX(-1); }
   #pratinjauKamera {
     position: fixed; left: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
     width: 160px; height: 120px; border-radius: 8px; border: 1px solid var(--garis);
@@ -288,6 +291,7 @@
   <p id="jam" hidden aria-live="off"></p>
   <p id="teksGalat" hidden aria-live="polite"></p>
 </div>
+<div id="bidikKamera"><div id="teksBidik"></div></div>
 <div id="pita">
 <div id="kartuBantuan" class="gelembung" hidden role="status"></div>
 <p id="teksPengingat" class="gelembung" hidden role="status"></p>
@@ -6160,6 +6164,7 @@
     if (jawabVolume(t, false)) return true;
     if (jawabPanggilan(t, false)) return true;                // telepon WA berdering: angkat / tolak
     if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
+    if (jawabLihat(t, false)) return true;                    // ini apa / baca ini / jawab soal ini
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
@@ -7236,6 +7241,7 @@
     if (jawabVolume(t, true)) return true;
     if (jawabPanggilan(t, true)) return true;
     if (jawabPesan(t, true)) return true;
+    if (jawabLihat(t, true)) return true;
     if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
       if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
       const isi = pengingat.slice(0, 3).map(p => {
@@ -7418,6 +7424,81 @@
 
   // Perintah suara pesan (A bacakan, B daftar, C balas). Dipanggil sebelum jawabTelepon,
   // karena "siapa yang kirim pesan" mengandung "kirim pesan".
+  // =====================================================================
+  //  MATA KIKO (2026-11-05, pengguna: "kalo bisa baca tulisan seperti soal soal dan bisa menjawab sekalian").
+  //  Satu foto HANYA saat diminta. Kamera wajah 320x240 terlalu kecil untuk tulisan, jadi resolusi dinaikkan
+  //  sebentar dan bidikan ditampilkan supaya kertasnya pas. Worker v16 yang membaca dan menjawab.
+  // =====================================================================
+  const LIHAT_HITUNG = 3, LIHAT_SISI = 1280, LIHAT_MUTU = 0.85;
+  const lihat = { aktif: false };
+  function jawabLihat(t, en) {
+    const u = rapikanAwal(t).replace(/\s+(dong|ya|please|sekarang|now)$/, '');
+    if (u.split(' ').length > 7) return false;
+    const tugas = en
+      ? (/^(solve|answer|do|work out)( this| the)?( question| problem| exercise)?$/.test(u) ? 'jawab'
+        : /^read( this| it| the text| this text)?$/.test(u) ? 'baca'
+        : /^(what is this|what'?s this|what is that|look at this)$/.test(u) ? 'apa'
+        : /^(where is this|where was this( taken)?|what place is this|look at this (photo|picture|view))$/.test(u) ? 'tempat' : '')
+      : (/^(jawab|jawabkan|kerjakan|selesaikan) (soal|ini)\b|^bantu (jawab|kerjakan) soal\b/.test(u) ? 'jawab'
+        : /^(baca|bacakan)( tulisan)?( ini)?$/.test(u) ? 'baca'
+        : /^(ini apa|apa ini|ini benda apa|benda apa ini|ini namanya apa|lihat ini|coba lihat ini)$/.test(u) ? 'apa'
+        : /^((ini )?(di ?mana|dimana) ini|ini (di ?mana|dimana)|(ini )?tempat apa( ini)?|ini foto (di ?mana|dimana|apa)|foto (ini )?(di ?mana|dimana)|lihat (foto|pemandangan) ini|coba lihat (foto|pemandangan) ini|pemandangan (ini )?(di ?mana|dimana))$/.test(u) ? 'tempat' : '');
+    if (!tugas) return false;
+    mulaiLihat(tugas, t);
+    return true;
+  }
+  async function mulaiLihat(tugas, ucapan) {
+    if (lihat.aktif) return;
+    if (!ai.url) { ucapkan(L('Isi dulu alamat Worker di ATUR ya.', 'Please fill in the Worker address in SETTINGS first.'), 'bingung'); return; }
+    if (!wajah.aktif || !wajah.video || !wajah.stream) { ucapkan(L('Aku perlu "Ikuti wajah orang" nyala supaya bisa melihat.', 'I need "Follow faces" turned on so I can see.'), 'bingung'); return; }
+    lihat.aktif = true;
+    const bidik = document.getElementById('bidikKamera'), teksB = document.getElementById('teksBidik');
+    const track = wajah.stream.getVideoTracks()[0], v = wajah.video;
+    const benda = tugas === 'apa' ? L('bendanya', 'the object') : tugas === 'tempat' ? L('fotonya', 'the photo') : L('kertasnya', 'the paper');
+    await tunggu(50);                                      // tanyaKiKo selesai dulu mengembalikan tahap
+    aturTahap('pikir');
+    try {
+      try { await track.applyConstraints({ width: { ideal: 1280 }, height: { ideal: 720 } }); } catch (_) {}
+      bidik.insertBefore(v, teksB);
+      bidik.classList.add('tampil');
+      ucapkan(L(`Pegang ${benda} di depan kameraku ya.`, `Hold ${benda} in front of my camera.`), 'senang');
+      for (let n = LIHAT_HITUNG + 2; n > 0; n--) {
+        teksB.textContent = L(`Pegang ${benda} lurus dan terang. Foto dalam ${n}`, `Hold ${benda} straight, in good light. Photo in ${n}`);
+        await tunggu(1000);
+      }
+      const skala = Math.min(1, LIHAT_SISI / Math.max(v.videoWidth, v.videoHeight));
+      const kanvas = document.createElement('canvas');
+      kanvas.width = Math.round(v.videoWidth * skala); kanvas.height = Math.round(v.videoHeight * skala);
+      kanvas.getContext('2d').drawImage(v, 0, 0, kanvas.width, kanvas.height);
+      const gambar = kanvas.toDataURL('image/jpeg', LIHAT_MUTU);
+      teksB.textContent = '';
+      bidik.classList.remove('tampil');
+      tampilTeks(L('Sebentar, aku lihat dulu…', 'One moment, let me look…'), 30000);
+      ekspresiSingkat('curiga', 30000);
+      const res = await fetch(ai.url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pesan: ucapan, tugas, gambar, riwayat: [], waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta, bahasa }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
+      if (data.tulisan) tambahLogDengar(L('terbaca: ', 'read: ') + data.tulisan.slice(0, 120));
+      ai.riwayat.push({ role: 'user', content: (tugas === 'apa' || tugas === 'tempat' ? ucapan : L('Soal di foto: ', 'Text in the photo: ') + (data.tulisan || '')).slice(0, 480) }, { role: 'assistant', content: data.teks.slice(0, 480) });
+      ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
+      ucapkan(data.teks, data.ekspresi);
+      if (data.gerak === 'angguk' || data.gerak === 'geleng') setTimeout(() => kirim('G,' + data.gerak), 300);
+    } catch (err) {
+      const pesan = String((err && err.message) || err);
+      statusAi(L('Gagal: ', 'Failed: ') + pesan);
+      tampilTeks(L('Maaf, aku belum bisa melihatnya. (', "Sorry, I can't see it yet. (") + pesan + ')', 6000);
+      ekspresiSingkat('sedih', 2000);
+    } finally {
+      bidik.classList.remove('tampil');
+      try { await track.applyConstraints({ width: { ideal: 320 }, height: { ideal: 240 } }); } catch (_) {}
+      lihat.aktif = false;
+      aturTahap('diam');
+    }
+  }
+
   function jawabPesan(t, en) {
     // 2026-10-25 (pengguna: "beri opsi pesan suara dimatikan"): pengumuman pesan bisa dimatikan
     // dengan suara juga (sama dengan saklar "Umumkan pesan dengan suara").
