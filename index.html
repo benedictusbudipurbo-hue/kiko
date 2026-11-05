@@ -7438,11 +7438,15 @@
       ? (/^(solve|answer|do|work out)( this| the)?( question| problem| exercise)?$/.test(u) ? 'jawab'
         : /^read( this| it| the text| this text)?$/.test(u) ? 'baca'
         : /^(what is this|what'?s this|what is that|look at this)$/.test(u) ? 'apa'
-        : /^(where is this|where was this( taken)?|what place is this|look at this (photo|picture|view))$/.test(u) ? 'tempat' : '')
+        : /^(where is this|where was this( taken)?|what place is this|look at this (photo|picture|view))$/.test(u) ? 'tempat'
+        : /^(count (the |this |my )?money|how much money( is this)?|how much is this money)$/.test(u) ? 'uang'
+        : /^(count (this|these|them|the items)|how many (are )?(is |are )?(this|these|there))$/.test(u) ? 'hitung' : '')
       : (/^(jawab|jawabkan|kerjakan|selesaikan) (soal|ini)\b|^bantu (jawab|kerjakan) soal\b/.test(u) ? 'jawab'
         : /^(baca|bacakan)( tulisan)?( ini)?$/.test(u) ? 'baca'
         : /^(ini apa|apa ini|ini benda apa|benda apa ini|ini namanya apa|lihat ini|coba lihat ini)$/.test(u) ? 'apa'
-        : /^((ini )?(di ?mana|dimana) ini|ini (di ?mana|dimana)|(ini )?tempat apa( ini)?|ini foto (di ?mana|dimana|apa)|foto (ini )?(di ?mana|dimana)|lihat (foto|pemandangan) ini|coba lihat (foto|pemandangan) ini|pemandangan (ini )?(di ?mana|dimana))$/.test(u) ? 'tempat' : '');
+        : /^((ini )?(di ?mana|dimana) ini|ini (di ?mana|dimana)|(ini )?tempat apa( ini)?|ini foto (di ?mana|dimana|apa)|foto (ini )?(di ?mana|dimana)|lihat (foto|pemandangan) ini|coba lihat (foto|pemandangan) ini|pemandangan (ini )?(di ?mana|dimana))$/.test(u) ? 'tempat'
+        : /^(hitung (uang|duit)(ku| ini|nya)?|(uang|duit)(ku|nya)?( ini)? berapa|ini uang berapa|berapa (jumlah )?(uang|duit)(ku|nya)?( ini)?)$/.test(u) ? 'uang'
+        : /^(hitung (ini|semua( ini)?|(barang|benda)(nya| ini)?)|berapa (banyak|jumlah)( barang| benda)?( ini)?|ada berapa( barang| benda)? ini)$/.test(u) ? 'hitung' : '');
     if (!tugas) return false;
     mulaiLihat(tugas, t);
     return true;
@@ -7454,7 +7458,7 @@
     lihat.aktif = true;
     const bidik = document.getElementById('bidikKamera'), teksB = document.getElementById('teksBidik');
     const track = wajah.stream.getVideoTracks()[0], v = wajah.video;
-    const benda = tugas === 'apa' ? L('bendanya', 'the object') : tugas === 'tempat' ? L('fotonya', 'the photo') : L('kertasnya', 'the paper');
+    const benda = { apa: L('bendanya', 'the object'), tempat: L('fotonya', 'the photo'), uang: L('uangnya', 'the money'), hitung: L('barangnya', 'the items') }[tugas] || L('kertasnya', 'the paper');
     await tunggu(50);                                      // tanyaKiKo selesai dulu mengembalikan tahap
     aturTahap('pikir');
     try {
@@ -7463,7 +7467,8 @@
       bidik.classList.add('tampil');
       ucapkan(L(`Pegang ${benda} di depan kameraku ya.`, `Hold ${benda} in front of my camera.`), 'senang');
       for (let n = LIHAT_HITUNG + 2; n > 0; n--) {
-        teksB.textContent = L(`Pegang ${benda} lurus dan terang. Foto dalam ${n}`, `Hold ${benda} straight, in good light. Photo in ${n}`);
+        const saran = tugas === 'uang' || tugas === 'hitung' ? L('terhampar, tidak menumpuk', 'spread out, not stacked') : L('lurus dan terang', 'straight, in good light');
+        teksB.textContent = L(`Pegang ${benda} ${saran}. Foto dalam ${n}`, `Hold ${benda} ${saran}. Photo in ${n}`);
         await tunggu(1000);
       }
       const skala = Math.min(1, LIHAT_SISI / Math.max(v.videoWidth, v.videoHeight));
@@ -7482,7 +7487,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
       if (data.tulisan) tambahLogDengar(L('terbaca: ', 'read: ') + data.tulisan.slice(0, 120));
-      ai.riwayat.push({ role: 'user', content: (tugas === 'apa' || tugas === 'tempat' ? ucapan : L('Soal di foto: ', 'Text in the photo: ') + (data.tulisan || '')).slice(0, 480) }, { role: 'assistant', content: data.teks.slice(0, 480) });
+      ai.riwayat.push({ role: 'user', content: (tugas === 'baca' || tugas === 'jawab' ? L('Soal di foto: ', 'Text in the photo: ') + (data.tulisan || '') : ucapan).slice(0, 480) }, { role: 'assistant', content: data.teks.slice(0, 480) });
       ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
       ucapkan(data.teks, data.ekspresi);
       if (data.gerak === 'angguk' || data.gerak === 'geleng') setTimeout(() => kirim('G,' + data.gerak), 300);
