@@ -1,10 +1,10 @@
 {
-  "versi": 30,
-  "file": "kiko_base_Ver_30.bin",
-  "ukuran": 686752,
-  "sha256": "1d359b537976d528bfa16e785b007cde895090ea9fdfc359a779d2908edec3f7",
-  "tanggal": "2026-11-03",
-  "catatan": "Putar di tempat (R) lebih tepat: ada faktor putar untuk roda yang selip, bisa disetel dengan W,<faktor>.",
-  "catatan_en": "In-place turns (R) are more accurate: a turn factor compensates wheel slip, adjustable with W,<factor>.",
+  "versi": 31,
+  "file": "kiko_base_Ver_31.bin",
+  "ukuran": 686880,
+  "sha256": "a28d34d69ac2a207fd2c0b0871302e2b3b888d2ea146b19e44a4fe3d74954534",
+  "tanggal": "2026-11-05",
+  "catatan": "KiKo berhenti lebih halus di akhir gerak, badan tidak lagi mengangguk saat berhenti.",
+  "catatan_en": "KiKo stops more smoothly at the end of a move, so its body no longer pitches forward.",
   "partisi": "min_spiffs"
 }
