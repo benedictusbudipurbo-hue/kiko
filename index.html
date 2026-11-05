@@ -2779,9 +2779,10 @@
     rodaTerimaBaris(kode, baris.trim().split(','));           // gerak roda: D,selesai / O / C / J / ?,D (2026-11-03)
     if (kode === 'W' && nilai) { const f = parseFloat(nilai); if (f > 0) ble.faktorPutar = f; return; }   // Ver 30: faktor putar
     if (kode === 'T') {
+      const ujiDiag = !!diag.tungguSentuh;
       if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
-      if (nilai !== 'tahan') { akhiriMenjauh(); sentuhSaatJalan(); }
+      if (nilai !== 'tahan') { akhiriMenjauh(); sentuhSaatJalan(); if (!ujiDiag) sentuhTanpaWajah(); }
       if (menungguElus && nilai !== 'tahan') tampilTeks(L('Hihi geli! Sekarang sentuh layarku ya.', 'Hehe, that tickles! Now touch my screen.'));
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
@@ -4723,6 +4724,21 @@
       kirim('G,angguk');
       ucapkan(L('Ini aku!', "Here I am!"), 'sayang');
     });
+  }
+  // 2026-11-05 (pengguna: "ketika kiko menghadap ke belakang dan sensor disentuh, belum secara auto mencari
+  // wajah yang menyentuh"): KiKo diam, wajah tidak terlihat, berarti pemiliknya di belakang atau di samping.
+  // Kalau wajah terlihat, sentuhan tetap berarti dielus. Sesudah tidur kamera perlu waktu menyala lagi,
+  // jadi ditunggu lebih lama supaya KiKo tidak berputar padahal orangnya di depan kamera.
+  const SENTUH_TUNGGU_MS = 1200, SENTUH_TUNGGU_TIDUR_MS = 3500, SENTUH_ULANG_MS = 10000;
+  function sentuhTanpaWajah() {
+    const now = performance.now();
+    if (wajah.ada || now - (roda.sentuhLalu || 0) < SENTUH_ULANG_MS || !document.getElementById('cekWajah').checked) return;
+    const tidurTadi = hemat.kamTidur || hemat.tidur;
+    roda.sentuhLalu = now;
+    setTimeout(() => {
+      if (wajah.ada || tari.aktif || ajar.aktif || !wajah.aktif || !rodaBolehOtomatis(cekRoda)) return;
+      jalankanRoda(rangkaianSentuh);
+    }, tidurTadi ? SENTUH_TUNGGU_TIDUR_MS : SENTUH_TUNGGU_MS);
   }
   function sentuhSaatJalan() {
     if (!roda.sibuk || !roda.perintah || alasanRodaTidakBoleh()) return;
