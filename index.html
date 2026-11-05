@@ -1705,15 +1705,19 @@
   //  khas kelinci), mulut "Y" dengan dua gigi depan saat bicara/senang, kumis tipis panjang.
   //  TANPA telinga di layar (sama seperti anjing): telinga panjangnya ada di bando dudukan.
   // =====================================================================
-  // Wortel: properti yang langsung bilang "ini kelinci". Ngemil 3,5 dtk, sesekali (70-150 dtk) selama
+  // Wortel: properti yang langsung bilang "ini kelinci". Ngemil 3,5 dtk, sesekali (JEDA_KELINCI) selama
   // ada di layar dan tidak tidur/bicara/malam, saat pertama memilih gaya kelinci, dan saat diminta
   // ("makan wortel dong", "mau wortel?", EN "eat a carrot").
   const WORTEL_MS = 3500;
+  // 2026-11-05 (pengguna: "makan wortel dan usap hidung hampir tidak pernah terlihat, hanya diawal"): saat ada
+  // orang, mic hampir selalu terbuka, dan syarat tahap 'diam' menggeser jadwal 15 dtk terus-menerus. Mendengar
+  // tidak butuh mulut KiKo, jadi hanya saat berpikir dan bicara jadwal ditunda, sebentar saja. Jeda juga dipendekkan.
+  const JEDA_KELINCI = () => (40 + Math.random() * 50) * 1000, TUNDA_KELINCI_MS = 4000;
   const wortel = { sampai: 0, berikut: performance.now() + 20000 };
   function kelinciNgemil() {
     const now = performance.now();
     wortel.sampai = now + WORTEL_MS;
-    wortel.berikut = now + (70 + Math.random() * 80) * 1000;
+    wortel.berikut = now + JEDA_KELINCI();
     // sesudah makan, kelinci sering langsung "cuci muka"
     if (Math.random() < 0.6) setTimeout(() => { if (gaya === 'kelinci' && !ai.bicara) kelinciDandan(); }, WORTEL_MS + 300);
     if (typeof bangunkanBingkai === 'function') bangunkanBingkai();
@@ -1733,10 +1737,36 @@
   setInterval(() => {
     const now = performance.now();
     if (gaya !== 'kelinci' || fase !== 'hidup' || document.hidden || now < wortel.berikut || wortel.sampai > now || dandan.sampai > now) return;
-    if (modeMalamAktif() || moodSaatIni(now) === 'tidur' || ai.bicara || ai.tahap !== 'diam' || tari.mik || menyendiri.aktif) { wortel.berikut = now + 15000; return; }
+    if (modeMalamAktif() || moodSaatIni(now) === 'tidur' || ai.bicara || ai.tahap === 'pikir' || tari.mik || menyendiri.aktif) { wortel.berikut = now + TUNDA_KELINCI_MS; return; }
     if (Math.random() < 0.5) kelinciNgemil();
-    else { kelinciDandan(); wortel.berikut = now + (70 + Math.random() * 80) * 1000; }
-  }, 5000);
+    else { kelinciDandan(); wortel.berikut = now + JEDA_KELINCI(); }
+  }, 2000);
+  // 2026-11-05 (pengguna: "kadang saat bangun ato mau tidur ato diam lebih baik ditampil"): momen perubahan
+  // suasana paling terasa hidup. Bangun: kelinci cuci muka. Mengantuk: cuci muka atau ngemil. Kucing dan
+  // anjing bersuara pada momen yang sama. Sapaan suara saat bangun didahulukan, lalu baru momennya.
+  const PELUANG_MOMEN = 0.7, MOMEN_JEDA_MS = 2500, MOMEN_COBA = 5;
+  const MOMEN_ULANG_MS = 30000;    // reaksi hewan membuat wajah sebentar senang: jangan terhitung momen baru
+  let moodMomen = '', momenLalu = -1e9;
+  function jalankanMomen(bangun, sisa) {
+    if (gaya === 'realistis' || gaya === 'robot' || fase !== 'hidup' || document.hidden || modeMalamAktif() || menyendiri.aktif || tari.mik) return;
+    if (ai.bicara || ai.tahap === 'pikir') { if (sisa > 0) setTimeout(() => jalankanMomen(bangun, sisa - 1), MOMEN_JEDA_MS); return; }
+    const now = performance.now();
+    if (gaya !== 'kelinci') { suaraHewan(false); return; }
+    if (wortel.sampai > now || dandan.sampai > now) return;
+    if (bangun || Math.random() < 0.5) { kelinciDandan(); wortel.berikut = Math.max(wortel.berikut, now + 25000); }
+    else kelinciNgemil();
+  }
+  setInterval(() => {
+    if (fase !== 'hidup' || document.hidden) { moodMomen = ''; return; }
+    const now = performance.now(), mood = moodSaatIni(now), tadi = moodMomen;
+    moodMomen = mood;
+    const bangun = tadi === 'tidur' && mood !== 'tidur';
+    const kantuk = mood === 'ngantuk' && tadi === 'normal';
+    if (!bangun && !kantuk) return;
+    if (now - momenLalu < MOMEN_ULANG_MS) return;
+    momenLalu = now;
+    if (Math.random() < PELUANG_MOMEN) setTimeout(() => jalankanMomen(bangun, MOMEN_COBA), MOMEN_JEDA_MS);
+  }, 1000);
   // Kaki depan kelinci: oval berbulu warna wajah, garis tepi tipis, dua garis jari di ujung atas.
   function gambarKakiKelinci(x, y, sudut, s) {
     const rx = 0.085 * U, ry = 0.13 * U;
@@ -3737,6 +3767,7 @@
 
     const r = new SR();
     ai.pengenal = r;
+    ai.sesiOtomatis = otomatis; ai.adaSementara = false;
     let adaGalat = false;
     r.lang = L('id-ID', 'en-US');
     // 2026-10-19 (pengguna: "agak sulit mendengar"): hasil sementara ditampilkan langsung, supaya
@@ -3768,7 +3799,7 @@
         ai.alternatif = alt;
         kirimTeks(teks);
       }
-      else if (teks) { sementaraTeks = teks; tampilTeks('… ' + teks, 4000); }
+      else if (teks) { sementaraTeks = teks; ai.adaSementara = true; tampilTeks('… ' + teks, 4000); }
     };
     r.onerror = e => {
       if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
@@ -6650,7 +6681,8 @@
 
   function bolehBersuaraHewan(now) {
     return hewan.aktif && (gaya === 'kucing' || gaya === 'anjing' || gaya === 'kelinci') && fase === 'hidup' && !document.hidden
-      && !modeMalamAktif() && moodSaatIni(now) !== 'tidur' && !ai.bicara && ai.tahap === 'diam'
+      && !modeMalamAktif() && moodSaatIni(now) !== 'tidur' && !ai.bicara
+      && (ai.tahap === 'diam' || (ai.tahap === 'dengar' && ai.sesiOtomatis && !ai.adaSementara))
       && !lanjutMenunggu() && !radioMain() && !videoMain() && !ota.aktif && !tari.aktif && !menyendiri.aktif;
   }
 
@@ -6659,6 +6691,11 @@
     const now = performance.now();
     jenis = jenis || (gaya === 'anjing' || gaya === 'kelinci' ? gaya : 'kucing');
     if (!paksa && (!bolehBersuaraHewan(now) || now - hewan.terakhir < 45000)) return false;
+    // 2026-11-05 (pengguna: "suara dhuk dhuk kelinci, coba check juga di kucing dan anjing"): saat ada orang
+    // mic otomatis hampir selalu terbuka, dan syarat tahap 'diam' membuat suara hewan nyaris tidak pernah
+    // keluar. Sesi otomatis yang masih sunyi ditutup dulu supaya bunyinya tidak tertangkap mic sendiri;
+    // orang yang sedang bicara dan sesi tombol mic tidak dipotong (lihat bolehBersuaraHewan).
+    if (!paksa) tutupMikSebelumBicara();
     try {
       actxHewan = actxHewan || new (window.AudioContext || window.webkitAudioContext)();
     } catch (_) { return false; }
@@ -6691,9 +6728,9 @@
   setInterval(() => {
     const now = performance.now();
     if (now < hewan.spontanBerikut) return;
-    if (orangHadir(now) && suaraHewan(false)) hewan.spontanBerikut = now + (180 + Math.random() * 240) * 1000;
-    else hewan.spontanBerikut = now + 20000;
-  }, 10000);
+    if (orangHadir(now) && suaraHewan(false)) hewan.spontanBerikut = now + (100 + Math.random() * 140) * 1000;
+    else hewan.spontanBerikut = now + 5000;
+  }, 3000);
 
   const cekSuaraHewan = document.getElementById('cekSuaraHewan');
   cekSuaraHewan.checked = hewan.aktif;
