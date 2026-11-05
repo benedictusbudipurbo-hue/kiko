@@ -2765,12 +2765,12 @@
     if (kode === 'T') {
       if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
-      if (nilai !== 'tahan') akhiriMenjauh();
+      if (nilai !== 'tahan') { akhiriMenjauh(); sentuhSaatJalan(); }
       if (menungguElus && nilai !== 'tahan') tampilTeks(L('Hihi geli! Sekarang sentuh layarku ya.', 'Hehe, that tickles! Now touch my screen.'));
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
     // C = sensor tepi melihat jurang (Ver 6: "C,depan" / "C,belakang"); base sudah mengerem
-    else if (kode === 'C') { interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500); }
+    else if (kode === 'C') rodaTepi(nilai);
     // J = roda macet (Ver 8, encoder): ada tenaga tapi roda tidak berputar, base sudah mengerem
     else if (kode === 'J') { interaksi(); ekspresiSingkat('bingung', 1800); kirim('G,bingung'); }
     // U = kabel charger tercolok (U,1) / dicabut (U,0), firmware Ver 12
@@ -4302,7 +4302,8 @@
   const cekRodaTari = document.getElementById('cekRodaTari');
   const cekRodaEkspresi = document.getElementById('cekRodaEkspresi');
   const elStatusRoda = document.getElementById('statusRoda');
-  const roda = { sibuk: false, batal: false, tunggu: null, odo: null, acuan: null, x: 0, y: 0, th: 0,
+  const roda = { sibuk: false, batal: false, tunggu: null, odo: null, acuan: null, x: 0, y: 0, th: 0, arah: null, periksa: null,
+                 tepi: { depan: false, belakang: false }, tolakSisi: '', perintah: false,
                  hadapTerakhir: 0, ekspresiTerakhir: 0 };
   for (const [el, kunci, bawaan] of [[cekRoda, 'kiko.roda', '0'], [cekRodaHadap, 'kiko.rodaHadap', '1'],
                                       [cekRodaTari, 'kiko.rodaTari', '1'], [cekRodaEkspresi, 'kiko.rodaEkspresi', '1']]) {
@@ -4335,10 +4336,39 @@
   function rodaTerimaBaris(kode, bagian) {
     if (kode === 'D' && bagian[1] === 'selesai') { if (roda.tunggu) roda.tunggu.ok(); }
     else if (kode === 'O') { const pk = parseInt(bagian[1], 10), pkn = parseInt(bagian[2], 10); if (roda.odo && !isNaN(pk) && !isNaN(pkn)) roda.odo([pk, pkn]); }
-    // C/J saat gerak tanpa D/R (ikuti aku, joget pakai M): hentikan rangkaian dengan alasannya.
-    else if (kode === 'C') { if (roda.tunggu) roda.tunggu.gagal('tepi'); else if (roda.sibuk) { roda.alasan = 'tepi'; roda.batal = true; } }
+    // J saat gerak tanpa D/R (ikuti aku, joget pakai M): hentikan rangkaian dengan alasannya.
     else if (kode === 'J') { if (roda.tunggu) roda.tunggu.gagal('macet'); else if (roda.sibuk) { roda.alasan = 'macet'; roda.batal = true; } }
     else if (kode === '?' && /^(D|R)\b/.test(bagian[1] || '')) { if (roda.tunggu) roda.tunggu.gagal('encoder'); }
+  }
+  // 2026-11-05 (pengguna: KiKo selalu bilang hampir jatuh saat berhenti, padahal tidak): rem mendadak di
+  // akhir gerak membuat badan yang tinggi mengangguk, sensor tepi sesaat terangkat, lalu base mengirim C.
+  // Dulu semua C dianggap jurang. Kini HP menunggu goyangan reda lalu menanyakan keadaan sensor sekarang,
+  // dan hanya sisi yang sedang dituju yang dihitung. Rem darurat tetap di firmware, tidak berubah.
+  const TEPI_TENANG_MS = 350;
+  async function periksaTepi(sisi) {
+    await tunggu(TEPI_TENANG_MS);
+    const anggap = { depan: sisi === 'depan', belakang: sisi === 'belakang' };
+    if (ble.versiBase && ble.versiBase < 28) return anggap;       // firmware lama belum punya laporan Y
+    const info = await mintaInfoDiag();
+    if (!info || !info.tepi) return anggap;                       // tidak ada jawaban: anggap sungguhan
+    return { depan: info.tepi[0] === '1', belakang: info.tepi[1] === '1' };
+  }
+  async function rodaTepi(sisi) {
+    if (roda.periksa) return;
+    const arah = roda.arah;                                       // 1 maju, -1 mundur, 0 berputar, null diam
+    const tugas = (async () => {
+      const t = await periksaTepi(sisi);
+      roda.tepi = t;
+      const bahaya = (t.depan && arah !== -1) || (t.belakang && arah !== 1);
+      if (bahaya) {
+        interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500);
+        if (roda.sibuk) { roda.alasan = 'tepi'; roda.batal = true; }
+      } else if (roda.sibuk) {
+        tambahLogDengar(L(`sensor tepi ${sisi} berkedip, meja aman`, `${sisi === 'depan' ? 'front' : 'rear'} edge sensor blinked, table is fine`));
+      }
+    })();
+    roda.periksa = tugas;
+    try { await tugas; } finally { roda.periksa = null; }
   }
   function rodaSaatTersambung() { roda.acuan = null; }   // base mungkin baru menyala: hitungan pulsa mulai dari 0 lagi
 
@@ -4397,35 +4427,67 @@
     if (!nilai) return;
     if (!roda.acuan) await sinkronPose();
     interaksi();
+    // 2026-11-05 (pengguna: "bisa menolak apabila diperintah kearah yang membuat sensor aktif lagi"):
+    // firmware sudah mengunci arah itu, tapi tanpa penjelasan. Keadaan ditanya ulang supaya sensor yang
+    // sudah bebas (digeser dengan tangan / joystick) tidak ikut menolak.
+    if (jenis === 'D' && (roda.tepi.depan || roda.tepi.belakang)) {
+      const info = await mintaInfoDiag();
+      if (info && info.tepi) roda.tepi = { depan: info.tepi[0] === '1', belakang: info.tepi[1] === '1' };
+      if (nilai > 0 ? roda.tepi.depan : roda.tepi.belakang) { roda.tolakSisi = nilai > 0 ? 'depan' : 'belakang'; throw new Error('tolakTepi'); }
+    }
+    roda.arah = jenis === 'D' ? Math.sign(nilai) : 0;
     kirim(`${jenis},${nilai},${RODA_KEC}`);
     let galat = null;
     try { await tungguGerak(); } catch (e) { galat = e; }
+    roda.arah = null;
     await sinkronPose();
+    if (roda.periksa) await roda.periksa;                // tunggu hasil cek sensor tepi sebelum lanjut
     if (galat) throw galat;
     if (roda.batal) throw new Error(roda.alasan || 'batal');
   }
   async function jedaRoda(ms) { await tunggu(ms); if (roda.batal) throw new Error(roda.alasan || 'batal'); }
 
   // Menjalankan rangkaian gerak satu per satu; hanya satu rangkaian pada satu waktu.
-  async function jalankanRoda(rangkaian, kalimatSelesai) {
+  // perintah = gerak yang diminta pemilik; hanya gerak seperti ini yang dipotong sentuhan badan.
+  async function jalankanRoda(rangkaian, kalimatSelesai, perintah = false) {
     if (roda.sibuk) rodaBerhenti(false);
     while (roda.sibuk) await tunggu(50);
-    roda.sibuk = true; roda.batal = false; perbaruiStatusRoda();
+    roda.sibuk = true; roda.batal = false; roda.perintah = perintah; perbaruiStatusRoda();
     try {
       await rangkaian();
       if (kalimatSelesai) ucapkan(kalimatSelesai, 'senang');
     } catch (e) {
       const m = e && e.message;
       if (m && m !== 'batal') tambahLogDengar(L('roda berhenti: ', 'wheels stopped: ') + m);
-      if (m === 'tepi') ucapkan(L('Hampir jatuh! Aku berhenti di sini.', 'Whoa, an edge! I stopped here.'), 'kaget');
+      if (m === 'tepi') await menjauhiTepi();
+      else if (m === 'tolakTepi') ucapkan(roda.tolakSisi === 'depan' ? L('Di depanku tepi meja, aku tidak berani.', "There's a table edge in front of me, I won't go.")
+                                                                     : L('Di belakangku tepi meja, aku tidak berani.', "There's a table edge behind me, I won't go."), 'bingung');
       else if (m === 'macet') ucapkan(L('Rodaku macet, ada yang menahan.', 'My wheels are stuck, something is blocking them.'), 'bingung');
       else if (m === 'encoder') ucapkan(L('Aku tidak bisa merasakan rodaku berputar. Encodernya perlu dicek.', "I can't feel my wheels turning. The encoders need checking."), 'bingung');
       else if (m === 'waktu') ucapkan(L('Gerakku tidak selesai.', "My move didn't finish."), 'bingung');
       // 'batal' = dihentikan dengan sengaja: diam saja
     } finally {
-      roda.sibuk = false; roda.batal = false; roda.alasan = ''; perbaruiStatusRoda();
+      roda.sibuk = false; roda.batal = false; roda.alasan = ''; roda.perintah = false; perbaruiStatusRoda();
       ai.dengarBebasSampai = performance.now() + DENGAR_RODA_MS;
       ai.jedaDengar = JEDA_DENGAR_MIN; ai.dengarBerikut = Math.min(ai.dengarBerikut, performance.now() + 600);
+    }
+  }
+  // 2026-11-05 (pengguna: "apakah kemudian kiko akan berusaha lepas sendiri"): setelah jurang terbukti
+  // nyata, KiKo menjauh sedikit dari tepi lalu mengecek sensornya. Hanya setelah gerak rangkaian, jadi
+  // KiKo yang diangkat tangan atau dijoystick tidak bergerak sendiri. Dua sisi sekaligus = tidak ada arah aman.
+  const TEPI_MUNDUR_MM = 60;
+  async function menjauhiTepi() {
+    const { depan, belakang } = roda.tepi;
+    if (depan && belakang) { ucapkan(L('Hampir jatuh! Di depan dan belakangku tepi. Tolong pindahkan aku.', 'Careful, edges in front and behind me! Please move me.'), 'kaget'); return; }
+    roda.batal = false; roda.alasan = '';
+    try {
+      await langkahRoda('D', depan ? -TEPI_MUNDUR_MM : TEPI_MUNDUR_MM);
+      const info = await mintaInfoDiag();
+      if (info && info.tepi) roda.tepi = { depan: info.tepi[0] === '1', belakang: info.tepi[1] === '1' };
+      if (roda.tepi.depan || roda.tepi.belakang) ucapkan(L('Aku masih di tepi meja. Tolong pindahkan aku.', "I'm still at the edge. Please move me."), 'sedih');
+      else ucapkan(depan ? L('Hampir jatuh! Aku mundur sedikit.', 'Whoa, an edge! I backed away.') : L('Hampir jatuh! Aku maju sedikit.', 'Whoa, an edge! I moved forward.'), 'kaget');
+    } catch (e) {
+      if (e && e.message !== 'batal') ucapkan(L('Hampir jatuh! Tolong pindahkan aku.', 'Careful, an edge! Please move me.'), 'kaget');
     }
   }
   function rodaBerhenti(bilang) {
@@ -4449,8 +4511,8 @@
     ai.catatGerak = alasan ? L('roda ditolak: ', 'wheels refused: ') + alasan : L('roda jalan', 'wheels moving');
     if (alasan) { ucapkan(alasan, 'sedih'); return true; }
     interaksi();
-    ucapkan(kalimatMulai || L('Oke!', 'Okay!'), 'senang');   // tanda perintah tertangkap
-    jalankanRoda(rangkaian, kalimatSelesai);
+    if (!roda.tepi.depan && !roda.tepi.belakang) ucapkan(kalimatMulai || L('Oke!', 'Okay!'), 'senang');   // tanda perintah tertangkap
+    jalankanRoda(rangkaian, kalimatSelesai, rangkaian !== rangkaianJoget);
     return true;
   }
 
@@ -4490,11 +4552,11 @@
   // 2026-11-04 (pengguna: "perintah menghadap aku ... kiko berputar hingga dia menemukan wajah pemilik"):
   // mulai ke arah terakhir wajah terlihat (wajah.bearing, arah di ruangan), lalu putar 45 derajat
   // beruntun paling banyak satu putaran. true = ketemu.
-  async function cariWajahDenganBadan() {
+  async function cariWajahDenganBadan(sisiAwal) {
     if (wajah.ada) return true;
     await sinkronPose();
-    let sisi = 1;
-    if (wajah.terakhirLihat > 0 && wajah.bearing !== undefined) {
+    let sisi = sisiAwal || 1;
+    if (!sisiAwal && wajah.terakhirLihat > 0 && wajah.bearing !== undefined) {
       const beda = Math.atan2(Math.sin(roda.th - wajah.bearing), Math.cos(roda.th - wajah.bearing)) * 180 / Math.PI;   // + = kanan KiKo
       if (beda < 0) sisi = -1;
       if (Math.abs(beda) > 15) { await langkahRoda('R', beda); await jedaRoda(1000); }
@@ -4515,9 +4577,9 @@
   // maju sampai wajah cukup besar, paling banyak +-1 m; base tetap mengerem di tepi meja. Kalau wajah
   // naik ke atas gambar, pose kepala dinaikkan lewat S (L hanya sampai +8, mekanik sampai +18).
   const DATANG_LANGKAH = 12;
-  async function rangkaianDatang() {
+  async function rangkaianDatang(dongakAwal = 0, kalimatTiba = null) {
     if (!await cariWajahDenganBadan()) { ucapkan(L('Aku tidak melihatmu. Kamu di mana?', "I can't see you. Where are you?"), 'bingung'); return; }
-    let dongak = 0;
+    let dongak = dongakAwal;
     const naikkan = async () => { dongak = Math.min(10, dongak + 5); kirim('S,' + (90 + dongak)); await jedaRoda(1000); };
     try {
       for (let i = 0; i < DATANG_LANGKAH; i++) {
@@ -4529,11 +4591,49 @@
         await langkahRoda('D', 80);
         await jedaRoda(400);
       }
-      ucapkan(L('Aku sudah di sini!', "Here I am!"), 'senang');
+      if (kalimatTiba) await kalimatTiba();
+      else ucapkan(L('Aku sudah di sini!', "Here I am!"), 'senang');
     } finally {
       // Tetap mendongak sebentar menatap pemiliknya, lalu kembali ke pose biasa.
       if (dongak) setTimeout(() => { if (ble.terhubung && !roda.sibuk) kirim('S,90'); }, 8000);
     }
+  }
+
+  // ---- 8. Disentuh saat berjalan (2026-11-05, pengguna: "apabila touch sensor disentuh kiko akan langsung
+  // merespon ... mencari wajah pemilik, berusaha berhenti tepat dihadapan wajah pemilik") ----
+  // Orang yang menyentuh pasti dalam jangkauan tangan, jadi kepala langsung mendongak. Wajah baru saja
+  // terlihat: cari ke arah itu. Sudah lama tidak terlihat: ke arah tangan, yaitu zona sentuh di kiri-belakang
+  // KiKo, lalu mundur sedikit supaya wajah yang terlalu dekat masuk gambar.
+  const SENTUH_ARAH = -135, SENTUH_DONGAK = 10, SENTUH_WAJAH_BARU_MS = 8000, SENTUH_TERLALU_DEKAT = 0.38;
+  async function rangkaianSentuh() {
+    ekspresiSingkat('senang', 2500);
+    ucapkan(L('Iya, aku datang!', "Yes, I'm coming!"), 'senang');
+    kirim('S,' + (90 + SENTUH_DONGAK));
+    await jedaRoda(600);
+    if (!wajah.ada && performance.now() - wajah.terakhirLihat > SENTUH_WAJAH_BARU_MS) {
+      await langkahRoda('R', SENTUH_ARAH);
+      await jedaRoda(1200);
+      if (!wajah.ada) { await langkahRoda('D', -80); await jedaRoda(1000); }
+    }
+    if (!wajah.ada && !await cariWajahDenganBadan(performance.now() - wajah.terakhirLihat > SENTUH_WAJAH_BARU_MS ? -1 : 0)) {
+      kirim('S,90');
+      ucapkan(L('Kamu di mana? Aku tidak melihatmu.', "Where are you? I can't see you."), 'bingung');
+      return;
+    }
+    await rangkaianDatang(SENTUH_DONGAK, async () => {
+      kepala.pan = 0;
+      await jedaRoda(500);
+      if (wajah.ada && Math.abs(arahWajah()) > 6) { await langkahRoda('R', arahWajah()); await jedaRoda(500); }
+      if (wajah.ada && wajah.lebar > SENTUH_TERLALU_DEKAT) await langkahRoda('D', -50);
+      ekspresiSingkat('sayang', 3000);
+      kirim('G,angguk');
+      ucapkan(L('Ini aku!', "Here I am!"), 'sayang');
+    });
+  }
+  function sentuhSaatJalan() {
+    if (!roda.sibuk || !roda.perintah || alasanRodaTidakBoleh()) return;
+    if (!document.getElementById('cekWajah').checked) { rodaBerhenti(true); return; }
+    jalankanRoda(rangkaianSentuh);
   }
 
   // ---- 7. Ikuti aku (2026-11-03, pengguna: "apakah dah kemungkinan beri perintah ikuti aku?") ----
@@ -4575,10 +4675,12 @@
           const s = arahTerakhir >= 0 ? 1 : -1, laju = lama < 1500 ? 100 : 70;   // cari ke arah terakhir
           kiri = s * laju; kanan = -s * laju;
         }
+        roda.arah = Math.sign(kiri + kanan);
         kirim(`M,${Math.round(kiri)},${Math.round(kanan)}`);
         await jedaRoda(100);
       }
     } finally {
+      roda.arah = null;
       if (ble.terhubung) kirim('X');
       kepala.paksaSampai = 0;
       sinkronPose();
