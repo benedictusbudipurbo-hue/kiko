@@ -370,6 +370,7 @@
     <label class="saklar"><input type="checkbox" id="cekGerakHidup" checked> <span data-en="Lifelike motion: breathing, listening pose, small nods while talking, blinking on head turns">Gerak hidup: bernapas, pose mendengar, angguk kecil saat bicara, berkedip saat menoleh</span></label>
     <label class="saklar"><input type="checkbox" id="cekLirik" checked> <span data-en="Head follows the eyes&#x27; gaze (needs base firmware Ver 3)">Kepala ikut lirikan mata (butuh firmware base Ver 3)</span></label>
     <label class="saklar"><input type="checkbox" id="cekTepi" checked> <span data-en="Table-edge fall protection (wheeled version + edge sensors, firmware Ver 6)">Proteksi jatuh dari meja (versi beroda + sensor tepi, firmware Ver 6)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekKaca"> <span data-en="Glass table mode: edge protection OFF until KiKo is reopened. Watch KiKo at all times">Mode meja kaca: proteksi tepi MATI sampai KiKo dibuka lagi. Awasi KiKo terus</span></label>
     <label class="saklar"><input type="checkbox" id="cekMalam" checked> <span data-en="Night mode: sleeps sooner, no automatic microphone">Mode malam: cepat tidur, tanpa mikrofon otomatis</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
       <label class="petunjuk" for="jamMalamMulai" data-en="From">Dari jam</label>
@@ -2324,6 +2325,21 @@
     }, 900);
   }
 
+  // 2026-11-05 (pengguna: roda berputar tapi selip di marmer): encoder hanya menghitung putaran roda, jadi
+  // selip tidak terasa. Giroskop HP mengukur putaran badan sesungguhnya. Besar putaran dipakai, bukan satu
+  // sumbu, karena HP miring di dudukan dan posisinya bisa terbalik. Saat roda jalan lurus badan tidak
+  // berputar, jadi hanya gerak putar (R) yang bisa dicek.
+  const gyro = { ada: false, ukur: false, total: 0, lalu: 0 };
+  window.addEventListener('devicemotion', e => {
+    const w = e.rotationRate;
+    if (!w || w.alpha == null) return;
+    gyro.ada = true;
+    if (!gyro.ukur) return;
+    const t = performance.now(), dt = gyro.lalu ? Math.min(t - gyro.lalu, 100) / 1000 : 0;
+    gyro.lalu = t;
+    const laju = Math.hypot(w.alpha, w.beta || 0, w.gamma || 0);    // derajat per detik
+    if (laju > 4) gyro.total += laju * dt;
+  });
   window.addEventListener('devicemotion', e => {
     const a = e.accelerationIncludingGravity;
     if (!a || a.x == null) return;
@@ -2770,7 +2786,7 @@
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
     // C = sensor tepi melihat jurang (Ver 6: "C,depan" / "C,belakang"); base sudah mengerem
-    else if (kode === 'C') rodaTepi(nilai);
+    else if (kode === 'C') { if (nilai === 'depan' || nilai === 'belakang') rodaTepi(nilai); else rodaKabur(nilai, baris.trim().split(',')[2]); }
     // J = roda macet (Ver 8, encoder): ada tenaga tapi roda tidak berputar, base sudah mengerem
     else if (kode === 'J') { interaksi(); ekspresiSingkat('bingung', 1800); kirim('G,bingung'); }
     // U = kabel charger tercolok (U,1) / dicabut (U,0), firmware Ver 12
@@ -2887,7 +2903,7 @@
       statusPasang.textContent = '';
       perbaruiChip();
       moodTerkirim = '';            // kirim ulang ekspresi sekarang ke base
-      kirim(document.getElementById('cekTepi').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
+      kirim(document.getElementById('cekTepi').checked && !document.getElementById('cekKaca').checked ? 'K,1' : 'K,0');   // samakan proteksi jatuh
       kirim('U');                    // Ver 12: tanya colokan cas (firmware lama membalas ?,U, diabaikan)
       kirim('P');                    // Ver 25: versi firmware (balasan OK,KiKo-Base,<versi>) -> cek pembaruan
       kirim('W');                    // Ver 30: faktor putar (dipakai menghitung posisi roda); firmware lama membalas ?,W
@@ -3741,6 +3757,7 @@
       tampilTeks(lanjutMenunggu() ? L('🎤 Jawab sekarang…', '🎤 Answer now…') + (lanjut.pilihan ? '  ' + lanjut.pilihan : '') : (otomatis ? L('Aku mendengarkan…', "I'm listening…") : L('Mendengarkan…', 'Listening…')));
     };
     r.onresult = e => {
+      if (ai.pengenal !== r) return;                             // sesi yang sudah ditutup
       let teks = '', final = false;
       for (let i = 0; i < e.results.length; i++) { teks += e.results[i][0].transcript; if (e.results[i].isFinal) final = true; }
       teks = teks.trim();
@@ -3994,6 +4011,7 @@
   }
 
   async function tanyaKiKo(teks) {
+    if (gemaSendiri(teks)) { catatDengar(teks, L('suaraku sendiri, diabaikan', 'my own voice, ignored')); aturTahap('diam'); return; }
     if (dipuji(teks.toLowerCase())) ai.dipuji = Date.now();
     // Jam, tanggal dan pengingat dijawab di HP (tanpa AI, tanpa kuota).
     const menungguJawaban = lanjutMenunggu();
@@ -4052,9 +4070,27 @@
   }
   if (window.speechSynthesis) { pilihSuara(); speechSynthesis.onvoiceschanged = pilihSuara; }
 
+  // 2026-11-05 (video pengguna: sesudah "Hampir jatuh! Aku mundur sedikit" KiKo menjawab "Sudah aman, Beni?
+  // Kalau masih goyang, pegang meja dulu"): sejak mic dibuka selama roda bergerak, sesi mic bisa masih
+  // terbuka saat KiKo bicara, jadi ia mendengar suaranya sendiri lalu menjawabnya. Sesi ditutup sebelum
+  // bicara, dan teks yang hampir sama dengan ucapan barusan dibuang. Jawaban pertanyaan KiKo dikecualikan.
+  function tutupMikSebelumBicara() {
+    if (ai.tahap !== 'dengar' || !ai.pengenal) return;
+    const r = ai.pengenal;
+    ai.pengenal = null;
+    try { r.abort(); } catch (_) {}
+    aturTahap('diam');
+  }
+  function gemaSendiri(teks) {
+    if (lanjutMenunggu() || performance.now() > (ai.gemaSampai || 0)) return false;
+    const pecah = t => t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    const kata = pecah(teks), asal = new Set(pecah(ai.gemaTeks || ''));
+    return kata.length >= 3 && kata.filter(k => asal.has(k)).length / kata.length >= 0.7;
+  }
   function ucapkan(teks, ekspresi) {
     const nama = EKSPRESI[ekspresi] ? ekspresi : 'normal';
     const perkiraan = 1500 + teks.length * 75;                 // kira-kira lama bicara (ms)
+    if (cekSuara.checked) { tutupMikSebelumBicara(); ai.gemaTeks = teks; ai.gemaSampai = performance.now() + perkiraan + 2500; }
     tampilTeks(teks, perkiraan + 2500);
     ekspresiSingkat(nama, perkiraan);
     if (!cekSuara.checked || !window.speechSynthesis) {
@@ -4272,6 +4308,15 @@
   // Firmware lama membalas "?,K,..." yang diabaikan terimaBaris().
   const cekTepi = document.getElementById('cekTepi');
   try { cekTepi.checked = localStorage.getItem('kiko.tepi') !== '0'; } catch (_) {}
+  // 2026-11-05 (pengguna: "kiko juga tidak bisa berjalan diatas meja kaca transparan"): inframerah menembus
+  // kaca, jadi sensor tepi selalu membaca jurang. Saklar ini sengaja tidak disimpan: tiap KiKo dibuka
+  // proteksi tepi kembali nyala, supaya tidak terbawa ke meja biasa.
+  const cekKaca = document.getElementById('cekKaca');
+  cekKaca.addEventListener('change', () => {
+    if (ble.terhubung) kirim(cekTepi.checked && !cekKaca.checked ? 'K,1' : 'K,0');
+    if (cekKaca.checked) ucapkan(L('Mode kaca nyala. Aku tidak bisa melihat tepi meja, jadi awasi aku ya.', "Glass mode is on. I can't see the table edge, so please watch me."), 'bingung');
+    perbaruiStatusRoda();
+  });
   cekTepi.addEventListener('change', () => {
     try { localStorage.setItem('kiko.tepi', cekTepi.checked ? '1' : '0'); } catch (_) {}
     kirim(cekTepi.checked ? 'K,1' : 'K,0');
@@ -4303,7 +4348,7 @@
   const cekRodaEkspresi = document.getElementById('cekRodaEkspresi');
   const elStatusRoda = document.getElementById('statusRoda');
   const roda = { sibuk: false, batal: false, tunggu: null, odo: null, acuan: null, x: 0, y: 0, th: 0, arah: null, periksa: null,
-                 tepi: { depan: false, belakang: false }, tolakSisi: '', perintah: false,
+                 tepi: { depan: false, belakang: false }, tolakSisi: '', perintah: false, kabur: '', hasilKabur: null, selipSampai: 0,
                  hadapTerakhir: 0, ekspresiTerakhir: 0 };
   for (const [el, kunci, bawaan] of [[cekRoda, 'kiko.roda', '0'], [cekRodaHadap, 'kiko.rodaHadap', '1'],
                                       [cekRodaTari, 'kiko.rodaTari', '1'], [cekRodaEkspresi, 'kiko.rodaEkspresi', '1']]) {
@@ -4320,16 +4365,17 @@
     if (!cekRoda.checked) return L('Rodaku belum boleh bergerak. Nyalakan "Boleh bergerak dengan roda" di ATUR dulu ya.',
                                    'My wheels are not allowed to move yet. Turn on "Allow KiKo to move on its wheels" in SETTINGS first.');
     if (!ble.terhubung) return L('Badanku belum tersambung, jadi aku belum bisa jalan.', "My body isn't connected yet, so I can't move.");
-    if (!cekTepi.checked) return L('Proteksi jatuh dari meja sedang mati, jadi aku tidak berani jalan. Nyalakan dulu di ATUR.',
+    if (!cekTepi.checked && !cekKaca.checked) return L('Proteksi jatuh dari meja sedang mati, jadi aku tidak berani jalan. Nyalakan dulu di ATUR.',
                                    "Table-edge protection is off, so I won't drive. Please turn it on in SETTINGS first.");
     if (ble.cas) return L('Aku sedang dicas, rodaku dikunci.', "I'm charging, so my wheels are locked.");
     if (ota.aktif) return L('Aku sedang memperbarui badan, tunggu sebentar ya.', "I'm updating my body, please wait.");
+    if (roda.kabur) return L('Sebentar, aku menjauh dari tepi dulu.', 'One moment, moving away from the edge.');
     if (ble.versiBase && ble.versiBase < 8) return L('Badanku perlu firmware yang lebih baru untuk gerak terukur.', 'My body needs newer firmware for measured moves.');
     return '';
   }
   // Untuk gerak otomatis (menghadap, menari, ekspresi): diam-diam tidak jalan kalau tidak boleh / sedang sibuk.
   function rodaBolehOtomatis(cek) {
-    return cek.checked && !alasanRodaTidakBoleh() && !roda.sibuk && !setir.aktif && fase === 'hidup' && !menyendiri.aktif;
+    return cek.checked && !alasanRodaTidakBoleh() && !roda.sibuk && !setir.aktif && fase === 'hidup' && !menyendiri.aktif && performance.now() > roda.selipSampai;
   }
 
   // Jawaban base (dipanggil dari terimaBaris): D,selesai / O,... / C / J / ?,D|R,...
@@ -4358,6 +4404,7 @@
     const arah = roda.arah;                                       // 1 maju, -1 mundur, 0 berputar, null diam
     const tugas = (async () => {
       const t = await periksaTepi(sisi);
+      if (roda.kabur || roda.hasilKabur) return;                  // Ver 32: base sudah menangani sendiri
       roda.tepi = t;
       const bahaya = (t.depan && arah !== -1) || (t.belakang && arah !== 1);
       if (bahaya) {
@@ -4369,6 +4416,31 @@
     })();
     roda.periksa = tugas;
     try { await tugas; } finally { roda.periksa = null; }
+  }
+  // Ver 32: base menjauh sendiri tanpa menunggu HP; HP hanya menampilkan wajah dan memberi tahu.
+  function rodaKabur(jenis, sisi) {
+    if (jenis === 'kabur') {
+      roda.kabur = sisi;
+      roda.tepi = { depan: sisi === 'depan', belakang: sisi === 'belakang' };
+      interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500);
+      if (roda.sibuk) { roda.alasan = 'tepi'; roda.batal = true; }
+      return;
+    }
+    if (jenis !== 'aman' && jenis !== 'terjebak' && jenis !== 'dua') return;
+    const dari = roda.kabur;
+    roda.kabur = '';
+    if (jenis === 'aman') roda.tepi = { depan: false, belakang: false };
+    if (jenis === 'dua') {
+      roda.tepi = { depan: true, belakang: true };
+      interaksi(); kedipSekarang(); ekspresiSingkat('kaget', 1500);
+    }
+    if (roda.sibuk) { roda.hasilKabur = { jenis, dari }; roda.alasan = 'tepi'; roda.batal = true; }
+    else umumkanTepi(jenis, dari);
+  }
+  function umumkanTepi(jenis, dari) {
+    if (jenis === 'dua') ucapkan(L('Hampir jatuh! Di depan dan belakangku tepi. Tolong pindahkan aku.', 'Careful, edges in front and behind me! Please move me.'), 'kaget');
+    else if (jenis === 'terjebak') ucapkan(L('Aku masih di tepi meja. Tolong pindahkan aku.', "I'm still at the edge. Please move me."), 'sedih');
+    else ucapkan(dari === 'belakang' ? L('Hampir jatuh! Aku maju sedikit.', 'Whoa, an edge! I moved forward.') : L('Hampir jatuh! Aku mundur sedikit.', 'Whoa, an edge! I backed away.'), 'kaget');
   }
   function rodaSaatTersambung() { roda.acuan = null; }   // base mungkin baru menyala: hitungan pulsa mulai dari 0 lagi
 
@@ -4420,7 +4492,8 @@
 
   // Satu gerak terukur: jenis 'D' (mm, + maju) atau 'R' (derajat, + = kanan KiKo). Melempar galat
   // 'tepi' | 'macet' | 'encoder' | 'waktu' | 'batal' supaya rangkaian berhenti.
-  async function langkahRoda(jenis, nilai) {
+  const GYRO_SELIP = 0.35, GYRO_SISA_MIN = 15, GYRO_KOREKSI_MAKS = 60, SELIP_DIAM_MS = 30000;
+  async function langkahRoda(jenis, nilai, koreksi = false) {
     if (ajar.kering) { ajar.kering.push({ k: jenis, n: Math.round(nilai) }); return; }   // sedang diajari: dicatat, tidak bergerak
     if (roda.batal) throw new Error(roda.alasan || 'batal');
     nilai = Math.round(nilai);
@@ -4435,15 +4508,24 @@
       if (info && info.tepi) roda.tepi = { depan: info.tepi[0] === '1', belakang: info.tepi[1] === '1' };
       if (nilai > 0 ? roda.tepi.depan : roda.tepi.belakang) { roda.tolakSisi = nilai > 0 ? 'depan' : 'belakang'; throw new Error('tolakTepi'); }
     }
+    const ukurPutar = jenis === 'R' && gyro.ada && Math.abs(nilai) >= 30;
+    if (ukurPutar) { gyro.total = 0; gyro.lalu = 0; gyro.ukur = true; }
     roda.arah = jenis === 'D' ? Math.sign(nilai) : 0;
     kirim(`${jenis},${nilai},${RODA_KEC}`);
     let galat = null;
     try { await tungguGerak(); } catch (e) { galat = e; }
     roda.arah = null;
     await sinkronPose();
+    gyro.ukur = false;
     if (roda.periksa) await roda.periksa;                // tunggu hasil cek sensor tepi sebelum lanjut
     if (galat) throw galat;
     if (roda.batal) throw new Error(roda.alasan || 'batal');
+    if (ukurPutar) {
+      const mau = Math.abs(nilai), dapat = gyro.total;
+      tambahLogDengar(L(`putar ${mau} derajat, terukur ${Math.round(dapat)}`, `turn ${mau} degrees, measured ${Math.round(dapat)}`));
+      if (dapat < mau * GYRO_SELIP) throw new Error('selip');
+      if (!koreksi && mau - dapat >= GYRO_SISA_MIN) await langkahRoda('R', Math.sign(nilai) * Math.min(mau - dapat, GYRO_KOREKSI_MAKS), true);
+    }
   }
   async function jedaRoda(ms) { await tunggu(ms); if (roda.batal) throw new Error(roda.alasan || 'batal'); }
 
@@ -4452,7 +4534,7 @@
   async function jalankanRoda(rangkaian, kalimatSelesai, perintah = false) {
     if (roda.sibuk) rodaBerhenti(false);
     while (roda.sibuk) await tunggu(50);
-    roda.sibuk = true; roda.batal = false; roda.perintah = perintah; perbaruiStatusRoda();
+    roda.sibuk = true; roda.batal = false; roda.perintah = perintah; roda.hasilKabur = null; perbaruiStatusRoda();
     try {
       await rangkaian();
       if (kalimatSelesai) ucapkan(kalimatSelesai, 'senang');
@@ -4462,6 +4544,10 @@
       if (m === 'tepi') await menjauhiTepi();
       else if (m === 'tolakTepi') ucapkan(roda.tolakSisi === 'depan' ? L('Di depanku tepi meja, aku tidak berani.', "There's a table edge in front of me, I won't go.")
                                                                      : L('Di belakangku tepi meja, aku tidak berani.', "There's a table edge behind me, I won't go."), 'bingung');
+      else if (m === 'selip') {
+        if (performance.now() > roda.selipSampai) ucapkan(L('Rodaku selip, permukaannya licin. Pakai alas ya.', 'My wheels are slipping, this surface is slick. Please use a mat.'), 'bingung');
+        roda.selipSampai = performance.now() + SELIP_DIAM_MS;
+      }
       else if (m === 'macet') ucapkan(L('Rodaku macet, ada yang menahan.', 'My wheels are stuck, something is blocking them.'), 'bingung');
       else if (m === 'encoder') ucapkan(L('Aku tidak bisa merasakan rodaku berputar. Encodernya perlu dicek.', "I can't feel my wheels turning. The encoders need checking."), 'bingung');
       else if (m === 'waktu') ucapkan(L('Gerakku tidak selesai.', "My move didn't finish."), 'bingung');
@@ -4477,6 +4563,14 @@
   // KiKo yang diangkat tangan atau dijoystick tidak bergerak sendiri. Dua sisi sekaligus = tidak ada arah aman.
   const TEPI_MUNDUR_MM = 60;
   async function menjauhiTepi() {
+    if (roda.kabur || roda.hasilKabur) {                  // Ver 32: tunggu hasil dari base
+      const batasWaktu = performance.now() + 4000;
+      while (!roda.hasilKabur && performance.now() < batasWaktu) await tunggu(50);
+      const h = roda.hasilKabur;
+      roda.hasilKabur = null; roda.kabur = '';
+      umumkanTepi(h ? h.jenis : 'terjebak', h ? h.dari : '');
+      return;
+    }
     const { depan, belakang } = roda.tepi;
     if (depan && belakang) { ucapkan(L('Hampir jatuh! Di depan dan belakangku tepi. Tolong pindahkan aku.', 'Careful, edges in front and behind me! Please move me.'), 'kaget'); return; }
     roda.batal = false; roda.alasan = '';
