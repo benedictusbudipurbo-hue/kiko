@@ -598,6 +598,30 @@
     <p class="petunjuk" data-en="Stored on this phone only. KiKo remembers your name and the things you tell it, and uses them when chatting.">Disimpan di HP ini saja. KiKo mengingat nama dan hal yang Anda ceritakan, lalu memakainya saat ngobrol.</p>
   </div>
 
+  <div class="bagian" id="bagianKenalWajah">
+    <h2 data-en="Known faces">Wajah yang dikenal</h2>
+    <label class="saklar"><input type="checkbox" id="cekKenalWajah"> <span data-en="Recognise family faces and greet them by name">Kenali wajah keluarga dan sapa dengan namanya</span></label>
+    <div class="baris" style="justify-content:flex-start;align-items:center">
+      <input class="isian" id="inputNamaWajah" type="text" placeholder="Nama, mis. Mama" data-en-ph="Name, e.g. Mum" aria-label="Nama" maxlength="24" style="flex:1;min-width:8em;width:auto">
+      <button class="tombol" id="tombolRekamWajah" type="button" data-en="Remember this face">Ingat wajah ini</button>
+    </div>
+
+  <div class="bagian" id="bagianJaga">
+    <h2 data-en="Guard mode">Mode jaga</h2>
+    <label class="saklar"><input type="checkbox" id="cekJaga"> <span data-en="Photograph strangers, touches and lifting while I'm alone">Foto orang tak dikenal, sentuhan, dan HP diangkat saat KiKo ditinggal</span></label>
+    <label class="saklar"><input type="checkbox" id="cekJagaSuara" checked> <span data-en="Tell the stranger they were photographed">Beri tahu orang itu bahwa ia difoto</span></label>
+    <p class="petunjuk" id="statusJaga" role="status">Mati.</p>
+    <div id="galeriJaga" class="petunjuk" style="margin:6px 0"></div>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolHapusJaga" type="button" data-en="Delete all photos">Hapus semua foto</button>
+    </div>
+    <p class="petunjuk" data-en="Say &quot;guard mode&quot; before you leave, &quot;stop guard mode&quot; or just come back: when KiKo recognises your face, guard mode ends and it tells you how many photos there are. Needs at least one known face and &quot;Follow faces&quot; on. Photos stay on this phone only, at most 30, deleted after 7 days, and are not in the data backup. KiKo cannot see objects being taken; only faces in front of the phone camera are recorded. While asleep KiKo peeks every 10 seconds, so a very quick visit can be missed. Not a replacement for CCTV.">Bilang "mode jaga" sebelum pergi, lalu "matikan mode jaga" atau cukup kembali: saat KiKo mengenali wajah Anda, mode jaga selesai dan KiKo menyebut jumlah fotonya. Butuh minimal satu wajah yang dikenal dan "Ikuti wajah orang" menyala. Foto disimpan di HP ini saja, paling banyak 30, terhapus sendiri setelah 7 hari, dan tidak ikut cadangan data. KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah di depan kamera HP. Saat tidur KiKo mengintip tiap 10 detik, jadi orang yang lewat sangat cepat bisa terlewat. Bukan pengganti CCTV.</p>
+  </div>
+    <ul class="petunjuk" id="daftarWajah" style="margin:6px 0;padding-left:1.2em"></ul>
+    <p class="petunjuk" id="statusKenalWajah" role="status">Mati.</p>
+    <p class="petunjuk" data-en="Say: &quot;remember my face, my name is Budi&quot;, &quot;who am I?&quot;, &quot;whose faces do you know?&quot;, &quot;forget my face&quot;. A face is turned into a list of numbers and kept on this phone only; nothing is sent to the internet. Ask each person first before saving their face. The first time, the phone downloads a ±8 MB model once. Needs &quot;Follow faces&quot; on.">Bilang: "ingat wajahku, namaku Budi", "siapa aku?", "wajah siapa saja yang kamu kenal?", "lupakan wajahku". Wajah diubah menjadi deretan angka dan disimpan di HP ini saja, tidak dikirim ke internet. Minta izin orangnya dulu sebelum menyimpan wajahnya. Pertama kali dipakai, HP mengunduh model ±8 MB sekali. Butuh "Ikuti wajah orang" menyala.</p>
+  </div>
+
   <div class="bagian">
     <h2 data-en="Eye style">Gaya mata</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihGaya">
@@ -2350,6 +2374,7 @@
 
   function saatDiangkat() {
     if (!cekTempel.checked || fase === 'pasang') return;
+    jagaSentuh(L('HP diangkat', 'phone lifted'));             // mode jaga: foto sebelum layar kembali ke "pasang"
     // Diangkat saat animasi memuat: langsung kembali tidur.
     if (fase === 'memuat') { keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.')); return; }
     ekspresiSingkat('sedih', 900);
@@ -2816,7 +2841,7 @@
       const ujiDiag = !!diag.tungguSentuh;
       if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
-      if (nilai !== 'tahan') { akhiriMenjauh(); sentuhSaatJalan(); if (!ujiDiag) sentuhTanpaWajah(); }
+      if (nilai !== 'tahan') { jagaSentuh(L('badan disentuh', 'body touched')); akhiriMenjauh(); sentuhSaatJalan(); if (!ujiDiag) sentuhTanpaWajah(); }
       if (menungguElus && nilai !== 'tahan') tampilTeks(L('Hihi geli! Sekarang sentuh layarku ya.', 'Hehe, that tickles! Now touch my screen.'));
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
@@ -3568,6 +3593,7 @@
   // biasanya kembali cepat), sesudahnya tiap 30 dtk. Bangun lewat sentuhan/pesan/pengingat tetap seketika.
   const INTIP_JEDA_MS = 10000, INTIP_JEDA_LAMA_MS = 30000, INTIP_LAMA_SETELAH_MS = 10 * 60000, INTIP_MS = 1500;
   function jedaIntip(now) {
+    if (cekJaga.checked) return INTIP_JEDA_MS;                // mode jaga: tetap mengintip tiap 10 detik
     const lama = now - (hemat.kamTidurSejak || now) >= INTIP_LAMA_SETELAH_MS;
     if (lama && !hemat.intipLama) {
       hemat.intipLama = true;
@@ -3623,6 +3649,7 @@
 
     if (terbaik) {
       const b = terbaik.boundingBox, vw = v.videoWidth, vh = v.videoHeight;
+      wajah.kotak = b;                                         // untuk kenal wajah (potongan gambar)
       const cx = (b.originX + b.width / 2) / vw;
       const cy = (b.originY + b.height * 0.4) / vh;           // 0.4: kira-kira setinggi mata
       // Gambar kamera depan TIDAK dicermin: orang di sisi kanan layar (dilihat
@@ -3643,7 +3670,7 @@
           sambut.sudah = true;
           interaksi(); kedipSekarang(); ekspresiSingkat('senang', 1800);
           if (now > sambut.anggukDari) kirim('G,angguk');
-          sapaDenganSuara();
+          if (!kenalOrangBaru(true)) sapaDenganSuara();        // kenal wajah: sapa setelah tahu siapa
         } else if (baruMuncul) {
           // Menyapa orang yang baru datang. Kalau sedang tidur, interaksi()
           // sudah membangunkan dengan kaget, jadi tidak ditimpa senang.
@@ -3652,7 +3679,8 @@
           if (!sedangTidur) ekspresiSingkat('senang', 1300);
           if (!sedangTidur && Math.random() < 0.5) rodaEkspresi('senang');   // kadang goyang menyambut (roda)
           // Pergi cukup lama -> sapa dengan suara ("Selamat pagi, Benny!").
-          if (lamaHilang > JEDA_SAPA_MS) sapaDenganSuara();
+          const tundaSapa = kenalOrangBaru(lamaHilang > JEDA_SAPA_MS);   // kenal wajah: cari tahu siapa dulu
+          if (lamaHilang > JEDA_SAPA_MS) { if (!tundaSapa) sapaDenganSuara(); }
           // Tanpa sapaan suara: kadang menyambut seperti hewannya (meong / guk guk).
           else if (!sedangTidur && Math.random() < 0.5) setTimeout(() => suaraHewan(false), 700);
         } else {
@@ -3988,6 +4016,400 @@
     } catch (_) { return new Date().toString(); }
   }
 
+  // =====================================================================
+  //  KENAL WAJAH (2026-11-07, pengguna: "ya buatkan mulai dari wajah, dan lupakan suara")
+  //  Model face-api (TinyFaceDetector + 68 titik + FaceRecognitionNet, deskriptor 128 angka)
+  //  berjalan di HP. Wajah keluarga disimpan sebagai deskriptor di localStorage kiko.wajahDikenal,
+  //  tidak dikirim ke mana pun. Pengenalan hanya dicoba saat orang baru datang (beberapa kali,
+  //  paling lama 6 detik), bukan tiap bingkai, supaya hemat baterai. Wajah tak dikenal tidak
+  //  dipanggil dengan nama pemilik. Model diunduh sekali (±8 MB) saat fitur pertama dipakai.
+  // =====================================================================
+  const FA_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15';
+  const KENAL_AMBANG = 0.55;         // jarak deskriptor di bawah ini = orang yang sama. Uji 7-11 (6 orang, foto contoh
+                                     // face-api, wajah 48-90 px): orang sama 0,32-0,54, orang lain paling dekat 0,61.
+  const KENAL_CONTOH = 5;            // contoh per rekaman; per orang disimpan paling banyak 10
+  const KENAL_LEBAR_MIN = 0.15;      // wajah lebih kecil dari ini terlalu jauh untuk dikenali
+  const KENAL_COBA_MS = 6000;
+  const kenal = { siap: false, memuat: null, fa: null, orang: [], sekarang: '', sisaCoba: 0, batasCoba: 0,
+                  sapaTunda: false, sibuk: false, terakhirDisapa: '', sapaNamaLalu: 0, kanvas: null };
+  try { const a = JSON.parse(localStorage.getItem('kiko.wajahDikenal') || '[]'); if (Array.isArray(a)) kenal.orang = a.filter(o => o && o.nama && Array.isArray(o.contoh)); } catch (_) {}
+  const cekKenalWajah = document.getElementById('cekKenalWajah');
+  const elStatusKenal = document.getElementById('statusKenalWajah');
+  const statusKenal = t => { elStatusKenal.textContent = t; };
+  try { cekKenalWajah.checked = localStorage.getItem('kiko.kenalWajah') === '1'; } catch (_) {}
+  function kenalAktif() { return cekKenalWajah.checked && kenal.orang.length > 0 && wajah.aktif; }
+  // Nama orang di depan KiKo: dengan kenal wajah = nama yang dikenali (kosong kalau belum dikenal).
+  function namaOrang() { return cekKenalWajah.checked && kenal.orang.length ? kenal.sekarang : ingatan.nama; }
+  function simpanOrang() { simpan('kiko.wajahDikenal', JSON.stringify(kenal.orang)); tampilDaftarWajah(); }
+  function rapikanNamaOrang(n) {
+    return (n || '').replace(/[^a-zA-ZÀ-ɏ' -]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').slice(0, 3)
+      .map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ').slice(0, 24);
+  }
+  function tampilDaftarWajah() {
+    const ul = document.getElementById('daftarWajah'); ul.textContent = '';
+    for (const o of kenal.orang) {
+      const li = document.createElement('li');
+      li.append(`${o.nama} · ${o.contoh.length} ${L('contoh', 'samples')} · ${o.dibuat || ''} `);
+      const t = document.createElement('button'); t.type = 'button'; t.className = 'tombol'; t.style.padding = '2px 10px';
+      t.textContent = L('Hapus', 'Delete');
+      t.addEventListener('click', () => {
+        if (t.dataset.yakin !== '1') { t.dataset.yakin = '1'; t.textContent = L('Yakin?', 'Sure?'); return; }
+        hapusWajah(o.nama);
+      });
+      li.append(t); ul.append(li);
+    }
+    if (!kenal.orang.length) { const li = document.createElement('li'); li.textContent = L('Belum ada wajah yang disimpan.', 'No faces saved yet.'); ul.append(li); }
+  }
+  function hapusWajah(nama) {
+    const i = kenal.orang.findIndex(o => o.nama.toLowerCase() === nama.toLowerCase());
+    if (i < 0) return false;
+    kenal.orang.splice(i, 1); if (kenal.sekarang.toLowerCase() === nama.toLowerCase()) kenal.sekarang = '';
+    simpanOrang(); statusKenal(L(`Wajah ${nama} sudah dihapus.`, `${nama}'s face was deleted.`));
+    return true;
+  }
+  async function siapkanKenal() {
+    if (kenal.siap) return true;
+    if (!kenal.memuat) kenal.memuat = (async () => {
+      statusKenal(L('Mengunduh model wajah (±8 MB, sekali saja)…', 'Downloading the face model (±8 MB, once)…'));
+      const fa = await import(FA_URL + '/dist/face-api.esm.js');
+      try { await fa.tf.setBackend('webgl'); } catch (_) {}
+      await fa.tf.ready();
+      const m = FA_URL + '/model';
+      await Promise.all([fa.nets.tinyFaceDetector.loadFromUri(m), fa.nets.faceLandmark68TinyNet.loadFromUri(m), fa.nets.faceRecognitionNet.loadFromUri(m)]);
+      kenal.fa = fa; kenal.siap = true;
+      statusKenal(L(`Siap. ${kenal.orang.length} wajah dikenal.`, `Ready. ${kenal.orang.length} known faces.`));
+      return true;
+    })().catch(e => { kenal.memuat = null; statusKenal(L('Model wajah gagal dimuat: ', 'Face model failed to load: ') + (e && e.message || e)); return false; });
+    return kenal.memuat;
+  }
+  // Potong wajah terbesar dari kamera (kotak MediaPipe diperbesar), lalu hitung deskriptornya.
+  async function deskriptorSekarang() {
+    const v = wajah.video, b = wajah.kotak;
+    if (!v || !b || !wajah.ada || v.readyState < 2) return null;
+    const sisi = Math.max(b.width, b.height) * 1.6, cx = b.originX + b.width / 2, cy = b.originY + b.height / 2;
+    const c = kenal.kanvas || (kenal.kanvas = document.createElement('canvas'));
+    c.width = c.height = 192;
+    c.getContext('2d').drawImage(v, cx - sisi / 2, cy - sisi / 2, sisi, sisi, 0, 0, 192, 192);
+    const fa = kenal.fa;
+    const h = await fa.detectSingleFace(c, new fa.TinyFaceDetectorOptions({ inputSize: 192, scoreThreshold: 0.35 })).withFaceLandmarks(true).withFaceDescriptor();
+    return h ? Array.from(h.descriptor, x => Math.round(x * 1e4) / 1e4) : null;
+  }
+  function cocokkanWajah(d, daftar) {
+    let orang = null, jarak = 9;
+    for (const o of daftar || kenal.orang) for (const c of o.contoh) {
+      let s2 = 0; for (let i = 0; i < 128; i++) { const x = c[i] - d[i]; s2 += x * x; }
+      const j = Math.sqrt(s2); if (j < jarak) { jarak = j; orang = o; }
+    }
+    return { orang: jarak < KENAL_AMBANG ? orang : null, jarak };
+  }
+  // Dipanggil saat orang baru datang. true = sapaan suara ditunda sampai tahu siapa.
+  function kenalOrangBaru(sapa) {
+    kenal.sekarang = '';
+    if (!kenalAktif()) return false;
+    kenal.sisaCoba = 4; kenal.batasCoba = performance.now() + KENAL_COBA_MS; kenal.sapaTunda = !!sapa;
+    return !!sapa;
+  }
+  function selesaiKenal(nama, jarak) {
+    kenal.sisaCoba = 0; kenal.sekarang = nama || '';
+    jagaHasilKenal(nama || null);                              // mode jaga: foto orang asing / selesai saat pemilik kembali
+    const j = jarak !== undefined && jarak < 9 ? ` (${L('jarak', 'distance')} ${jarak.toFixed(2)})` : '';
+    statusKenal((nama ? L(`Mengenali ${nama}`, `Recognised ${nama}`) : L('Wajah belum dikenal', 'Face not recognised')) + j);
+    if (kenal.sapaTunda) { kenal.sapaTunda = false; sapaDenganSuara(); kenal.terakhirDisapa = kenal.sekarang; return; }
+    // orang lain yang dikenal datang dalam 5 menit: sapa singkat dengan namanya
+    const now = performance.now();
+    if (nama && nama !== kenal.terakhirDisapa && now - kenal.sapaNamaLalu > 60000 && ai.tahap === 'diam' && !ai.bicara
+        && cekSuara.checked && !menyendiri.aktif && fase === 'hidup') {
+      kenal.sapaNamaLalu = now; kenal.terakhirDisapa = nama;
+      ucapkan(L(`Hai, ${nama}!`, `Hi, ${nama}!`), 'senang');
+    }
+  }
+  setInterval(async () => {
+    if (kenal.sisaCoba <= 0 || kenal.sibuk) return;
+    if (performance.now() > kenal.batasCoba) { selesaiKenal(null); return; }
+    if (!kenalAktif() || fase !== 'hidup' || !wajah.ada || hemat.tidur || wajah.lebar < KENAL_LEBAR_MIN) return;
+    kenal.sibuk = true;
+    try {
+      if (!await siapkanKenal()) { selesaiKenal(null); return; }
+      const d = await deskriptorSekarang();
+      if (!d) { if (--kenal.sisaCoba <= 0) selesaiKenal(null); return; }
+      const h = cocokkanWajah(d);
+      if (h.orang) selesaiKenal(h.orang.nama, h.jarak);
+      else if (--kenal.sisaCoba <= 0) selesaiKenal(null, h.jarak);
+    } catch (e) { statusKenal(L('Gagal mengenali: ', 'Recognition failed: ') + (e && e.message || e)); selesaiKenal(null); }
+    finally { kenal.sibuk = false; }
+  }, 800);
+  async function rekamWajah(namaMentah) {
+    const nama = rapikanNamaOrang(namaMentah);
+    if (!nama) { tanyaLanjut(L('Siapa namamu?', "What's your name?"), n => L('ingat wajahku namaku ', 'remember my face my name is ') + n, 'wajah'); return; }
+    if (kenal.sibuk) { ucapkan(L('Sebentar, aku masih melihat.', 'Just a moment, I am still looking.'), 'bingung'); return; }
+    if (!wajah.aktif) { ucapkan(L('Nyalakan "Ikuti wajah orang" dulu ya, supaya aku bisa melihat.', 'Please turn on "Follow faces" first so I can see.'), 'bingung'); return; }
+    kenal.sibuk = true;
+    const track = wajah.stream && wajah.stream.getVideoTracks()[0];
+    try {
+      if (!await siapkanKenal()) { ucapkan(L('Model wajahku belum bisa dimuat. Cek internetnya ya.', 'I could not load my face model. Please check the internet.'), 'sedih'); return; }
+      cekKenalWajah.checked = true; simpan('kiko.kenalWajah', '1');
+      ucapkan(L(`Tatap aku sebentar ya, ${nama}.`, `Look at me for a moment, ${nama}.`), 'senang');
+      try { if (track) await track.applyConstraints({ width: { ideal: 640 }, height: { ideal: 480 } }); } catch (_) {}
+      await tunggu(1500);
+      const contoh = [], batas = performance.now() + 10000;
+      while (contoh.length < KENAL_CONTOH && performance.now() < batas) {
+        await tunggu(450);
+        if (!wajah.ada || performance.now() - wajah.terakhirLihat > 400) continue;
+        const d = await deskriptorSekarang();
+        if (d) { contoh.push(d); statusKenal(L(`Merekam wajah ${contoh.length}/${KENAL_CONTOH}…`, `Recording face ${contoh.length}/${KENAL_CONTOH}…`)); }
+      }
+      if (contoh.length < 3) {
+        statusKenal(L('Rekaman wajah gagal: wajah kurang jelas.', 'Face recording failed: face not clear enough.'));
+        ucapkan(L('Wajahmu belum terlihat jelas. Coba lagi di tempat terang, sekitar setengah meter di depanku.', 'I could not see your face clearly. Try again in good light, about half a metre in front of me.'), 'bingung');
+        return;
+      }
+      // peringatan kalau sangat mirip orang lain yang sudah tersimpan
+      const lain = kenal.orang.filter(o => o.nama.toLowerCase() !== nama.toLowerCase());
+      const mirip = lain.length ? cocokkanWajah(contoh[0], lain).orang : null;
+      let o = kenal.orang.find(x => x.nama.toLowerCase() === nama.toLowerCase());
+      if (!o) { o = { nama, contoh: [], dibuat: new Date().toISOString().slice(0, 10) }; kenal.orang.push(o); }
+      o.contoh = o.contoh.concat(contoh).slice(-10);
+      simpanOrang();
+      kenal.sekarang = nama; kenal.terakhirDisapa = nama;
+      statusKenal(L(`Wajah ${nama} tersimpan (${o.contoh.length} contoh).`, `${nama}'s face saved (${o.contoh.length} samples).`));
+      ucapkan(mirip ? L(`Oke, aku ingat wajahmu, ${nama}. Tapi wajahmu mirip ${mirip.nama}, jadi aku bisa tertukar.`, `Okay, I remember your face, ${nama}. But you look like ${mirip.nama}, so I may mix you up.`)
+                    : L(`Oke, aku sudah ingat wajahmu, ${nama}!`, `Okay, I remember your face now, ${nama}!`), 'senang');
+      kirim('G,angguk');
+    } finally {
+      try { if (track) await track.applyConstraints({ width: { ideal: 320 }, height: { ideal: 240 } }); } catch (_) {}
+      kenal.sibuk = false;
+    }
+  }
+  async function jawabSiapaAku() {
+    if (!kenal.orang.length) { ucapkan(L('Aku belum kenal wajah siapa pun. Bilang "ingat wajahku, namaku" lalu namamu.', 'I don\'t know anyone\'s face yet. Say "remember my face, my name is" and your name.'), 'bingung'); return; }
+    if (!wajah.aktif) { ucapkan(L('Nyalakan "Ikuti wajah orang" dulu ya.', 'Please turn on "Follow faces" first.'), 'bingung'); return; }
+    if (kenal.sibuk) return;
+    kenal.sibuk = true;
+    try {
+      if (!await siapkanKenal()) { ucapkan(L('Model wajahku belum bisa dimuat.', 'I could not load my face model.'), 'sedih'); return; }
+      const d = await deskriptorSekarang();
+      if (!d) { ucapkan(L('Aku belum melihat wajahmu dengan jelas. Mendekat sedikit ya.', 'I can\'t see your face clearly. Come a little closer.'), 'bingung'); return; }
+      const h = cocokkanWajah(d);
+      kenal.sekarang = h.orang ? h.orang.nama : '';
+      statusKenal((h.orang ? L(`Mengenali ${h.orang.nama}`, `Recognised ${h.orang.nama}`) : L('Wajah belum dikenal', 'Face not recognised')) + ` (${L('jarak', 'distance')} ${h.jarak.toFixed(2)})`);
+      if (h.orang) { ucapkan(L(`Kamu ${h.orang.nama}!`, `You are ${h.orang.nama}!`), 'senang'); kirim('G,angguk'); }
+      else ucapkan(L('Aku belum kenal wajahmu. Mau kuingat? Bilang "ingat wajahku, namaku" lalu namamu.', 'I don\'t know your face yet. Want me to remember it? Say "remember my face, my name is" and your name.'), 'bingung');
+    } finally { kenal.sibuk = false; }
+  }
+  function jawabKenalWajah(t, en) {
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|kiko|nih|deh|sih|yuk|aja|dulu)$/, ''); } while (u !== lama);
+    let m;
+    if (!en) {
+      if ((m = u.match(/^(ingat|ingatlah|kenali|kenal|hafalkan|hafal|simpan|rekam) wajah(ku| saya| aku)?\b(.*)$/))) {
+        const n = (m[3] || '').match(/(?:nama(?:ku| saya)?(?: adalah)?|aku|saya|ini)\s+([a-z' ]{2,24})$/);
+        rekamWajah(n ? n[1] : ''); return true;
+      }
+      if ((m = u.match(/^ini ([a-z' ]{2,24}?),? (ingat|kenali|hafalkan|simpan) wajahnya$/))) { rekamWajah(m[1]); return true; }
+      if (/^(siapa aku|aku siapa|kamu kenal aku( nggak| gak| tidak| enggak)?|kenal aku( nggak| gak| tidak)?|kamu tahu aku siapa|tebak aku siapa|coba tebak aku siapa)$/.test(u)) { jawabSiapaAku(); return true; }
+      if (/^(wajah siapa saja|siapa saja yang kamu kenal|kamu kenal siapa saja)( yang kamu kenal| yang kamu ingat)?$/.test(u)) {
+        ucapkan(kenal.orang.length ? `Aku kenal wajah ${kenal.orang.map(o => o.nama).join(', ')}.` : 'Aku belum kenal wajah siapa pun.', 'normal'); return true;
+      }
+      if (/^(lupakan|hapus) (semua wajah|wajah semua orang)$/.test(u)) {
+        kenal.orang = []; kenal.sekarang = ''; simpanOrang(); ucapkan('Oke, semua wajah sudah kulupakan.', 'normal'); return true;
+      }
+      if ((m = u.match(/^(lupakan|hapus) wajah(ku| saya| aku)?(?: ([a-z' ]{2,24}))?$/))) {
+        const n = m[2] ? kenal.sekarang : rapikanNamaOrang(m[3] || '');
+        if (!n) { ucapkan(m[2] ? 'Aku belum tahu kamu siapa. Bilang "lupakan wajah" lalu namanya.' : 'Wajah siapa yang mau dilupakan?', 'bingung'); return true; }
+        ucapkan(hapusWajah(n) ? `Oke, wajah ${n} sudah kulupakan.` : `Aku tidak punya wajah ${n}.`, 'normal'); return true;
+      }
+      return false;
+    }
+    if ((m = u.match(/^(remember|learn|save) my face\b(.*)$/))) {
+      const n = (m[2] || '').match(/(?:my name is|i am|i'm|this is)\s+([a-z' ]{2,24})$/);
+      rekamWajah(n ? n[1] : ''); return true;
+    }
+    if (/^(who am i|do you know me|do you recognise me|do you recognize me|guess who i am)$/.test(u)) { jawabSiapaAku(); return true; }
+    if (/^(whose faces do you know|who do you know|which faces do you know)$/.test(u)) {
+      ucapkan(kenal.orang.length ? `I know ${kenal.orang.map(o => o.nama).join(', ')}.` : "I don't know anyone's face yet.", 'normal'); return true;
+    }
+    if (/^forget (all faces|everyone's face|everyones face)$/.test(u)) { kenal.orang = []; kenal.sekarang = ''; simpanOrang(); ucapkan('Okay, I forgot all faces.', 'normal'); return true; }
+    if ((m = u.match(/^forget (my|([a-z' ]{2,24}?)'?s) face$/))) {
+      const n = m[1] === 'my' ? kenal.sekarang : rapikanNamaOrang(m[2] || '');
+      if (!n) { ucapkan("I don't know who you are yet. Say forget, then the person's name and face.", 'bingung'); return true; }
+      ucapkan(hapusWajah(n) ? `Okay, I forgot ${n}'s face.` : `I don't have ${n}'s face.`, 'normal'); return true;
+    }
+    return false;
+  }
+  cekKenalWajah.addEventListener('change', () => {
+    simpan('kiko.kenalWajah', cekKenalWajah.checked ? '1' : '0');
+    if (!cekKenalWajah.checked) { kenal.sekarang = ''; statusKenal(L('Mati.', 'Off.')); return; }
+    if (!kenal.orang.length) statusKenal(L('Belum ada wajah. Tulis nama, tatap KiKo, lalu tekan "Ingat wajah ini".', 'No faces yet. Type a name, look at KiKo, then press "Remember this face".'));
+    else if (wajah.aktif) siapkanKenal();
+    else statusKenal(L('Nyalakan "Ikuti wajah orang" juga.', 'Turn on "Follow faces" too.'));
+  });
+  document.getElementById('tombolRekamWajah').addEventListener('click', () => {
+    const n = document.getElementById('inputNamaWajah').value;
+    if (!rapikanNamaOrang(n)) { statusKenal(L('Tulis namanya dulu.', 'Type the name first.')); return; }
+    rekamWajah(n);
+  });
+  tampilDaftarWajah();
+  if (MODE_PENGEMBANG) window.kikoKenal = {   // uji di localhost: model, deskriptor dari gambar, pencocokan
+    kenal, siapkanKenal, cocokkanWajah, kenalOrangBaru,
+    deskriptorGambar: async g => { const fa = kenal.fa; const h = await fa.detectSingleFace(g, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })).withFaceLandmarks(true).withFaceDescriptor(); return h ? Array.from(h.descriptor) : null; },
+  };
+  if (cekKenalWajah.checked) statusKenal(L(`Nyala. ${kenal.orang.length} wajah tersimpan; model dimuat saat dibutuhkan.`, `On. ${kenal.orang.length} faces saved; the model loads when needed.`));
+
+  // =====================================================================
+  //  MODE JAGA (2026-11-07, pengguna: "tidak perlu dikirim ke pemilik... hanya mengantisipasi apabila
+  //  ada orang dekat dg kiko tidak dikenal dan menyentuh ato mengambil sesuatu disekitar kiko")
+  //  Saat mode jaga nyala, wajah yang TIDAK dikenal, sentuhan di badan tanpa wajah yang dikenal, atau HP
+  //  diangkat difoto satu kali dan disimpan di HP (IndexedDB kiko-jaga), tidak dikirim ke mana pun.
+  //  KiKo memberi tahu orang itu bahwa ia difoto. Wajah yang dikenal mengakhiri mode jaga dan
+  //  menyebut jumlah foto baru. Foto lebih dari 7 hari dihapus sendiri, paling banyak 30 foto.
+  //  KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah yang tampak di kamera depan.
+  // =====================================================================
+  const JAGA_JEDA_MS = 20000, JAGA_MAKS = 30, JAGA_UMUR_MS = 7 * 24 * 3600 * 1000;
+  const jaga = { db: null, terakhir: 0, baru: 0, url: [] };
+  const cekJaga = document.getElementById('cekJaga'), cekJagaSuara = document.getElementById('cekJagaSuara');
+  const elStatusJaga = document.getElementById('statusJaga');
+  const statusJaga = t => { elStatusJaga.textContent = t; };
+  try { cekJaga.checked = localStorage.getItem('kiko.jaga') === '1'; cekJagaSuara.checked = localStorage.getItem('kiko.jagaSuara') !== '0'; } catch (_) {}
+  function dbJaga() {
+    if (jaga.db) return Promise.resolve(jaga.db);
+    return new Promise((ok, gagal) => {
+      const r = indexedDB.open('kiko-jaga', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('foto', { keyPath: 'id', autoIncrement: true });
+      r.onsuccess = () => { jaga.db = r.result; ok(jaga.db); };
+      r.onerror = () => gagal(r.error);
+    });
+  }
+  function semuaFotoJaga() {
+    return dbJaga().then(db => new Promise((ok, gagal) => {
+      const q = db.transaction('foto').objectStore('foto').getAll();
+      q.onsuccess = () => ok(q.result || []); q.onerror = () => gagal(q.error);
+    }));
+  }
+  function hapusFotoJaga(ids) {
+    return dbJaga().then(db => new Promise(ok => {
+      const tx = db.transaction('foto', 'readwrite'), st = tx.objectStore('foto');
+      for (const id of ids) st.delete(id);
+      tx.oncomplete = () => ok(); tx.onerror = () => ok();
+    }));
+  }
+  async function rapikanFotoJaga() {
+    const semua = await semuaFotoJaga(), now = Date.now();
+    const tua = semua.filter(f => now - f.waktu > JAGA_UMUR_MS).map(f => f.id);
+    const sisa = semua.filter(f => now - f.waktu <= JAGA_UMUR_MS).sort((a, b) => b.waktu - a.waktu);
+    const lebih = sisa.slice(JAGA_MAKS).map(f => f.id);
+    if (tua.length || lebih.length) await hapusFotoJaga(tua.concat(lebih));
+  }
+  async function tampilGaleriJaga() {
+    const g = document.getElementById('galeriJaga'); g.textContent = '';
+    for (const u of jaga.url) URL.revokeObjectURL(u); jaga.url = [];
+    let semua = [];
+    try { semua = (await semuaFotoJaga()).sort((a, b) => b.waktu - a.waktu); } catch (_) {}
+    if (!semua.length) { g.textContent = L('Belum ada foto.', 'No photos yet.'); return; }
+    for (const f of semua) {
+      const kotak = document.createElement('figure'); kotak.style.cssText = 'margin:0;display:inline-block;width:31%;margin:0 1% 8px 0;vertical-align:top';
+      const img = document.createElement('img'); const u = URL.createObjectURL(f.gambar); jaga.url.push(u);
+      img.src = u; img.alt = f.alasan; img.style.cssText = 'width:100%;border-radius:6px;cursor:zoom-in';
+      img.addEventListener('click', () => { const besar = kotak.style.width !== '100%'; kotak.style.width = besar ? '100%' : '31%'; });
+      const cap = document.createElement('figcaption'); cap.style.fontSize = '12px';
+      cap.textContent = new Date(f.waktu).toLocaleString(bahasa === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + f.alasan;
+      kotak.append(img, cap); g.append(kotak);
+    }
+  }
+  function jagaAktif() { return cekJaga.checked && wajah.aktif && fase === 'hidup'; }
+  async function fotoJaga(alasan) {
+    const now = Date.now();
+    if (!jagaAktif() || now - jaga.terakhir < JAGA_JEDA_MS) return false;
+    const v = wajah.video;
+    if (!v || v.readyState < 2) return false;
+    jaga.terakhir = now;
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    const gambar = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+    if (!gambar) return false;
+    try {
+      const db = await dbJaga();
+      await new Promise(ok => { const tx = db.transaction('foto', 'readwrite'); tx.objectStore('foto').add({ waktu: now, alasan, gambar }); tx.oncomplete = ok; tx.onerror = ok; });
+      await rapikanFotoJaga();
+    } catch (e) { statusJaga(L('Foto gagal disimpan: ', 'Photo could not be saved: ') + (e && e.message || e)); return false; }
+    jaga.baru++;
+    statusJaga(L(`Nyala. ${jaga.baru} foto baru sejak mode jaga dinyalakan.`, `On. ${jaga.baru} new photos since guard mode started.`));
+    tampilGaleriJaga();
+    return true;
+  }
+  // Dari kenal wajah: null = wajah tidak dikenal, nama = orang yang dikenal.
+  function jagaHasilKenal(nama) {
+    if (!jagaAktif()) return;
+    if (nama) { akhiriJaga(nama); return; }
+    kenal.sapaTunda = false;                                   // orang asing tidak disapa "selamat pagi"
+    fotoJaga(L('wajah tidak dikenal', 'unknown face')).then(async ok => {
+      for (let i = 0; i < 60 && ai.bicara; i++) await tunggu(200);   // tunggu KiKo selesai bicara (paling lama 12 detik)
+      if (ok && cekJagaSuara.checked && !ai.bicara) {
+        ucapkan(L('Halo, aku belum kenal kamu. Wajahmu sudah kufoto untuk pemilikku ya.', "Hello, I don't know you yet. I've taken a photo of your face for my owner."), 'curiga');
+      }
+    });
+  }
+  function jagaSentuh(alasan) {
+    if (!jagaAktif() || (wajah.ada && kenal.sekarang)) return;   // pemilik yang dikenal menyentuh: bukan kejadian
+    fotoJaga(alasan);
+  }
+  function mulaiJaga(suara) {
+    if (!kenal.orang.length) {
+      if (suara) ucapkan(L('Rekam wajahmu dulu supaya aku bisa membedakan kamu dengan orang lain. Bilang "ingat wajahku, namaku" lalu namamu.', 'Record your face first so I can tell you apart from others. Say "remember my face, my name is" and your name.'), 'bingung');
+      statusJaga(L('Butuh minimal satu wajah yang dikenal.', 'Needs at least one known face.'));
+      cekJaga.checked = false; return;
+    }
+    if (!cekWajah.checked) {
+      if (suara) ucapkan(L('Nyalakan "Ikuti wajah orang" dulu ya.', 'Please turn on "Follow faces" first.'), 'bingung');
+      cekJaga.checked = false; return;
+    }
+    cekJaga.checked = true; cekKenalWajah.checked = true; simpan('kiko.kenalWajah', '1'); simpan('kiko.jaga', '1');
+    jaga.baru = 0; jaga.terakhir = 0;
+    statusJaga(L('Nyala. Wajah tak dikenal, sentuhan, dan HP diangkat akan difoto.', 'On. Unknown faces, touches and lifting the phone will be photographed.'));
+    if (suara) ucapkan(L('Oke, aku jaga ya. Kalau ada orang yang tidak kukenal, aku foto.', "Okay, I'm on guard. If someone I don't know comes, I'll take a photo."), 'senang');
+  }
+  function akhiriJaga(nama) {
+    if (!cekJaga.checked) return;
+    cekJaga.checked = false; simpan('kiko.jaga', '0');
+    const n = jaga.baru; jaga.baru = 0;
+    statusJaga(L('Mati.', 'Off.'));
+    if (nama && cekSuara.checked) ucapkan(n
+      ? L(`Halo ${nama}, mode jaga selesai. Ada ${n} foto orang yang tidak kukenal, lihat di ATUR ya.`, `Hi ${nama}, guard mode is off. There are ${n} photos of people I don't know, see SETTINGS.`)
+      : L(`Halo ${nama}, mode jaga selesai. Tidak ada orang asing tadi.`, `Hi ${nama}, guard mode is off. No strangers came.`), 'senang');
+    if (nama) kenal.sapaTunda = false;
+  }
+  function jawabJaga(t, en) {
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|kiko|nih|deh|sih|yuk|aja|dulu)$/, ''); } while (u !== lama);
+    if (!en) {
+      if (/^(mode jaga|jaga rumah|jaga meja|jaga ya|jagain|jagain ya|jaga|aktifkan mode jaga|nyalakan mode jaga|kamu jaga)$/.test(u)) { mulaiJaga(true); return true; }
+      if (/^(matikan mode jaga|berhenti jaga|selesai jaga|mode jaga mati|stop jaga|sudah tidak usah jaga)$/.test(u)) { const ada = cekJaga.checked; akhiriJaga(''); ucapkan(ada ? 'Oke, mode jaga kumatikan.' : 'Mode jaga memang tidak nyala.', 'normal'); return true; }
+      if (/^(ada siapa tadi|tadi ada siapa|ada yang datang( tadi)?|tadi ada orang( asing)?)$/.test(u)) {
+        semuaFotoJaga().then(s => ucapkan(s.length ? `Ada ${s.length} foto orang yang tidak kukenal dalam 7 hari terakhir. Lihat di ATUR, bagian Mode jaga.` : 'Tidak ada foto orang asing.', 'normal')).catch(() => {});
+        return true;
+      }
+      return false;
+    }
+    if (/^(guard mode|guard the (house|desk|room)|keep watch|be on guard|start guard mode|turn on guard mode)$/.test(u)) { mulaiJaga(true); return true; }
+    if (/^(stop guard mode|turn off guard mode|stop guarding|guard mode off)$/.test(u)) { const ada = cekJaga.checked; akhiriJaga(''); ucapkan(ada ? 'Okay, guard mode is off.' : 'Guard mode is not on.', 'normal'); return true; }
+    if (/^(did anyone come|who came|was anyone here)$/.test(u)) {
+      semuaFotoJaga().then(s => ucapkan(s.length ? `There are ${s.length} photos of strangers from the last 7 days. See SETTINGS, Guard mode.` : 'No photos of strangers.', 'normal')).catch(() => {});
+      return true;
+    }
+    return false;
+  }
+  cekJaga.addEventListener('change', () => { if (cekJaga.checked) mulaiJaga(false); else akhiriJaga(''); });
+  cekJagaSuara.addEventListener('change', () => simpan('kiko.jagaSuara', cekJagaSuara.checked ? '1' : '0'));
+  document.getElementById('tombolHapusJaga').addEventListener('click', async e => {
+    const t = e.currentTarget;
+    if (t.dataset.yakin !== '1') { t.dataset.yakin = '1'; t.textContent = L('Yakin hapus semua?', 'Delete all, sure?'); return; }
+    t.dataset.yakin = ''; t.textContent = L('Hapus semua foto', 'Delete all photos');
+    try { const s = await semuaFotoJaga(); await hapusFotoJaga(s.map(f => f.id)); } catch (_) {}
+    tampilGaleriJaga(); statusJaga(L('Semua foto jaga sudah dihapus.', 'All guard photos were deleted.'));
+  });
+  rapikanFotoJaga().catch(() => {}).then(tampilGaleriJaga);
+  if (cekJaga.checked) statusJaga(L('Nyala.', 'On.'));
+  if (MODE_PENGEMBANG) window.kikoJaga = { jaga, fotoJaga, jagaHasilKenal, jagaSentuh, mulaiJaga, akhiriJaga, semuaFotoJaga, wajah, paksaHidup: () => { fase = 'hidup'; } };
+
   function salamWaktu() {
     const j = new Date().getHours();
     return j >= 4 && j < 11 ? 'pagi' : j < 15 ? 'siang' : j < 18 ? 'sore' : 'malam';
@@ -4000,7 +4422,7 @@
     if (!ai.url || !cekSuara.checked || ai.tahap !== 'diam' || ai.bicara || menungguElus || menyendiri.aktif) return;
     if (!paksa && terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
     terakhirSapa = now;
-    const s = salamWaktu(), n = ingatan.nama;
+    const s = salamWaktu(), n = namaOrang();
     const e = { pagi: 'morning', siang: 'afternoon', sore: 'afternoon', malam: 'evening' }[s];
     const pilihan = bahasa === 'en'
       ? (n ? [`Good ${e}, ${n}!`, `Hi ${n}, good ${e}!`, `Oh, ${n} is here. Good ${e}!`]
@@ -4064,7 +4486,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pesan: teks, riwayat: ai.riwayat,
-          waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta, bahasa,   // bahasa: Worker v4
+          waktu: waktuSekarang(), nama: namaOrang(), ingatan: ingatan.fakta, bahasa,   // bahasa: Worker v4; nama: kenal wajah
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -5952,6 +6374,9 @@
     if (ai.url) B.push({ k: 'mata', judul: L('Melihat', 'Seeing'), bisa: L('melihat benda, membaca tulisan, menjawab soal, menebak tempat di foto, menghitung uang dan barang', 'see objects, read text, answer questions, guess places in photos, and count money and items'),
       contoh: L(['"Ini apa"', '"Baca ini"', '"Jawab soal ini"', '"Ini di mana" (tunjukkan foto)', '"Hitung uang ini"', '"Hitung ini"'],
                 ['"What is this"', '"Read this"', '"Solve this"', '"Where is this" (show a photo)', '"Count the money"', '"Count this"']) });
+    if (cekWajah.checked) B.push({ k: 'kenal', judul: L('Kenal wajah', 'Faces'), bisa: L('mengingat wajah keluarga dan menyapa dengan namanya', 'remember family faces and greet them by name'),
+      contoh: L(['"Ingat wajahku, namaku Budi"', '"Siapa aku?"', '"Wajah siapa saja yang kamu kenal?"', '"Lupakan wajahku"'],
+                ['"Remember my face, my name is Budi"', '"Who am I?"', '"Whose faces do you know?"', '"Forget my face"']) });
     B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
       contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
                 ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
@@ -6174,6 +6599,8 @@
     if (jawabVolume(t, false)) return true;
     if (jawabPanggilan(t, false)) return true;                // telepon WA berdering: angkat / tolak
     if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
+    if (jawabKenalWajah(t, false)) return true;               // ingat wajahku / siapa aku (sebelum "lihat")
+    if (jawabJaga(t, false)) return true;                     // mode jaga
     if (jawabLihat(t, false)) return true;                    // ini apa / baca ini / jawab soal ini
     if (/pengingat/.test(t) && /(apa saja|daftar|ada apa|berapa)/.test(t)) {
       if (!pengingat.length) { ucapkan('Belum ada pengingat.', 'normal'); return true; }
@@ -7251,6 +7678,8 @@
     if (jawabVolume(t, true)) return true;
     if (jawabPanggilan(t, true)) return true;
     if (jawabPesan(t, true)) return true;
+    if (jawabKenalWajah(t, true)) return true;
+    if (jawabJaga(t, true)) return true;
     if (jawabLihat(t, true)) return true;
     if (/reminders?/.test(t) && /(what|list|show|any|how many|my reminders)/.test(t) && !/remind me/.test(t)) {
       if (!pengingat.length) { ucapkan('You have no reminders.', 'normal'); return true; }
@@ -7501,7 +7930,7 @@
       ekspresiSingkat('curiga', 30000);
       const res = await fetch(ai.url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pesan: ucapan, tugas, gambar, riwayat: [], waktu: waktuSekarang(), nama: ingatan.nama, ingatan: ingatan.fakta, bahasa }),
+        body: JSON.stringify({ pesan: ucapan, tugas, gambar, riwayat: [], waktu: waktuSekarang(), nama: namaOrang(), ingatan: ingatan.fakta, bahasa }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
@@ -8164,6 +8593,10 @@
       hasil: ['Mata dan kepala bergoyang ikut ketukan. Ketuk wajah untuk berhenti; berhenti sendiri setelah 3 menit', 'Eyes and head move to the beat. Tap the face to stop; it stops by itself after 3 minutes'] },
     { k: 'ajar', n: ['Ajari tarian', 'Teach a dance'], cara: ['Bilang "belajar tarian", sebut misalnya "hadap kiri, angguk, berputar", lalu "selesai"', 'Say "learn a dance", say for example "face left, nod, spin", then "done"'],
       hasil: ['KiKo memperagakannya; nanti cukup bilang "tarian satu"', 'KiKo performs it; later just say "dance one"'] },
+    { k: 'kenalWajah', n: ['Kenali wajah', 'Know my face'], cara: ['Tatap KiKo dan bilang "ingat wajahku, namaku" lalu nama Anda; pergi lebih dari 5 menit lalu kembali', 'Look at KiKo and say "remember my face, my name is" and your name; leave for more than 5 minutes, then come back'],
+      hasil: ['KiKo bilang sudah ingat; saat kembali disapa dengan nama. "Siapa aku?" dijawab nama Anda', 'KiKo says it remembers; when you come back it greets you by name. "Who am I?" gets your name'] },
+    { k: 'jaga', n: ['Mode jaga', 'Guard mode'], cara: ['Setelah wajah Anda dikenal, bilang "mode jaga", minta orang lain menatap KiKo, lalu kembali', 'After KiKo knows your face, say "guard mode", have someone else look at KiKo, then come back'],
+      hasil: ['Orang itu difoto dan diberi tahu; saat Anda kembali KiKo menyebut jumlah foto, foto ada di ATUR → Mode jaga', 'That person is photographed and told; when you come back KiKo says how many photos there are, see SETTINGS → Guard mode'] },
     { k: 'mataApa', n: ['Ini apa', 'What is this'], cara: ['Bilang "ini apa", lalu pegang benda dekat kamera', 'Say "what is this", then hold an object close to the camera'],
       hasil: ['Bidikan tampil, foto diambil, KiKo menyebut bendanya', 'The viewfinder shows, a photo is taken, KiKo names the object'] },
     { k: 'mataSoal', n: ['Jawab soal', 'Solve'], cara: ['Bilang "jawab soal ini", lalu pegang soal cetak', 'Say "solve this", then hold a printed question'],
