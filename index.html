@@ -4081,6 +4081,13 @@
         const li = document.querySelector('#logDengar li'); if (li) li.textContent = logDengar[0];
       }
       if (data.aksi && jalankanAksiAi(data)) return;
+      // 2026-11-07: kalimat tentang melihat yang lolos dari jawabLihat sampai ke AI, lalu AI menyuruh
+      // "kirim file/foto". KiKo punya mata sendiri, jadi kamera langsung dibuka.
+      if (/\b(kirim|kirimkan|unggah|upload|lampirkan|bagikan|share|send)\b[^.]*\b(file|berkas|foto|fotonya|gambar|gambarnya|photo|picture|image)\b/i.test(data.teks)
+          && /(lihat|liat|kamera|gambar|foto|tebak|apa ini|ini apa|benda)|\b(look|see|camera|picture|photo|guess)\b/i.test(teks)) {
+        mulaiLihat(/(di ?mana|dimana|tempat|where|place)/i.test(teks) ? 'tempat' : 'apa', teks);
+        return;
+      }
       ucapkan(data.teks, data.ekspresi);
       // Gestur iya/tidak (firmware base Ver 4, perintah G). Dikirim sedikit
       // setelah E dari pergantian ekspresi supaya tidak langsung ditimpa
@@ -5942,6 +5949,9 @@
     if (cekRoda.checked) B.push({ k: 'roda', judul: L('Gerak roda', 'Moving'), bisa: L('jalan dan menari dengan roda', 'drive and dance on my wheels'),
       contoh: L(['"Maju" / "Mundur sedikit" / "Maju 20 cm"', '"Hadap kiri" / "Hadap kanan" / "Hadap belakang" / "Hadap depan"', '"Putar 45 derajat ke kiri" / "Serong kanan" / "Berputar"', '"Joget"', '"Belajar tarian", lalu "Tarian satu"', '"Hadap aku" / "Ke sini" / "Ikuti aku"', '"Menjauh", lalu "sini lagi"', '"Ini rumahmu", lalu "Pulang ke tempatmu"', '"Berhenti"'],
                 ['"Forward" / "Back up a little" / "Forward 20 cm"', '"Face left" / "Face right" / "Face back" / "Face forward"', '"Turn 45 degrees left" / "Spin"', '"Wiggle"', '"Learn a dance", then "Dance one"', '"Look at me" / "Come here" / "Follow me"', '"Go away", then "come back"', '"This is your home", then "Go home"', '"Stop"']) });
+    if (ai.url) B.push({ k: 'mata', judul: L('Melihat', 'Seeing'), bisa: L('melihat benda, membaca tulisan, menjawab soal, menebak tempat di foto, menghitung uang dan barang', 'see objects, read text, answer questions, guess places in photos, and count money and items'),
+      contoh: L(['"Ini apa"', '"Baca ini"', '"Jawab soal ini"', '"Ini di mana" (tunjukkan foto)', '"Hitung uang ini"', '"Hitung ini"'],
+                ['"What is this"', '"Read this"', '"Solve this"', '"Where is this" (show a photo)', '"Count the money"', '"Count this"']) });
     B.push({ k: 'lain', judul: L('Lainnya', 'More'), bisa: '',
       contoh: L(['"Jam berapa?" / "Hari apa?"', '"Baterai kamu berapa?"', 'Atau ngobrol saja, tanya apa pun.'],
                 ['"What time is it?" / "What day is it?"', '"How much battery do you have?"', 'Or just chat, ask me anything.']) });
@@ -5984,11 +5994,11 @@
       ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
       : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
     const topik = bahasa === 'en'
-      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch|drive|move|wheels?|dance)/)
-      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton|roda|jalan|bergerak|joget)/);
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch|drive|move|wheels?|dance|read|see|count|solve)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton|roda|jalan|bergerak|joget|baca|membaca|soal|lihat|melihat|hitung|menghitung|uang)/);
     if (topik) {
       const w = topik[2];
-      const k = /roda|jalan|bergerak|joget|drive|move|wheel|dance/.test(w) ? 'roda'
+      const k = /baca|soal|lihat|hitung|uang|read|see|count|solve/.test(w) ? 'mata' : /roda|jalan|bergerak|joget|drive|move|wheel|dance/.test(w) ? 'roda'
               : /youtube|yutub|nonton|watch/.test(w) ? 'youtube' : /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
               : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : /ekspresi|wajah|expression|face/.test(w) ? 'ekspresi' : 'telepon';
       if (tampilkanBantuan(k)) return true;
@@ -7430,20 +7440,26 @@
   //  sebentar dan bidikan ditampilkan supaya kertasnya pas. Worker v16 yang membaca dan menjawab.
   // =====================================================================
   const LIHAT_HITUNG = 3, LIHAT_SISI = 1280, LIHAT_MUTU = 0.85;
+  // 2026-11-05 (uji pengguna: foto di layar HP kalah oleh kamar, resistor dikira jarum): benda dan foto
+  // biasanya di tengah, jadi bagian tengah saja yang dikirim supaya tampak lebih besar.
+  const LIHAT_POTONG = 0.65;
   const lihat = { aktif: false };
   function jawabLihat(t, en) {
-    const u = rapikanAwal(t).replace(/\s+(dong|ya|please|sekarang|now)$/, '');
+    // 2026-11-07 (pengguna: membuka kamera sulit, KiKo malah minta "kirim file"): kata isi di akhir
+    // ("ini apa kiko", "lihat dong", "apaan nih") dibuang berulang, dan kalimat sehari-hari ditambah.
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|sekarang|now|kiko|eko|nih|deh|sih|yuk|aja|dulu|coba|kok)$/, ''); } while (u !== lama);
     if (u.split(' ').length > 7) return false;
     const tugas = en
       ? (/^(solve|answer|do|work out)( this| the)?( question| problem| exercise)?$/.test(u) ? 'jawab'
         : /^read( this| it| the text| this text)?$/.test(u) ? 'baca'
-        : /^(what is this|what'?s this|what is that|look at this)$/.test(u) ? 'apa'
+        : /^(what is this|what'?s this|what is that|look at this|look|open (the |your )?camera|what do you see|can you see (this|it)|guess (this|what this is)|what (picture|object|thing) is this)$/.test(u) ? 'apa'
         : /^(where is this|where was this( taken)?|what place is this|look at this (photo|picture|view))$/.test(u) ? 'tempat'
         : /^(count (the |this |my )?money|how much money( is this)?|how much is this money)$/.test(u) ? 'uang'
         : /^(count (this|these|them|the items)|how many (are )?(is |are )?(this|these|there))$/.test(u) ? 'hitung' : '')
       : (/^(jawab|jawabkan|kerjakan|selesaikan) (soal|ini)\b|^bantu (jawab|kerjakan) soal\b/.test(u) ? 'jawab'
         : /^(baca|bacakan)( tulisan)?( ini)?$/.test(u) ? 'baca'
-        : /^(ini apa|apa ini|ini benda apa|benda apa ini|ini namanya apa|lihat ini|coba lihat ini)$/.test(u) ? 'apa'
+        : /^(ini apa|apa ini|ini apaan|apaan( ini| nih)?|ini benda apa|benda apa ini|ini barang apa|barang apa ini|ini namanya apa|apa namanya( ini)?|lihat( ini| sini| deh)?|coba lihat( ini)?|lihatlah( ini)?|buka kamera(mu|nya)?|nyalakan kamera(mu|nya)?|kamu lihat (apa|ini)|apa yang kamu lihat|kamu bisa lihat ini|tebak( ini| ini apa| gambar ini| benda ini)?|ini gambar apa|gambar apa ini|gambar ini apa|ini foto apa|foto apa ini|lihat gambar ini)$/.test(u) ? 'apa'
         : /^((ini )?(di ?mana|dimana) ini|ini (di ?mana|dimana)|(ini )?tempat apa( ini)?|ini foto (di ?mana|dimana|apa)|foto (ini )?(di ?mana|dimana)|lihat (foto|pemandangan) ini|coba lihat (foto|pemandangan) ini|pemandangan (ini )?(di ?mana|dimana))$/.test(u) ? 'tempat'
         : /^(hitung (uang|duit)(ku| ini|nya)?|(uang|duit)(ku|nya)?( ini)? berapa|ini uang berapa|berapa (jumlah )?(uang|duit)(ku|nya)?( ini)?)$/.test(u) ? 'uang'
         : /^(hitung (ini|semua( ini)?|(barang|benda)(nya| ini)?)|berapa (banyak|jumlah)( barang| benda)?( ini)?|ada berapa( barang| benda)? ini)$/.test(u) ? 'hitung' : '');
@@ -7467,14 +7483,17 @@
       bidik.classList.add('tampil');
       ucapkan(L(`Pegang ${benda} di depan kameraku ya.`, `Hold ${benda} in front of my camera.`), 'senang');
       for (let n = LIHAT_HITUNG + 2; n > 0; n--) {
-        const saran = tugas === 'uang' || tugas === 'hitung' ? L('terhampar, tidak menumpuk', 'spread out, not stacked') : L('lurus dan terang', 'straight, in good light');
+        const saran = tugas === 'uang' || tugas === 'hitung' ? L('terhampar, tidak menumpuk', 'spread out, not stacked')
+          : tugas === 'apa' || tugas === 'tempat' ? L('dekat, di tengah gambar', 'close, in the middle of the picture') : L('lurus dan terang', 'straight, in good light');
         teksB.textContent = L(`Pegang ${benda} ${saran}. Foto dalam ${n}`, `Hold ${benda} ${saran}. Photo in ${n}`);
         await tunggu(1000);
       }
-      const skala = Math.min(1, LIHAT_SISI / Math.max(v.videoWidth, v.videoHeight));
+      const potong = tugas === 'apa' || tugas === 'tempat' ? LIHAT_POTONG : 1;
+      const sw = v.videoWidth * potong, sh = v.videoHeight * potong;
+      const skala = Math.min(1, LIHAT_SISI / Math.max(sw, sh));
       const kanvas = document.createElement('canvas');
-      kanvas.width = Math.round(v.videoWidth * skala); kanvas.height = Math.round(v.videoHeight * skala);
-      kanvas.getContext('2d').drawImage(v, 0, 0, kanvas.width, kanvas.height);
+      kanvas.width = Math.round(sw * skala); kanvas.height = Math.round(sh * skala);
+      kanvas.getContext('2d').drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, kanvas.width, kanvas.height);
       const gambar = kanvas.toDataURL('image/jpeg', LIHAT_MUTU);
       teksB.textContent = '';
       bidik.classList.remove('tampil');
@@ -8145,6 +8164,14 @@
       hasil: ['Mata dan kepala bergoyang ikut ketukan. Ketuk wajah untuk berhenti; berhenti sendiri setelah 3 menit', 'Eyes and head move to the beat. Tap the face to stop; it stops by itself after 3 minutes'] },
     { k: 'ajar', n: ['Ajari tarian', 'Teach a dance'], cara: ['Bilang "belajar tarian", sebut misalnya "hadap kiri, angguk, berputar", lalu "selesai"', 'Say "learn a dance", say for example "face left, nod, spin", then "done"'],
       hasil: ['KiKo memperagakannya; nanti cukup bilang "tarian satu"', 'KiKo performs it; later just say "dance one"'] },
+    { k: 'mataApa', n: ['Ini apa', 'What is this'], cara: ['Bilang "ini apa", lalu pegang benda dekat kamera', 'Say "what is this", then hold an object close to the camera'],
+      hasil: ['Bidikan tampil, foto diambil, KiKo menyebut bendanya', 'The viewfinder shows, a photo is taken, KiKo names the object'] },
+    { k: 'mataSoal', n: ['Jawab soal', 'Solve'], cara: ['Bilang "jawab soal ini", lalu pegang soal cetak', 'Say "solve this", then hold a printed question'],
+      hasil: ['KiKo menyebut jawaban dan langkahnya', 'KiKo gives the answer and the steps'] },
+    { k: 'mataTempat', n: ['Ini di mana', 'Where is this'], cara: ['Bilang "ini di mana", lalu dekatkan foto sampai memenuhi tengah gambar', 'Say "where is this", then hold a photo close, filling the middle of the picture'],
+      hasil: ['KiKo menebak tempatnya (perkiraan)', 'KiKo guesses the place (an estimate)'] },
+    { k: 'mataUang', n: ['Hitung uang', 'Count money'], cara: ['Bilang "hitung uang ini", lalu tunjukkan uang terhampar', 'Say "count the money", then show the money spread out'],
+      hasil: ['KiKo menyebut total dan rinciannya (perkiraan)', 'KiKo gives the total and details (an estimate)'] },
     { k: 'menjauh', n: ['Menjauh', 'Go away'], cara: ['Bilang "menjauh", lalu elus badannya atau bilang "sini lagi"', 'Say "go away", then pet it or say "come back"'],
       hasil: ['KiKo mundur dan diam, lalu kembali saat dipanggil', 'KiKo backs off and stays quiet, then returns when called'] },
     { k: 'dudukan', n: ['Dudukan HP', 'Phone cradle'], cara: ['Angkat HP, lalu pasang lagi', 'Lift the phone out, then put it back'],
