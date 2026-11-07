@@ -615,7 +615,7 @@
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol" id="tombolHapusJaga" type="button" data-en="Delete all photos">Hapus semua foto</button>
     </div>
-    <p class="petunjuk" data-en="Say &quot;guard mode&quot; before you leave, &quot;stop guard mode&quot; or just come back: when KiKo recognises your face, guard mode ends and it tells you how many photos there are. Needs at least one known face and &quot;Follow faces&quot; on. Photos stay on this phone only, at most 30, deleted after 7 days, and are not in the data backup. KiKo cannot see objects being taken; only faces in front of the phone camera are recorded. While asleep KiKo peeks every 10 seconds, so a very quick visit can be missed. Not a replacement for CCTV.">Bilang "mode jaga" sebelum pergi, lalu "matikan mode jaga" atau cukup kembali: saat KiKo mengenali wajah Anda, mode jaga selesai dan KiKo menyebut jumlah fotonya. Butuh minimal satu wajah yang dikenal dan "Ikuti wajah orang" menyala. Foto disimpan di HP ini saja, paling banyak 30, terhapus sendiri setelah 7 hari, dan tidak ikut cadangan data. KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah di depan kamera HP. Saat tidur KiKo mengintip tiap 10 detik, jadi orang yang lewat sangat cepat bisa terlewat. Bukan pengganti CCTV.</p>
+    <p class="petunjuk" data-en="Say &quot;guard mode&quot; before you leave, &quot;stop guard mode&quot; or just come back: when KiKo recognises your face, guard mode ends and it tells you how many photos there are. Needs at least one known face and &quot;Follow faces&quot; on. Photos stay on this phone only, at most 30, deleted after 7 days, and are not in the data backup. KiKo cannot see objects being taken; only faces in front of the phone camera are recorded. While asleep KiKo peeks every 10 seconds (every 30 when the phone is below 30 % and not charging), so a very quick visit can be missed. Charge the phone in the cradle with a right-angle USB-C cable while guarding: if it is not charging, KiKo says how many hours it can last, and unplugging the phone charger is photographed too. Not a replacement for CCTV.">Bilang "mode jaga" sebelum pergi, lalu "matikan mode jaga" atau cukup kembali: saat KiKo mengenali wajah Anda, mode jaga selesai dan KiKo menyebut jumlah fotonya. Butuh minimal satu wajah yang dikenal dan "Ikuti wajah orang" menyala. Foto disimpan di HP ini saja, paling banyak 30, terhapus sendiri setelah 7 hari, dan tidak ikut cadangan data. KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah di depan kamera HP. Saat tidur KiKo mengintip tiap 10 detik (tiap 30 detik kalau baterai HP di bawah 30 % dan tidak dicas), jadi orang yang lewat sangat cepat bisa terlewat. Selama berjaga, cas HP di dudukan dengan kabel USB-C siku: kalau tidak dicas, KiKo menyebut berapa jam ia kuat, dan charger HP yang dicabut ikut difoto. Bukan pengganti CCTV.</p>
   </div>
     <ul class="petunjuk" id="daftarWajah" style="margin:6px 0;padding-left:1.2em"></ul>
     <p class="petunjuk" id="statusKenalWajah" role="status">Mati.</p>
@@ -3593,7 +3593,7 @@
   // biasanya kembali cepat), sesudahnya tiap 30 dtk. Bangun lewat sentuhan/pesan/pengingat tetap seketika.
   const INTIP_JEDA_MS = 10000, INTIP_JEDA_LAMA_MS = 30000, INTIP_LAMA_SETELAH_MS = 10 * 60000, INTIP_MS = 1500;
   function jedaIntip(now) {
-    if (cekJaga.checked) return INTIP_JEDA_MS;                // mode jaga: tetap mengintip tiap 10 detik
+    if (cekJaga.checked) return hpHemat() ? INTIP_JEDA_LAMA_MS : INTIP_JEDA_MS;   // mode jaga: tiap 10 dtk, 30 dtk kalau baterai HP < 30 % tanpa cas
     const lama = now - (hemat.kamTidurSejak || now) >= INTIP_LAMA_SETELAH_MS;
     if (lama && !hemat.intipLama) {
       hemat.intipLama = true;
@@ -4307,15 +4307,45 @@
     if (!semua.length) { g.textContent = L('Belum ada foto.', 'No photos yet.'); return; }
     for (const f of semua) {
       const kotak = document.createElement('figure'); kotak.style.cssText = 'margin:0;display:inline-block;width:31%;margin:0 1% 8px 0;vertical-align:top';
-      const img = document.createElement('img'); const u = URL.createObjectURL(f.gambar); jaga.url.push(u);
-      img.src = u; img.alt = f.alasan; img.style.cssText = 'width:100%;border-radius:6px;cursor:zoom-in';
-      img.addEventListener('click', () => { const besar = kotak.style.width !== '100%'; kotak.style.width = besar ? '100%' : '31%'; });
       const cap = document.createElement('figcaption'); cap.style.fontSize = '12px';
       cap.textContent = new Date(f.waktu).toLocaleString(bahasa === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + f.alasan;
-      kotak.append(img, cap); g.append(kotak);
+      if (f.gambar) {
+        const img = document.createElement('img'); const u = URL.createObjectURL(f.gambar); jaga.url.push(u);
+        img.src = u; img.alt = f.alasan; img.style.cssText = 'width:100%;border-radius:6px;cursor:zoom-in';
+        img.addEventListener('click', () => { const besar = kotak.style.width !== '100%'; kotak.style.width = besar ? '100%' : '31%'; });
+        kotak.append(img);
+      } else cap.style.cssText = 'font-size:12px;padding:6px;border:1px dashed currentColor;border-radius:6px';   // catatan tanpa foto
+      kotak.append(cap); g.append(kotak);
     }
   }
   function jagaAktif() { return cekJaga.checked && wajah.aktif && fase === 'hidup'; }
+  // Baterai HP (2026-11-07, pengguna: "harus dipikirkan bagaimana menjaga baterai HP juga"): Battery
+  // Status API Chrome. Saat berjaga tanpa cas: diingatkan di awal, mengintip lebih jarang di bawah 30 %,
+  // dicatat saat hampir habis, dan charger yang dicabut ikut difoto (bisa jadi HP diambil).
+  const JAGA_LAJU_HP = 12;          // %/jam perkiraan saat berjaga (uji tidur 21-10: +-10 %/jam)
+  const hp = { ada: false, persen: 100, cas: true, catatHabis: false };
+  function hpHemat() { return hp.ada && !hp.cas && hp.persen < 30; }
+  function catatJaga(alasan) {
+    return dbJaga().then(db => new Promise(ok => { const tx = db.transaction('foto', 'readwrite'); tx.objectStore('foto').add({ waktu: Date.now(), alasan, gambar: null }); tx.oncomplete = ok; tx.onerror = ok; }))
+      .then(rapikanFotoJaga).then(tampilGaleriJaga).catch(() => {});
+  }
+  function teksBateraiHp() {
+    if (!hp.ada) return '';
+    return hp.cas ? L(` HP ${hp.persen}%, sedang dicas.`, ` Phone ${hp.persen}%, charging.`)
+                  : L(` HP ${hp.persen}%, tidak dicas: cukup sekitar ${Math.max(1, Math.round(hp.persen / JAGA_LAJU_HP))} jam.`, ` Phone ${hp.persen}%, not charging: about ${Math.max(1, Math.round(hp.persen / JAGA_LAJU_HP))} hours left.`);
+  }
+  if (navigator.getBattery) navigator.getBattery().then(bt => {
+    const baca = () => {
+      const casLalu = hp.cas;
+      hp.ada = true; hp.persen = Math.round(bt.level * 100); hp.cas = bt.charging;
+      if (!cekJaga.checked) return;
+      if (casLalu && !hp.cas) { jaga.terakhir = 0; fotoJaga(L('charger HP dicabut', 'phone charger unplugged')); }
+      if (!hp.cas && hp.persen <= 8 && !hp.catatHabis) { hp.catatHabis = true; catatJaga(L(`baterai HP tinggal ${hp.persen}%, jaga akan berhenti`, `phone battery at ${hp.persen}%, guarding will stop`)); }
+      if (hp.cas || hp.persen > 10) hp.catatHabis = false;
+      statusJaga(L(`Nyala. ${jaga.baru} foto baru.`, `On. ${jaga.baru} new photos.`) + teksBateraiHp());
+    };
+    baca(); bt.addEventListener('levelchange', baca); bt.addEventListener('chargingchange', baca);
+  }).catch(() => {});
   async function fotoJaga(alasan) {
     const now = Date.now();
     if (!jagaAktif() || now - jaga.terakhir < JAGA_JEDA_MS) return false;
@@ -4365,7 +4395,11 @@
     cekJaga.checked = true; cekKenalWajah.checked = true; simpan('kiko.kenalWajah', '1'); simpan('kiko.jaga', '1');
     jaga.baru = 0; jaga.terakhir = 0;
     statusJaga(L('Nyala. Wajah tak dikenal, sentuhan, dan HP diangkat akan difoto.', 'On. Unknown faces, touches and lifting the phone will be photographed.'));
-    if (suara) ucapkan(L('Oke, aku jaga ya. Kalau ada orang yang tidak kukenal, aku foto.', "Okay, I'm on guard. If someone I don't know comes, I'll take a photo."), 'senang');
+    const jam = Math.max(1, Math.round(hp.persen / JAGA_LAJU_HP));
+    const pesanHp = hp.ada && !hp.cas ? L(` Tapi HP-ku tidak dicas, aku hanya kuat sekitar ${jam} jam. Colok charger supaya bisa jaga lebih lama.`, ` But my phone isn't charging, I can only last about ${jam} hours. Plug in a charger so I can guard longer.`) : '';
+    statusJaga(L('Nyala. Wajah tak dikenal, sentuhan, dan HP diangkat akan difoto.', 'On. Unknown faces, touches and lifting the phone will be photographed.') + teksBateraiHp());
+    if (suara) ucapkan(L('Oke, aku jaga ya. Kalau ada orang yang tidak kukenal, aku foto.', "Okay, I'm on guard. If someone I don't know comes, I'll take a photo.") + pesanHp, 'senang');
+    else if (pesanHp) tampilTeks(pesanHp.trim(), 8000);
   }
   function akhiriJaga(nama) {
     if (!cekJaga.checked) return;
@@ -4384,7 +4418,7 @@
       if (/^(mode jaga|jaga rumah|jaga meja|jaga ya|jagain|jagain ya|jaga|aktifkan mode jaga|nyalakan mode jaga|kamu jaga)$/.test(u)) { mulaiJaga(true); return true; }
       if (/^(matikan mode jaga|berhenti jaga|selesai jaga|mode jaga mati|stop jaga|sudah tidak usah jaga)$/.test(u)) { const ada = cekJaga.checked; akhiriJaga(''); ucapkan(ada ? 'Oke, mode jaga kumatikan.' : 'Mode jaga memang tidak nyala.', 'normal'); return true; }
       if (/^(ada siapa tadi|tadi ada siapa|ada yang datang( tadi)?|tadi ada orang( asing)?)$/.test(u)) {
-        semuaFotoJaga().then(s => ucapkan(s.length ? `Ada ${s.length} foto orang yang tidak kukenal dalam 7 hari terakhir. Lihat di ATUR, bagian Mode jaga.` : 'Tidak ada foto orang asing.', 'normal')).catch(() => {});
+        semuaFotoJaga().then(s => { s = s.filter(f => f.gambar); ucapkan(s.length ? `Ada ${s.length} foto orang yang tidak kukenal dalam 7 hari terakhir. Lihat di ATUR, bagian Mode jaga.` : 'Tidak ada foto orang asing.', 'normal'); }).catch(() => {});
         return true;
       }
       return false;
@@ -4392,7 +4426,7 @@
     if (/^(guard mode|guard the (house|desk|room)|keep watch|be on guard|start guard mode|turn on guard mode)$/.test(u)) { mulaiJaga(true); return true; }
     if (/^(stop guard mode|turn off guard mode|stop guarding|guard mode off)$/.test(u)) { const ada = cekJaga.checked; akhiriJaga(''); ucapkan(ada ? 'Okay, guard mode is off.' : 'Guard mode is not on.', 'normal'); return true; }
     if (/^(did anyone come|who came|was anyone here)$/.test(u)) {
-      semuaFotoJaga().then(s => ucapkan(s.length ? `There are ${s.length} photos of strangers from the last 7 days. See SETTINGS, Guard mode.` : 'No photos of strangers.', 'normal')).catch(() => {});
+      semuaFotoJaga().then(s => { s = s.filter(f => f.gambar); ucapkan(s.length ? `There are ${s.length} photos of strangers from the last 7 days. See SETTINGS, Guard mode.` : 'No photos of strangers.', 'normal'); }).catch(() => {});
       return true;
     }
     return false;
@@ -4408,7 +4442,7 @@
   });
   rapikanFotoJaga().catch(() => {}).then(tampilGaleriJaga);
   if (cekJaga.checked) statusJaga(L('Nyala.', 'On.'));
-  if (MODE_PENGEMBANG) window.kikoJaga = { jaga, fotoJaga, jagaHasilKenal, jagaSentuh, mulaiJaga, akhiriJaga, semuaFotoJaga, wajah, paksaHidup: () => { fase = 'hidup'; } };
+  if (MODE_PENGEMBANG) window.kikoJaga = { hp, catatJaga, hpHemat, jaga, fotoJaga, jagaHasilKenal, jagaSentuh, mulaiJaga, akhiriJaga, semuaFotoJaga, wajah, paksaHidup: () => { fase = 'hidup'; } };
 
   function salamWaktu() {
     const j = new Date().getHours();
