@@ -3666,6 +3666,9 @@
       const baruMuncul = !wajah.ada && lamaHilang > 3000;
       wajah.ada = true;
       wajah.terakhirLihat = now;
+      if (menyendiri.aktif && baruMuncul && now - (menyendiri.sejak || 0) > MENJAUH_MAKS_MS) {   // mode menjauh sudah lama: wajah = selesai
+        menyendiri.aktif = false; menyendiri.mundur = false;     // diam-diam: bangun + sapaan biasa di bawah
+      }
       if (fase === 'hidup' && !menyendiri.aktif) {
         if (now < sambut.sampai && !sambut.sudah) {
           // 2026-11-04: wajah pertama setelah KiKo bangun: berkedip, tersenyum, mengangguk, menyapa.
@@ -5884,8 +5887,13 @@
   //  "Aku lagi BT" saja belum berarti minta ditinggal, jadi KiKo bertanya dulu.
   // =====================================================================
   const menyendiri = { aktif: false, mundur: false };
+  // 2026-11-09 (pengguna: tidur panjang, wajah mendekat, mic menyala "aku mendengarkan" tapi tidak bangun,
+  // hanya bangun saat dielus): mode menjauh mengabaikan wajah dan tidak punya batas waktu, dan kata "pergi"
+  // di awal kalimat apa pun ("pergi ke ...") menyalakannya. Kini "pergi" hanya kalau berdiri sendiri, dan
+  // wajah yang datang setelah MENJAUH_MAKS_MS mengakhiri mode ini (tanpa maju lagi, posisi mungkin sudah lain).
+  const MENJAUH_MAKS_MS = 10 * 60000;
   function mulaiMenjauh() {
-    menyendiri.aktif = true; menyendiri.mundur = false;
+    menyendiri.aktif = true; menyendiri.mundur = false; menyendiri.sejak = performance.now();
     interaksi();
     ekspresiSingkat('sedih', 2500);
     tampilTeks(L('Aku diam dulu. Elus atau panggil aku kalau butuh.', "I'll stay quiet. Pet or call me when you need me."), 6000);
@@ -5903,7 +5911,7 @@
     const u = rapikanAwal(t).replace(/\s+(dong|ya|please)$/, ''), kata = u.split(' ').length;
     if (kata > 7) return false;
     if (/^temani aku$|^stay with me$/.test(u)) { ucapkan(L('Aku di sini ya. Mau cerita?', "I'm right here. Want to talk?"), 'sayang'); return true; }
-    if ((en ? /^(go away|leave me alone|give me space|back off|i want to be alone)\b/ : /^(menjauh|menjauhlah|jauh( jauh)? sana|pergi sana|pergi|jangan ganggu( aku)?|aku mau sendiri|mau sendiri|tinggalkan aku|minggir)\b/).test(u)) { mulaiMenjauh(); return true; }
+    if ((en ? /^(go away|leave me alone|give me space|back off|i want to be alone)\b/ : /^(menjauh|menjauhlah|jauh( jauh)? sana|pergi( sana)?$|jangan ganggu( aku)?|aku mau sendiri|mau sendiri|tinggalkan aku|minggir)\b/).test(u)) { mulaiMenjauh(); return true; }
     if (en ? /^i'?m (so |really )?(bored|annoyed|upset|in a bad mood)\b/.test(u) : /^((aku|saya|gue|gw) )?((lagi|sedang|lg|lagi agak) )?(bt|bete|bad ?mood|dongkol|kesal|kesel|sebel|sebal|bosan|bosen)\b/.test(u)) {
       tanyaLanjut(L('Mau aku temani, atau mau sendiri dulu?', 'Should I keep you company, or do you want to be alone?'),
         c => /sendiri|jauh|pergi|alone|space/.test(c) ? (en ? 'go away' : 'menjauh') : /temani|sini|di sini|company|stay/.test(c) ? (en ? 'stay with me' : 'temani aku') : null);
