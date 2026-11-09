@@ -4385,11 +4385,12 @@
   function mulaiJaga(suara) {
     if (!kenal.orang.length) {
       if (suara) ucapkan(L('Rekam wajahmu dulu supaya aku bisa membedakan kamu dengan orang lain. Bilang "ingat wajahku, namaku" lalu namamu.', 'Record your face first so I can tell you apart from others. Say "remember my face, my name is" and your name.'), 'bingung');
-      statusJaga(L('Butuh minimal satu wajah yang dikenal.', 'Needs at least one known face.'));
+      statusJaga(L('Butuh minimal satu wajah yang dikenal: di bagian "Wajah yang dikenal" isi nama, ketuk "Ingat wajah ini", lalu centang lagi.', 'Needs at least one known face: in "Known faces" type a name, tap "Remember this face", then tick again.'));
       cekJaga.checked = false; return;
     }
     if (!cekWajah.checked) {
       if (suara) ucapkan(L('Nyalakan "Ikuti wajah orang" dulu ya.', 'Please turn on "Follow faces" first.'), 'bingung');
+      statusJaga(L('Nyalakan dulu "Ikuti wajah orang" (bagian Perilaku), lalu centang lagi.', 'Turn on "Follow faces" (Behaviour section) first, then tick again.'));   // dulu centang lepas tanpa penjelasan (9-11-2026)
       cekJaga.checked = false; return;
     }
     cekJaga.checked = true; cekKenalWajah.checked = true; simpan('kiko.kenalWajah', '1'); simpan('kiko.jaga', '1');
