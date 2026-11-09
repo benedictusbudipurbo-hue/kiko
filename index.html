@@ -4527,9 +4527,18 @@
 
   // Sapaan dibuat di HP (tanpa AI) supaya tidak memakai kuota.
   let terakhirSapa = 0;
-  function sapaDenganSuara(paksa = false) {   // paksa: abaikan jeda 5 menit (mis. baru ditempel ke dudukan)
+  function sapaDenganSuara(paksa = false, coba = 0) {   // paksa: abaikan jeda 5 menit (mis. baru ditempel ke dudukan)
     const now = performance.now();
-    if (!ai.url || !cekSuara.checked || ai.tahap !== 'diam' || ai.bicara || menungguElus || menyendiri.aktif) return;
+    if (!ai.url || !cekSuara.checked || menungguElus || menyendiri.aktif) return;
+    // 2026-11-09 (pengguna: "sekali didekati dan bangun tapi tidak disapa"): sapaan menunggu kenal wajah
+    // (sampai 6 dtk), sementara mic otomatis sudah terbuka ±1 dtk setelah wajah muncul, jadi syarat tahap
+    // 'diam' membuang sapaan diam-diam. Kini sesi otomatis yang masih sunyi boleh dipotong (ucapkan menutup
+    // mic), dan kalau KiKo sedang bicara / berpikir / orangnya sedang bicara, sapaan dicoba lagi sampai 8 dtk.
+    const micSunyi = ai.tahap === 'dengar' && ai.sesiOtomatis && !ai.adaSementara;
+    if (ai.bicara || ai.tahap === 'pikir' || (ai.tahap !== 'diam' && !micSunyi)) {
+      if (coba < 16) setTimeout(() => sapaDenganSuara(paksa, coba + 1), 500);
+      return;
+    }
     if (!paksa && terakhirSapa && now - terakhirSapa < JEDA_SAPA_MS) return;
     terakhirSapa = now;
     const s = salamWaktu(), n = namaOrang();
