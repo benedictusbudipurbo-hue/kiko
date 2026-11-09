@@ -358,6 +358,7 @@
     <label class="saklar"><input type="checkbox" id="cekRodaHadap" checked> <span data-en="Body turns to face people when the neck reaches its limit">Badan ikut menghadap orang saat leher sudah mentok</span></label>
     <label class="saklar"><input type="checkbox" id="cekRodaTari" checked> <span data-en="Dance with the wheels too">Menari juga dengan roda</span></label>
     <label class="saklar"><input type="checkbox" id="cekRodaEkspresi" checked> <span data-en="Small body moves with expressions (wiggle when happy, back off when startled)">Gerak badan kecil saat berekspresi (goyang saat senang, mundur saat kaget)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekJagaJarak" checked> <span data-en="Keep a distance: back off when a face comes too close (without wheels: lift the head)">Jaga jarak: mundur kalau wajah terlalu dekat (tanpa roda: kepala diangkat)</span></label>
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol" type="button" id="tombolRodaRumah" data-en="Remember this spot as home">Jadikan tempat ini rumah</button>
       <button class="tombol" type="button" id="tombolRodaPulang" data-en="Go home">Pulang</button>
@@ -601,10 +602,16 @@
   <div class="bagian" id="bagianKenalWajah">
     <h2 data-en="Known faces">Wajah yang dikenal</h2>
     <label class="saklar"><input type="checkbox" id="cekKenalWajah"> <span data-en="Recognise family faces and greet them by name">Kenali wajah keluarga dan sapa dengan namanya</span></label>
+    <label class="saklar"><input type="checkbox" id="cekTanyaNama" checked> <span data-en="Ask the name of someone seen 3 times (asks permission first)">Tanya nama orang yang sudah 3 kali terlihat (minta izin dulu)</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
       <input class="isian" id="inputNamaWajah" type="text" placeholder="Nama, mis. Mama" data-en-ph="Name, e.g. Mum" aria-label="Nama" maxlength="24" style="flex:1;min-width:8em;width:auto">
       <button class="tombol" id="tombolRekamWajah" type="button" data-en="Remember this face">Ingat wajah ini</button>
     </div>
+
+    <ul class="petunjuk" id="daftarWajah" style="margin:6px 0;padding-left:1.2em"></ul>
+    <p class="petunjuk" id="statusKenalWajah" role="status">Mati.</p>
+    <p class="petunjuk" data-en="Say: &quot;remember my face, my name is Budi&quot;, &quot;who am I?&quot;, &quot;whose faces do you know?&quot;, &quot;forget my face&quot;. A face is turned into a list of numbers and kept on this phone only; nothing is sent to the internet. Ask each person first before saving their face. The first time, the phone downloads a ±8 MB model once. Needs &quot;Follow faces&quot; on.">Bilang: "ingat wajahku, namaku Budi", "siapa aku?", "wajah siapa saja yang kamu kenal?", "lupakan wajahku". Wajah diubah menjadi deretan angka dan disimpan di HP ini saja, tidak dikirim ke internet. Minta izin orangnya dulu sebelum menyimpan wajahnya. Pertama kali dipakai, HP mengunduh model ±8 MB sekali. Butuh "Ikuti wajah orang" menyala.</p>
+  </div>
 
   <div class="bagian" id="bagianJaga">
     <h2 data-en="Guard mode">Mode jaga</h2>
@@ -616,10 +623,6 @@
       <button class="tombol" id="tombolHapusJaga" type="button" data-en="Delete all photos">Hapus semua foto</button>
     </div>
     <p class="petunjuk" data-en="Say &quot;guard mode&quot; before you leave, &quot;stop guard mode&quot; or just come back: when KiKo recognises your face, guard mode ends and it tells you how many photos there are. Needs at least one known face and &quot;Follow faces&quot; on. Photos stay on this phone only, at most 30, deleted after 7 days, and are not in the data backup. KiKo cannot see objects being taken; only faces in front of the phone camera are recorded. While asleep KiKo peeks every 10 seconds (every 30 when the phone is below 30 % and not charging), so a very quick visit can be missed. Charge the phone in the cradle with a right-angle USB-C cable while guarding: if it is not charging, KiKo says how many hours it can last, and unplugging the phone charger is photographed too. Not a replacement for CCTV.">Bilang "mode jaga" sebelum pergi, lalu "matikan mode jaga" atau cukup kembali: saat KiKo mengenali wajah Anda, mode jaga selesai dan KiKo menyebut jumlah fotonya. Butuh minimal satu wajah yang dikenal dan "Ikuti wajah orang" menyala. Foto disimpan di HP ini saja, paling banyak 30, terhapus sendiri setelah 7 hari, dan tidak ikut cadangan data. KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah di depan kamera HP. Saat tidur KiKo mengintip tiap 10 detik (tiap 30 detik kalau baterai HP di bawah 30 % dan tidak dicas), jadi orang yang lewat sangat cepat bisa terlewat. Selama berjaga, cas HP di dudukan dengan kabel USB-C siku: kalau tidak dicas, KiKo menyebut berapa jam ia kuat, dan charger HP yang dicabut ikut difoto. Bukan pengganti CCTV.</p>
-  </div>
-    <ul class="petunjuk" id="daftarWajah" style="margin:6px 0;padding-left:1.2em"></ul>
-    <p class="petunjuk" id="statusKenalWajah" role="status">Mati.</p>
-    <p class="petunjuk" data-en="Say: &quot;remember my face, my name is Budi&quot;, &quot;who am I?&quot;, &quot;whose faces do you know?&quot;, &quot;forget my face&quot;. A face is turned into a list of numbers and kept on this phone only; nothing is sent to the internet. Ask each person first before saving their face. The first time, the phone downloads a ±8 MB model once. Needs &quot;Follow faces&quot; on.">Bilang: "ingat wajahku, namaku Budi", "siapa aku?", "wajah siapa saja yang kamu kenal?", "lupakan wajahku". Wajah diubah menjadi deretan angka dan disimpan di HP ini saja, tidak dikirim ke internet. Minta izin orangnya dulu sebelum menyimpan wajahnya. Pertama kali dipakai, HP mengunduh model ±8 MB sekali. Butuh "Ikuti wajah orang" menyala.</p>
   </div>
 
   <div class="bagian">
@@ -3690,9 +3693,10 @@
           wajah.terakhirKaget = now;
           kedipSekarang();
           ekspresiSingkat('kaget', 900);
-          rodaEkspresi('kaget');                               // mundur sedikit (roda)
+          if (!cekJagaJarak.checked) rodaEkspresi('kaget');    // mundur sedikit (roda); jaga jarak mengambil alih
         }
       }
+      periksaJarak(now);                                       // jaga jarak
       statusWajah(L('Aktif. Wajah terdeteksi.', 'On. Face detected.'));
     } else if (wajah.ada && now - wajah.terakhirLihat > 700) {
       wajah.ada = false;                                       // hilang sebentar dimaafkan (kedip, menoleh)
@@ -4031,7 +4035,74 @@
   const KENAL_LEBAR_MIN = 0.15;      // wajah lebih kecil dari ini terlalu jauh untuk dikenali
   const KENAL_COBA_MS = 6000;
   const kenal = { siap: false, memuat: null, fa: null, orang: [], sekarang: '', sisaCoba: 0, batasCoba: 0,
-                  sapaTunda: false, sibuk: false, terakhirDisapa: '', sapaNamaLalu: 0, kanvas: null };
+                  sapaTunda: false, sibuk: false, terakhirDisapa: '', sapaNamaLalu: 0, kanvas: null, dAsing: null };
+  // KENALAN (2026-11-09, pengguna: "ya buatkan, saya setujui kalo setelah beberapa kali terlihat"):
+  // wajah yang tidak dikenal dicatat sebagai deskriptor saja (angka, tanpa foto) di kiko.wajahAsing.
+  // Satu kunjungan dihitung kalau jaraknya >= 10 menit dari kunjungan sebelumnya. Pada kunjungan ke-3
+  // KiKo bertanya nama dan minta izin; wajah baru direkam kalau orangnya menjawab boleh / menyebut nama.
+  // Menolak = tidak ditanya lagi 30 hari. Tidak bertanya saat mode jaga, tidur, malam, atau mode menjauh.
+  // Catatan asing terhapus sendiri setelah 7 hari tanpa terlihat, paling banyak 10, tidak ikut cadangan.
+  const ASING_KALI = 3, ASING_JEDA_MS = 10 * 60000, ASING_UMUR_MS = 7 * 864e5, ASING_TOLAK_MS = 30 * 864e5, ASING_MAKS = 10;
+  let asing = [];
+  try { const a = JSON.parse(localStorage.getItem('kiko.wajahAsing') || '[]'); if (Array.isArray(a)) asing = a.filter(e => e && Array.isArray(e.contoh) && e.contoh.length); } catch (_) {}
+  const cekTanyaNama = document.getElementById('cekTanyaNama');
+  try { cekTanyaNama.checked = localStorage.getItem('kiko.tanyaNama') !== '0'; } catch (_) {}
+  cekTanyaNama.addEventListener('change', () => simpan('kiko.tanyaNama', cekTanyaNama.checked ? '1' : '0'));
+  function simpanAsing() {
+    const now = Date.now();
+    asing = asing.filter(e => now - e.terakhir < (e.ditolak ? ASING_TOLAK_MS : ASING_UMUR_MS))
+                 .sort((x, y) => y.terakhir - x.terakhir).slice(0, ASING_MAKS);
+    simpan('kiko.wajahAsing', JSON.stringify(asing));
+  }
+  function catatAsing(d) {
+    const now = Date.now();
+    let e = null, jarak = 9;
+    for (const x of asing) for (const c of x.contoh) {
+      let s2 = 0; for (let i = 0; i < 128; i++) { const t = c[i] - d[i]; s2 += t * t; }
+      const jj = Math.sqrt(s2); if (jj < jarak) { jarak = jj; e = x; }
+    }
+    if (!e || jarak >= KENAL_AMBANG) { e = { contoh: [d], kali: 1, terakhir: now, ditanya: 0, ditolak: 0 }; asing.push(e); }
+    else {
+      if (now - e.terakhir >= ASING_JEDA_MS) e.kali++;
+      e.terakhir = now; e.contoh = e.contoh.concat([d]).slice(-3);
+    }
+    simpanAsing();
+    return e;
+  }
+  function bolehKenalan(e) {
+    return e && cekTanyaNama.checked && e.kali >= ASING_KALI && !e.ditolak && (e.ditanya || 0) < 2
+      && !cekJaga.checked && !hemat.tidur && fase === 'hidup' && cekSuara.checked && !menyendiri.aktif
+      && !modeMalamAktif() && !ai.bicara && ai.tahap !== 'pikir' && !lanjutMenunggu() && !tari.aktif && !roda.sibuk;
+  }
+  function ajakKenalan(e) {
+    e.ditanya = (e.ditanya || 0) + 1; simpanAsing();
+    kenal.kenalan = e;
+    tanyaLanjut(L('Hai! Kayaknya kita sudah beberapa kali ketemu. Siapa namamu? Boleh aku ingat wajahmu?', "Hi! I think we've met a few times. What's your name? May I remember your face?"), x => x, 'kenalan');
+    statusKenal(L(`Wajah yang sama terlihat ${e.kali} kali, KiKo bertanya namanya.`, `Same face seen ${e.kali} times, KiKo asks the name.`));
+  }
+  // Jawaban atas ajakan kenalan. true = sudah ditangani.
+  function jawabKenalan(t) {
+    const e = kenal.kenalan; kenal.kenalan = null;
+    let u = t.replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(tidak|nggak|ngga|gak|ga|enggak|ndak|jangan|tak usah|gak usah|ga usah|nggak usah|tidak usah|tidak mau|gak mau|nggak mau|ogah|maaf|no|nope|don'?t|no thanks|not now)\b/.test(u)
+        || KATA_BATAL.test(u)) {
+      if (e) { e.ditolak = Date.now(); simpanAsing(); }
+      ucapkan(L('Oke, tidak apa-apa. Aku tidak akan bertanya lagi.', "Okay, no problem. I won't ask again."), 'normal');
+      return true;
+    }
+    let mau = false, lama;
+    do { lama = u; u = u.replace(/^(boleh|iya|iyaa|ya|yah|yo|oke|ok|okay|silakan|silahkan|tentu|tentu saja|sip|yes|sure|of course|please|hai|halo|hi|hello)\b ?/, m => { mau = true; return ''; }); } while (u !== lama);
+    const m = u.match(/^(?:nama(?:ku| saya)?(?: adalah)?|aku|saya|panggil (?:aku|saya)|my name is|i am|i'?m|call me|it'?s)\s+(.+)$/);
+    let nama = m ? m[1] : u;
+    nama = nama.replace(/\s+(ya|dong|deh|kok|aja|saja|kiko)$/, '').trim();
+    const kata = nama.split(' ').filter(Boolean);
+    if (nama && kata.length <= 3 && !/\b(apa|kenapa|siapa|kamu|kok|tidak|gak|mau|bisa|what|why|who|you)\b/.test(nama)) {
+      if (e) { asing = asing.filter(x => x !== e); simpanAsing(); }
+      rekamWajah(nama); return true;
+    }
+    if (mau) { if (e) { asing = asing.filter(x => x !== e); simpanAsing(); } rekamWajah(''); return true; }
+    return false;   // kalimat lain: diteruskan seperti biasa
+  }
   try { const a = JSON.parse(localStorage.getItem('kiko.wajahDikenal') || '[]'); if (Array.isArray(a)) kenal.orang = a.filter(o => o && o.nama && Array.isArray(o.contoh)); } catch (_) {}
   const cekKenalWajah = document.getElementById('cekKenalWajah');
   const elStatusKenal = document.getElementById('statusKenalWajah');
@@ -4104,7 +4175,7 @@
   }
   // Dipanggil saat orang baru datang. true = sapaan suara ditunda sampai tahu siapa.
   function kenalOrangBaru(sapa) {
-    kenal.sekarang = '';
+    kenal.sekarang = ''; kenal.dAsing = null;
     if (!kenalAktif()) return false;
     kenal.sisaCoba = 4; kenal.batasCoba = performance.now() + KENAL_COBA_MS; kenal.sapaTunda = !!sapa;
     return !!sapa;
@@ -4112,6 +4183,10 @@
   function selesaiKenal(nama, jarak) {
     kenal.sisaCoba = 0; kenal.sekarang = nama || '';
     jagaHasilKenal(nama || null);                              // mode jaga: foto orang asing / selesai saat pemilik kembali
+    if (!nama && kenal.dAsing && !cekJaga.checked) {           // kenalan: hitung kunjungan wajah asing
+      const e = catatAsing(kenal.dAsing); kenal.dAsing = null;
+      if (bolehKenalan(e)) { kenal.sapaTunda = false; ajakKenalan(e); return; }
+    }
     const j = jarak !== undefined && jarak < 9 ? ` (${L('jarak', 'distance')} ${jarak.toFixed(2)})` : '';
     statusKenal((nama ? L(`Mengenali ${nama}`, `Recognised ${nama}`) : L('Wajah belum dikenal', 'Face not recognised')) + j);
     if (kenal.sapaTunda) { kenal.sapaTunda = false; sapaDenganSuara(); kenal.terakhirDisapa = kenal.sekarang; return; }
@@ -4134,7 +4209,7 @@
       if (!d) { if (--kenal.sisaCoba <= 0) selesaiKenal(null); return; }
       const h = cocokkanWajah(d);
       if (h.orang) selesaiKenal(h.orang.nama, h.jarak);
-      else if (--kenal.sisaCoba <= 0) selesaiKenal(null, h.jarak);
+      else { kenal.dAsing = d; if (--kenal.sisaCoba <= 0) selesaiKenal(null, h.jarak); }
     } catch (e) { statusKenal(L('Gagal mengenali: ', 'Recognition failed: ') + (e && e.message || e)); selesaiKenal(null); }
     finally { kenal.sibuk = false; }
   }, 800);
@@ -4211,7 +4286,7 @@
         ucapkan(kenal.orang.length ? `Aku kenal wajah ${kenal.orang.map(o => o.nama).join(', ')}.` : 'Aku belum kenal wajah siapa pun.', 'normal'); return true;
       }
       if (/^(lupakan|hapus) (semua wajah|wajah semua orang)$/.test(u)) {
-        kenal.orang = []; kenal.sekarang = ''; simpanOrang(); ucapkan('Oke, semua wajah sudah kulupakan.', 'normal'); return true;
+        kenal.orang = []; kenal.sekarang = ''; asing = []; simpanAsing(); simpanOrang(); ucapkan('Oke, semua wajah sudah kulupakan.', 'normal'); return true;
       }
       if ((m = u.match(/^(lupakan|hapus) wajah(ku| saya| aku)?(?: ([a-z' ]{2,24}))?$/))) {
         const n = m[2] ? kenal.sekarang : rapikanNamaOrang(m[3] || '');
@@ -4228,7 +4303,7 @@
     if (/^(whose faces do you know|who do you know|which faces do you know)$/.test(u)) {
       ucapkan(kenal.orang.length ? `I know ${kenal.orang.map(o => o.nama).join(', ')}.` : "I don't know anyone's face yet.", 'normal'); return true;
     }
-    if (/^forget (all faces|everyone's face|everyones face)$/.test(u)) { kenal.orang = []; kenal.sekarang = ''; simpanOrang(); ucapkan('Okay, I forgot all faces.', 'normal'); return true; }
+    if (/^forget (all faces|everyone's face|everyones face)$/.test(u)) { kenal.orang = []; kenal.sekarang = ''; asing = []; simpanAsing(); simpanOrang(); ucapkan('Okay, I forgot all faces.', 'normal'); return true; }
     if ((m = u.match(/^forget (my|([a-z' ]{2,24}?)'?s) face$/))) {
       const n = m[1] === 'my' ? kenal.sekarang : rapikanNamaOrang(m[2] || '');
       if (!n) { ucapkan("I don't know who you are yet. Say forget, then the person's name and face.", 'bingung'); return true; }
@@ -4250,7 +4325,7 @@
   });
   tampilDaftarWajah();
   if (MODE_PENGEMBANG) window.kikoKenal = {   // uji di localhost: model, deskriptor dari gambar, pencocokan
-    kenal, siapkanKenal, cocokkanWajah, kenalOrangBaru,
+    kenal, siapkanKenal, cocokkanWajah, kenalOrangBaru, catatAsing, jawabKenalan, ajakKenalan, bolehKenalan, asing: () => asing,
     deskriptorGambar: async g => { const fa = kenal.fa; const h = await fa.detectSingleFace(g, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })).withFaceLandmarks(true).withFaceDescriptor(); return h ? Array.from(h.descriptor) : null; },
   };
   if (cekKenalWajah.checked) statusKenal(L(`Nyala. ${kenal.orang.length} wajah tersimpan; model dimuat saat dibutuhkan.`, `On. ${kenal.orang.length} faces saved; the model loads when needed.`));
@@ -5333,6 +5408,46 @@
     });
   }
 
+  // ---- JAGA JARAK (2026-11-09, pengguna: "apabila orang terlalu maju wajahnya, dia mundur dikit atur jarak")
+  // Wajah lebih lebar dari JARAK_DEKAT (±30 cm) selama 1 detik -> KiKo mundur 3 cm per langkah sampai wajah
+  // di bawah JARAK_NYAMAN (±40 cm), paling jauh 15 cm sekali jalan, jeda 10 detik. Sensor tepi belakang tetap
+  // berlaku lewat langkahRoda. Tanpa roda (atau roda tidak boleh): kepala diangkat sebentar + teguran.
+  // Berhenti sementara saat KiKo memang perlu dekat: kamera "ini apa", rekam wajah, belajar tarian, menari,
+  // mode menjauh, roda sedang dipakai, joystick, tidur. Angka lebar wajah = perkiraan, disetel saat uji.
+  const JARAK_DEKAT = 0.38, JARAK_NYAMAN = 0.30, JARAK_LANGKAH_MM = 30, JARAK_MAKS_MM = 150;
+  const JARAK_TAHAN_MS = 1000, JARAK_JEDA_MS = 10000, JARAK_BICARA_MS = 60000;
+  const cekJagaJarak = document.getElementById('cekJagaJarak');
+  const jarak = { dekatSejak: 0, terakhir: 0, bicara: 0 };
+  try { cekJagaJarak.checked = localStorage.getItem('kiko.jagaJarak') !== '0'; } catch (_) {}
+  cekJagaJarak.addEventListener('change', () => simpan('kiko.jagaJarak', cekJagaJarak.checked ? '1' : '0'));
+  function jarakDitunda() {
+    return lihat.aktif || kenal.sibuk || ajar.aktif || tari.aktif || menyendiri.aktif || roda.sibuk || setir.aktif
+      || hemat.tidur || fase !== 'hidup' || (typeof ota !== 'undefined' && ota.aktif);
+  }
+  function periksaJarak(now) {
+    if (!cekJagaJarak.checked || !wajah.ada || jarakDitunda() || wajah.lebar <= JARAK_DEKAT) { jarak.dekatSejak = 0; return; }
+    if (!jarak.dekatSejak) { jarak.dekatSejak = now; return; }
+    if (now - jarak.dekatSejak < JARAK_TAHAN_MS || now - jarak.terakhir < JARAK_JEDA_MS) return;
+    jarak.terakhir = now; jarak.dekatSejak = 0;
+    const bolehBicara = cekSuara.checked && !ai.bicara && ai.tahap !== 'dengar' && now - jarak.bicara > JARAK_BICARA_MS;
+    if (rodaBolehOtomatis(cekJagaJarak)) {
+      if (bolehBicara) { jarak.bicara = now; ucapkan(L('Terlalu dekat, aku mundur sedikit ya.', "Too close, I'll back up a little."), 'kaget'); }
+      tambahLogDengar(L(`jaga jarak: wajah ${Math.round(wajah.lebar * 100)} % lebar gambar`, `keep distance: face ${Math.round(wajah.lebar * 100)} % of frame`));
+      jalankanRoda(async () => {
+        let total = 0;
+        while (total < JARAK_MAKS_MM && wajah.ada && wajah.lebar > JARAK_NYAMAN) {
+          await langkahRoda('D', -JARAK_LANGKAH_MM); total += JARAK_LANGKAH_MM;
+          await jedaRoda(350);
+        }
+      });
+    } else {
+      kepala.tilt = KEPALA_NAIK_MAKS; kepala.paksaSampai = now + 2500;    // tanpa roda: kepala sedikit menengadah
+      ekspresiSingkat('kaget', 900);
+      if (bolehBicara) { jarak.bicara = now; ucapkan(L('Jangan terlalu dekat ya, aku jadi silau.', "Not so close please, it's dazzling."), 'kaget'); }
+    }
+  }
+  if (MODE_PENGEMBANG) window.kikoJarak = { periksaJarak, jarakDitunda, jarak, wajah, kepala, roda, hemat, keadaan: () => ({ lihat: lihat.aktif, tari: tari.aktif, sibuk: roda.sibuk, tidur: hemat.tidur, fase }) };   // uji di localhost
+
   // ---- 1. Perintah suara ----
   function angkaCm(t, bawaan) {
     let m = t.match(/(\d+(?:[.,]\d+)?)\s*(cm|senti|centi|sentimeter|centimeter|centimetre|centimeters)\b/);
@@ -5968,7 +6083,7 @@
   //  File cadangan datang dari luar aplikasi: hanya kunci kiko.* bernilai teks yang diterima, dan
   //  ringkasannya (termasuk alamat Worker) ditunjukkan dulu sebelum menimpa data.
   // =====================================================================
-  const KUNCI_TANPA_CADANGAN = new Set(['kiko.baseId', 'kiko.pernahBase', 'kiko.lajuBaterai', 'kiko.menari']);
+  const KUNCI_TANPA_CADANGAN = new Set(['kiko.baseId', 'kiko.pernahBase', 'kiko.lajuBaterai', 'kiko.menari', 'kiko.wajahAsing']);
   const CADANGAN_MAKS_BYTE = 2 * 1024 * 1024;
   const elStatusCadangan = document.getElementById('statusCadangan');
   const elFileCadangan = document.getElementById('fileCadangan');
@@ -6292,6 +6407,7 @@
     const tunggu = lanjut && Date.now() < lanjut.sampai ? lanjut : null;
     lanjut = null;
     if (tunggu) {
+      if (tunggu.jenis === 'kenalan' && jawabKenalan(t)) return true;
       if (KATA_BATAL.test(t)) { ucapkan(L('Oke, tidak jadi.', 'Okay, never mind.'), 'normal'); return true; }
       // Jawaban yang sudah berupa perintah lengkap dijalankan apa adanya; selain itu dilengkapi.
       if (jawabLokalInti(teks)) return true;
