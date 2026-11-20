@@ -230,6 +230,36 @@
     pointer-events: none;   /* tanpa kotak: hanya dua mata mengambang (lihat hanyaMata di bingkai) */
   }
   body.nonton #pratinjauKamera { display: none; }
+  /* ---------- Game tebak bola (2026-11-20) ----------
+     Sama dengan mode nonton: wajah mengecil ke pojok kiri atas (hanya dua mata), gelas di tengah layar.
+     #gim ada sebelum #sudut/#pita di DOM, jadi gelembung bicara dan tombol tetap di atasnya. */
+  body.bermain #wajah {
+    transform: scale(.28); transform-origin: calc(12px + env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-top, 0px));
+    pointer-events: none;
+  }
+  body.bermain #pratinjauKamera { display: none; }
+  #gim { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 70%, #1d2a2c 0%, #000 70%); }
+  #gimSkor { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+    margin: 0; font-size: 15px; font-weight: 600; color: var(--teks); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #gimMeja { position: absolute; left: 4%; right: 4%; top: 24%; height: 46%; }
+  #gimMeja::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: #3a5256; }
+  .gelas { position: absolute; bottom: 3px; width: min(17vmin, 18%); height: min(22vmin, 90%); transform: translate(-50%, 0);
+    border: 0; padding: 0; cursor: pointer; z-index: 2; background: linear-gradient(90deg, #a8321f, #e8834a 45%, #c24a2c);
+    clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%); transition: bottom .35s ease; }
+  .gelas::before { content: ''; position: absolute; left: 14%; right: 14%; top: 0; height: 9%; background: rgba(0,0,0,.25); }
+  .gelas.terangkat { bottom: 46%; }
+  .gelas:focus-visible { outline: 3px solid var(--mata); }
+  .noGelas { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font: 700 clamp(16px, 5vmin, 30px)/1 system-ui, sans-serif; color: #fff; }
+  .bolaGim { position: absolute; bottom: 3px; width: min(8vmin, 9%); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%);
+    background: radial-gradient(circle at 35% 30%, #fff8c8, #f2c230 45%, #b07d10); z-index: 1; }
+  #gimPetunjuk { position: absolute; left: 50%; transform: translateX(-50%); top: 74%; margin: 0; max-width: 80vw;
+    text-align: center; font-size: 15px; color: var(--teks); }
+  #gimLagi { position: absolute; left: 50%; transform: translateX(-50%); top: 81%; }
+  #tombolTutupGim {
+    pointer-events: auto; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--garis);
+    background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) { .gelas { transition: none; } }
   #tombolTutupYt {
     pointer-events: auto; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--garis);
     background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
@@ -266,6 +296,15 @@
 </style>
 
 <div id="nonton" aria-label="Video YouTube"><div id="ytPemutar"></div></div>
+<div id="gim" hidden aria-label="Game tebak bola di gelas">
+  <p id="gimSkor"></p>
+  <div id="gimMeja"></div>
+  <p id="gimPetunjuk" role="status"></p>
+  <div id="gimLagi" class="baris" hidden>
+    <button class="tombol utama" id="gimLagiYa" type="button" data-en="Play again">Main lagi</button>
+    <button class="tombol" id="gimLagiTidak" type="button" data-en="Done">Selesai</button>
+  </div>
+</div>
 <canvas id="wajah" aria-label="Wajah KiKo: dua mata animasi. Ketuk, ketuk dua kali, atau tahan untuk berinteraksi."></canvas>
 
 <div id="pasang">
@@ -288,6 +327,7 @@
   <p id="teksTimer" hidden aria-live="off"></p>
   <button id="tombolStopRadio" type="button" hidden></button>
   <button id="tombolTutupYt" class="tombolSudut" type="button" hidden>✕ YouTube</button>
+  <button id="tombolTutupGim" type="button" hidden data-en="✕ Game">✕ Main</button>
   <p id="jam" hidden aria-live="off"></p>
   <p id="teksGalat" hidden aria-live="polite"></p>
 </div>
@@ -502,6 +542,17 @@
     <p class="petunjuk" data-en="You can also say: &quot;remind me at 7 pm to take my medicine&quot;, &quot;remind me in 10 minutes to bring in the laundry&quot;, &quot;remind me every day at 6 am to exercise&quot;, &quot;what time is it?&quot;. Stored on this phone only. Reminders only ring while KiKo is open on screen.">Bisa juga lewat suara: "ingatkan aku jam 7 malam minum obat", "ingatkan aku 10 menit lagi angkat jemuran", "ingatkan aku setiap hari jam 6 pagi olahraga", "jam berapa sekarang?". Disimpan di HP ini saja. Pengingat hanya berbunyi selama KiKo terbuka di layar.</p>
   </div>
 
+  <div class="bagian" id="bagianDaftarCatatan">
+    <h2 data-en="Note list">Daftar catatan</h2>
+    <ul class="daftar" id="isiDaftarCatatan"></ul>
+    <p class="petunjuk" id="statusDaftarCatatan" role="status">Daftar masih kosong.</p>
+    <div class="baris" style="justify-content:flex-start">
+      <button class="tombol" id="tombolHapusSelesai" type="button" data-en="Remove finished">Hapus yang selesai</button>
+      <button class="tombol" id="tombolHapusDaftar" type="button" data-en="Delete all">Hapus semua</button>
+    </div>
+    <p class="petunjuk" data-en="Say &quot;make a list from these notes&quot;, then hold the sticky notes or the to-do paper in front of my camera (or turn me to face the wall). Then &quot;add more&quot; for the next photo, &quot;read my list&quot;, &quot;number 2 is done&quot;, &quot;delete number 3&quot;, &quot;clear my list&quot;. Handwriting is read by the AI (needs the Worker address, Worker v20); unclear words get a question mark. The list is kept on this phone only.">Bilang "susun daftar dari catatan ini", lalu pegang catatan tempel atau kertas to-do di depan kameraku (atau hadapkan aku ke dinding). Lalu "tambah lagi" untuk foto berikutnya, "bacakan daftarku", "nomor 2 selesai", "hapus nomor 3", "hapus daftarku". Tulisan tangan dibaca AI (butuh alamat Worker, Worker v20); kata yang kurang jelas diberi tanda tanya. Daftar disimpan di HP ini saja.</p>
+  </div>
+
   <div class="bagian">
     <h2 data-en="Phone &amp; WhatsApp">Telepon &amp; WhatsApp</h2>
     <label class="saklar"><input type="checkbox" id="cekTelepon" checked> <span data-en="Enable phone / WhatsApp commands">Aktifkan perintah telepon / WhatsApp</span></label>
@@ -534,6 +585,20 @@
     <p class="petunjuk" id="statusPesan" role="status"></p>
     <p class="petunjuk" data-en="Say: &quot;read the message&quot;, &quot;read my e-mail&quot;, &quot;any messages?&quot;, &quot;reply to Budi I'm on my way&quot; (KiKo replies in the app the message came from, e.g. Telegram or SMS, after you tap the green button; otherwise it opens WhatsApp with the text filled in), &quot;stop announcing messages&quot;.">Bilang: "bacakan pesannya", "bacakan email", "ada pesan apa?", "balas Budi aku sudah di jalan" (KiKo membalas di aplikasi asal pesannya, misalnya Telegram atau SMS, setelah Anda menekan tombol hijau; kalau tidak bisa, membuka WhatsApp dengan pesan terisi), "jangan umumkan pesan".</p>
     <p class="petunjuk" data-en="KiKo Notif (Android app) reads message notifications from any app (WhatsApp, SMS, Telegram, …) and hands them to KiKo inside the phone only (127.0.0.1); nothing goes to the internet. The bubble appears for a few seconds at the bottom without covering the face.">KiKo Notif (aplikasi Android) membaca notifikasi pesan dari aplikasi apa pun (WhatsApp, SMS, Telegram, …) dan memberikannya ke KiKo hanya di dalam HP (127.0.0.1); tidak ada yang dikirim ke internet. Gelembung muncul beberapa detik di bawah tanpa menutupi wajah.</p>
+  </div>
+
+  <div class="bagian" id="bagianJauh">
+    <h2 data-en="Remote control by WhatsApp">Kendali jarak jauh (WhatsApp)</h2>
+    <label class="saklar"><input type="checkbox" id="cekJauh"> <span data-en="Answer the owner's WhatsApp chats about home automatically">Jawab otomatis chat WhatsApp pemilik tentang rumah</span></label>
+    <input class="isian" id="jauhNama" type="text" placeholder="Nama pemilik di kontak HP KiKo, mis. Papa" data-en-ph="Owner name in the KiKo phone contacts, e.g. Dad" aria-label="Nama pemilik" maxlength="80">
+    <input class="isian" id="jauhKode" type="text" placeholder="Kode rahasia di awal chat (boleh kosong)" data-en-ph="Secret code at the start of the chat (optional)" aria-label="Kode rahasia" maxlength="20" autocomplete="off">
+    <div class="baris" style="justify-content:flex-start;align-items:center">
+      <input class="isian" id="loraAlamat" type="text" placeholder="Lora: 192.168.1.20:8790" aria-label="Alamat Lora" maxlength="40" style="flex:1;min-width:9em;width:auto">
+      <input class="isian" id="loraKode" type="text" placeholder="Kode Lora" data-en-ph="Lora code" aria-label="Kode pasangan Lora" maxlength="20" style="width:7em" autocomplete="off">
+      <button class="tombol" id="tombolUjiLora" type="button" data-en="Test Lora">Uji Lora</button>
+    </div>
+    <p class="petunjuk" id="statusJauh" role="status">Mati.</p>
+    <p class="petunjuk" data-en="The KiKo phone needs its own WhatsApp number, different from yours, and KiKo Notif v1.5 with &quot;Incoming messages&quot; on. Save your number in the KiKo phone contacts and type that contact name here exactly (several: separate with commas). Your chats are not announced at home; KiKo replies by itself from what it saw: &quot;home status&quot;, &quot;who is home?&quot;, &quot;any visitors?&quot;, &quot;battery&quot;, &quot;note list&quot;, &quot;guard mode on/off&quot;, &quot;tell home dinner is ready&quot;. Chats about the AC, TV, lights or starting with &quot;Lora&quot; go to Lora (ELIORA on the tablet) over the home Wi-Fi. With a secret code, only chats that start with it are answered. KiKo never sends photos. The page must stay open on the KiKo phone.">HP KiKo butuh nomor WhatsApp sendiri (beda dari nomormu), dan KiKo Notif v1.5 dengan "Pesan masuk" menyala. Simpan nomormu di kontak HP KiKo, lalu tulis nama kontak itu di sini persis sama (beberapa nama: pisahkan dengan koma). Chat darimu tidak diumumkan di rumah; KiKo membalas sendiri dari yang ia lihat: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan", "nyalakan/matikan mode jaga", "bilang ke rumah makan malam sudah siap". Chat soal AC, TV, lampu atau yang diawali "Lora" diteruskan ke Lora (ELIORA di tablet) lewat Wi-Fi rumah. Kalau kode rahasia diisi, hanya chat yang diawali kode itu yang dijawab. KiKo tidak pernah mengirim foto. Halaman KiKo harus tetap terbuka di HP KiKo.</p>
   </div>
 
   <div class="bagian">
@@ -850,6 +915,8 @@
 
   // Arah pandang (-1..1). Pegasnya lebih kaku = lirikan cepat seperti saccade mata.
   const pandang = { cur: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, tgt: { x: 0, y: 0 } };
+  // Game tebak bola (2026-11-20): dideklarasikan di sini supaya bingkai() bisa membacanya sejak awal.
+  const gim = { aktif: false, token: 0, tahap: '', n: 0, gelas: [], posisi: [], bola: 0, level: 1, skor: 0, ronde: 0, elBola: null };
 
   // =====================================================================
   //  STATUS / MOOD
@@ -2054,7 +2121,7 @@
     // Mode nonton YouTube (pengguna 2026-10-19: "hanya tampilan mata tanpa background, lebih
     // elegan"): kanvas dibiarkan bening, wajah tanpa kulit/corak/hidung/alis, cuma dua mata
     // mengambang di atas video dengan bayangan lembut supaya tetap terbaca di adegan terang.
-    const hanyaMata = document.body.classList.contains('nonton');
+    const hanyaMata = document.body.classList.contains('nonton') || document.body.classList.contains('bermain');
     if (hanyaMata) ctx.clearRect(0, 0, kanvas.width, kanvas.height);
     else {
       ctx.fillStyle = gaya !== 'robot' ? kulit.latar : '#000';
@@ -2080,12 +2147,12 @@
 
     // Lirikan: ikut jari saat disentuh, ikut wajah orang kalau terlihat kamera,
     // selain itu melirik acak.
-    if (wajah.ada && !sentuh.aktif && !setir.aktif && !tari.aktif && !menyendiri.aktif) {
+    if (wajah.ada && !sentuh.aktif && !setir.aktif && !tari.aktif && !menyendiri.aktif && !gim.aktif) {
       // Dihaluskan per frame supaya mata tidak ikut "bergetar" oleh derau deteksi.
       pandang.tgt.x += (wajah.x - pandang.tgt.x) * 0.25;
       pandang.tgt.y += (wajah.y - pandang.tgt.y) * 0.25;
       berikutLirik = now + 800;   // setelah wajah hilang, tunggu sebentar sebelum melirik acak lagi
-    } else if (!sentuh.aktif && !setir.aktif && now > berikutLirik) {
+    } else if (!sentuh.aktif && !setir.aktif && !gim.aktif && now > berikutLirik) {
       if (mood === 'tidur') { pandang.tgt.x = 0; pandang.tgt.y = 0.2; }
       else if (Math.random() < 0.6) { pandang.tgt.x = acak(-0.25, 0.25); pandang.tgt.y = acak(-0.2, 0.2); }
       else {
@@ -2378,6 +2445,7 @@
   function saatDiangkat() {
     if (!cekTempel.checked || fase === 'pasang') return;
     jagaSentuh(L('HP diangkat', 'phone lifted'));             // mode jaga: foto sebelum layar kembali ke "pasang"
+    catatRumah('diangkat');
     // Diangkat saat animasi memuat: langsung kembali tidur.
     if (fase === 'memuat') { keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.')); return; }
     ekspresiSingkat('sedih', 900);
@@ -2844,7 +2912,7 @@
       const ujiDiag = !!diag.tungguSentuh;
       if (diag.tungguSentuh && nilai !== 'tahan') diag.tungguSentuh(true);   // langkah uji elus di Diagnosa
       interaksi(); ekspresiSingkat(nilai === 'tahan' ? 'sayang' : 'senang', 1500);
-      if (nilai !== 'tahan') { jagaSentuh(L('badan disentuh', 'body touched')); akhiriMenjauh(); sentuhSaatJalan(); if (!ujiDiag) sentuhTanpaWajah(); }
+      if (nilai !== 'tahan') { catatRumah('sentuh'); jagaSentuh(L('badan disentuh', 'body touched')); akhiriMenjauh(); sentuhSaatJalan(); if (!ujiDiag) sentuhTanpaWajah(); }
       if (menungguElus && nilai !== 'tahan') tampilTeks(L('Hihi geli! Sekarang sentuh layarku ya.', 'Hehe, that tickles! Now touch my screen.'));
       if (nilai !== 'tahan' && Math.random() < 0.35) setTimeout(() => suaraHewan(false), 500);   // dielus -> kadang meong / guk
     }
@@ -2997,6 +3065,7 @@
   // Kembali ke layar "PASANG HP KE KIKO" dengan mata tertidur (seperti Looi).
   function keLayarPasang(pesan) {
     if (nonton.aktif) tutupYoutube();        // base terputus / HP diangkat: video ikut ditutup
+    if (gim.aktif) akhiriGim(true);
     if (cekMenari.checked || tari.mik) akhiriSesiTari();
     menyendiri.aktif = false;
     fase = 'pasang';
@@ -3666,6 +3735,7 @@
       const baruMuncul = !wajah.ada && lamaHilang > 3000;
       wajah.ada = true;
       wajah.terakhirLihat = now;
+      if (baruMuncul) catatRumah('orang');
       if (menyendiri.aktif && baruMuncul && now - (menyendiri.sejak || 0) > MENJAUH_MAKS_MS) {   // mode menjauh sudah lama: wajah = selesai
         menyendiri.aktif = false; menyendiri.mundur = false;     // diam-diam: bangun + sapaan biasa di bawah
       }
@@ -4185,6 +4255,7 @@
   }
   function selesaiKenal(nama, jarak) {
     kenal.sisaCoba = 0; kenal.sekarang = nama || '';
+    catatRumah(nama ? 'kenal' : 'asing', nama || '');           // kendali jarak jauh: "ada siapa di rumah?"
     jagaHasilKenal(nama || null);                              // mode jaga: foto orang asing / selesai saat pemilik kembali
     if (!nama && kenal.dAsing && !cekJaga.checked) {           // kenalan: hitung kunjungan wajah asing
       const e = catatAsing(kenal.dAsing); kenal.dAsing = null;
@@ -6100,7 +6171,7 @@
   //  File cadangan datang dari luar aplikasi: hanya kunci kiko.* bernilai teks yang diterima, dan
   //  ringkasannya (termasuk alamat Worker) ditunjukkan dulu sebelum menimpa data.
   // =====================================================================
-  const KUNCI_TANPA_CADANGAN = new Set(['kiko.baseId', 'kiko.pernahBase', 'kiko.lajuBaterai', 'kiko.menari', 'kiko.wajahAsing']);
+  const KUNCI_TANPA_CADANGAN = new Set(['kiko.baseId', 'kiko.pernahBase', 'kiko.lajuBaterai', 'kiko.menari', 'kiko.wajahAsing', 'kiko.catatanRumah']);
   const CADANGAN_MAKS_BYTE = 2 * 1024 * 1024;
   const elStatusCadangan = document.getElementById('statusCadangan');
   const elFileCadangan = document.getElementById('fileCadangan');
@@ -6367,9 +6438,9 @@
   // menunggu jawaban: (1) KiKo langsung mendengar lagi tanpa jeda dan tanpa syarat wajah terlihat,
   // (2) pengenal memberi 5 alternatif kata dan semuanya dicoba, (3) nama kontak dicocokkan longgar
   // (beda 1 huruf, kata depan "ke/sama/si/pak/bu" dibuang), (4) setelah 2 sesi sunyi muncul petunjuk.
-  function tanyaLanjut(pertanyaan, buat, jenis, pilihan) {
+  function tanyaLanjut(pertanyaan, buat, jenis, pilihan, ekspresi) {
     lanjut = { buat, jenis: jenis || '', sampai: Date.now() + 40000, sunyi: 0, pilihan: pilihan || '' };
-    ucapkan(pertanyaan, 'bingung');
+    ucapkan(pertanyaan, ekspresi || 'bingung');
     if (pilihan) setTimeout(() => tampilTeks(pertanyaan + ' ' + pilihan), 30);
     ai.dengarBerikut = 0;
   }
@@ -6425,6 +6496,16 @@
     lanjut = null;
     if (tunggu) {
       if (tunggu.jenis === 'kenalan' && jawabKenalan(t)) return true;
+      if (tunggu.jenis === 'daftar' && jawabLanjutDaftar(t)) return true;
+      if (tunggu.jenis === 'hapusDaftar' && jawabHapusDaftar(t)) return true;
+      if (tunggu.jenis === 'gim' && gim.aktif) {
+        if (jawabGim(t, bahasa === 'en')) return true;
+        if (gim.tahap === 'tebak') {         // tidak terdengar sebagai pilihan: tanya lagi
+          tanyaLanjut(gim.n === 3 ? L('Sebut kiri, tengah, atau kanan ya. Atau ketuk gelasnya.', 'Say left, middle, or right. Or tap a cup.')
+                                  : L(`Sebut nomor satu sampai ${gim.n} ya. Atau ketuk gelasnya.`, `Say a number from one to ${gim.n}. Or tap a cup.`), () => null, 'gim');
+          return true;
+        }
+      }
       if (KATA_BATAL.test(t)) { ucapkan(L('Oke, tidak jadi.', 'Okay, never mind.'), 'normal'); return true; }
       // Jawaban yang sudah berupa perintah lengkap dijalankan apa adanya; selain itu dilengkapi.
       if (jawabLokalInti(teks)) return true;
@@ -6542,6 +6623,12 @@
     if (ai.url) B.push({ k: 'mata', judul: L('Melihat', 'Seeing'), bisa: L('melihat benda, membaca tulisan, menjawab soal, menebak tempat di foto, menghitung uang dan barang', 'see objects, read text, answer questions, guess places in photos, and count money and items'),
       contoh: L(['"Ini apa"', '"Baca ini"', '"Jawab soal ini"', '"Ini di mana" (tunjukkan foto)', '"Hitung uang ini"', '"Hitung ini"'],
                 ['"What is this"', '"Read this"', '"Solve this"', '"Where is this" (show a photo)', '"Count the money"', '"Count this"']) });
+    if (ai.url) B.push({ k: 'daftar', judul: L('Daftar catatan', 'Note list'), bisa: L('menyusun daftar dari catatan tempel', 'turn sticky notes into a list'),
+      contoh: L(['"Susun daftar dari catatan ini"', '"Tambah lagi" (foto berikutnya)', '"Bacakan daftarku"', '"Nomor 2 selesai" / "Hapus nomor 3"', '"Hapus daftarku"'],
+                ['"Make a list from these notes"', '"Add more" (next photo)', '"Read my list"', '"Number 2 is done" / "Delete number 3"', '"Clear my list"']) });
+    B.push({ k: 'main', judul: L('Main', 'Games'), bisa: L('main tebak bola di gelas', 'play find the ball'),
+      contoh: L(['"Ayo main tebak bola"', '"Kiri" / "Tengah" / "Kanan", atau ketuk gelasnya', '"Lagi" / "Berhenti main"'],
+                ['"Let\'s play the cup game"', '"Left" / "Middle" / "Right", or tap a cup', '"Again" / "Stop playing"']) });
     if (cekWajah.checked) B.push({ k: 'kenal', judul: L('Kenal wajah', 'Faces'), bisa: L('mengingat wajah keluarga dan menyapa dengan namanya', 'remember family faces and greet them by name'),
       contoh: L(['"Ingat wajahku, namaku Budi"', '"Siapa aku?"', '"Wajah siapa saja yang kamu kenal?"', '"Lupakan wajahku"'],
                 ['"Remember my face, my name is Budi"', '"Who am I?"', '"Whose faces do you know?"', '"Forget my face"']) });
@@ -6587,11 +6674,11 @@
       ? /(what can you do|what else can you do|what are you able to do|your (commands|features)|how (do|can) i use you|^help\b|^(i need )?help( me)?$)/
       : /(kamu bisa apa|bisa apa (aja|saja)|bisa ngapain|bisa (melakukan|bantu) apa|^bantuan\b|minta bantuan|cara (pakai|memakai|menggunakan) (kamu|kiko)|perintah(nya)? apa|apa (aja|saja) perintah|fitur(mu| kamu)|kemampuan(mu| kamu))/;
     const topik = bahasa === 'en'
-      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch|drive|move|wheels?|dance|read|see|count|solve)/)
-      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton|roda|jalan|bergerak|joget|baca|membaca|soal|lihat|melihat|hitung|menghitung|uang)/);
+      ? t.match(/\bhow (do i|can i|to)\b.*\b(call|phone|whatsapp|video|message|radio|music|remind|reminder|alarm|timer|weather|expressions?|faces?|youtube|watch|drive|move|wheels?|dance|read|see|count|solve|list|notes?|play|games?)/)
+      : t.match(/\b(cara|caranya|gimana|bagaimana)\b.*\b(telepon|telpon|wa|whatsapp|video|pesan|radio|musik|pengingat|ingatkan|alarm|timer|cuaca|ekspresi|wajah|youtube|yutub|nonton|roda|jalan|bergerak|joget|baca|membaca|soal|lihat|melihat|hitung|menghitung|uang|daftar|catatan|main|bermain|game|permainan)/);
     if (topik) {
       const w = topik[2];
-      const k = /baca|soal|lihat|hitung|uang|read|see|count|solve/.test(w) ? 'mata' : /roda|jalan|bergerak|joget|drive|move|wheel|dance/.test(w) ? 'roda'
+      const k = /daftar|catatan|list|note/.test(w) ? 'daftar' : /main|game|permainan|play/.test(w) ? 'main' : /baca|soal|lihat|hitung|uang|read|see|count|solve/.test(w) ? 'mata' : /roda|jalan|bergerak|joget|drive|move|wheel|dance/.test(w) ? 'roda'
               : /youtube|yutub|nonton|watch/.test(w) ? 'youtube' : /radio|musik|music/.test(w) ? 'radio' : /pengingat|ingatkan|alarm|remind/.test(w) ? 'pengingat'
               : /timer/.test(w) ? 'timer' : /cuaca|weather/.test(w) ? 'cuaca' : /ekspresi|wajah|expression|face/.test(w) ? 'ekspresi' : 'telepon';
       if (tampilkanBantuan(k)) return true;
@@ -6766,6 +6853,8 @@
     const t = teks.toLowerCase();
     if (jawabVolume(t, false)) return true;
     if (jawabPanggilan(t, false)) return true;                // telepon WA berdering: angkat / tolak
+    if (jawabGim(t, false)) return true;                      // "ayo main tebak bola", "kiri", "berhenti main"
+    if (jawabDaftarCatatan(t, false)) return true;            // "susun daftar dari catatan ini", "bacakan daftarku" (sebelum pesan)
     if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
     if (jawabKenalWajah(t, false)) return true;               // ingat wajahku / siapa aku (sebelum "lihat")
     if (jawabJaga(t, false)) return true;                     // mode jaga
@@ -7845,6 +7934,8 @@
   function jawabLokalEn(t) {
     if (jawabVolume(t, true)) return true;
     if (jawabPanggilan(t, true)) return true;
+    if (jawabGim(t, true)) return true;
+    if (jawabDaftarCatatan(t, true)) return true;
     if (jawabPesan(t, true)) return true;
     if (jawabKenalWajah(t, true)) return true;
     if (jawabJaga(t, true)) return true;
@@ -7997,7 +8088,171 @@
       ucapkan(L(`Ada ${baru.length} pesan baru, dari ${daftarPengirim(baru)}.`, `${baru.length} new messages, from ${daftarPengirim(baru)}.`), 'kaget');
     }
   }
+
+  // =====================================================================
+  //  KENDALI JARAK JAUH LEWAT WHATSAPP (2026-11-20, pengguna: "saat pemilik ada di luar rumah, pemilik
+  //  bisa telp kiko untuk menanyakan situasi di rumah", pilihan A: HP KiKo punya nomor WA sendiri, chat
+  //  dulu, boleh balas otomatis). Chat WA dari nama pemilik (persis sama dengan nama kontak di HP KiKo,
+  //  plus kode rahasia kalau diisi) TIDAK diumumkan di rumah: KiKo menjawab dari catatan kejadiannya
+  //  lalu membalas otomatis lewat tombol "Balas" notifikasi (KiKo Notif /balas). Perintah AC/TV/lampu
+  //  diteruskan ke Lora (ELIORA di tablet) lewat KiKo Notif v1.5 /lora/kirim di Wi-Fi rumah.
+  //  Butuh "Pesan masuk" menyala dan halaman KiKo terbuka. Tidak ada foto yang dikirim.
+  // =====================================================================
+  const cekJauh = document.getElementById('cekJauh');
+  const inputJauhNama = document.getElementById('jauhNama'), inputJauhKode = document.getElementById('jauhKode');
+  const inputLoraAlamat = document.getElementById('loraAlamat'), inputLoraKode = document.getElementById('loraKode');
+  const elStatusJauh = document.getElementById('statusJauh');
+  const RUMAH_MAKS = 60, RUMAH_UMUR_MS = 24 * 3600000;
+  const jauh = { terakhir: 0, jeda: {}, dijawab: new Set() };
+  let catatanRumah = (() => {
+    try { const a = JSON.parse(localStorage.getItem('kiko.catatanRumah') || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+  })();
+  try {
+    cekJauh.checked = localStorage.getItem('kiko.jauh') === '1';
+    inputJauhNama.value = localStorage.getItem('kiko.jauhNama') || '';
+    inputJauhKode.value = localStorage.getItem('kiko.jauhKode') || '';
+    inputLoraAlamat.value = localStorage.getItem('kiko.loraAlamat') || '';
+    inputLoraKode.value = localStorage.getItem('kiko.loraKode') || '';
+  } catch (_) {}
+  for (const [el, k] of [[inputJauhNama, 'kiko.jauhNama'], [inputJauhKode, 'kiko.jauhKode'], [inputLoraAlamat, 'kiko.loraAlamat'], [inputLoraKode, 'kiko.loraKode']])
+    el.addEventListener('change', () => { simpan(k, el.value.trim()); statusJauhSekarang(); });
+  cekJauh.addEventListener('change', () => {
+    simpan('kiko.jauh', cekJauh.checked ? '1' : '0');
+    if (cekJauh.checked && !cekPesan.checked) { cekPesan.checked = true; cekPesan.dispatchEvent(new Event('change')); }   // jalurnya lewat KiKo Notif
+    statusJauhSekarang();
+  });
+  function namaPemilik() { return inputJauhNama.value.split(',').map(s => bersihNama(s).toLowerCase()).filter(Boolean); }
+  function statusJauhSekarang(teks) {
+    if (teks) { elStatusJauh.textContent = teks; return; }
+    elStatusJauh.textContent = !cekJauh.checked ? L('Mati.', 'Off.')
+      : !namaPemilik().length ? L('Isi nama pemilik persis seperti tersimpan di kontak HP KiKo.', 'Enter the owner name exactly as saved in the KiKo phone contacts.')
+      : L(`Nyala untuk: ${inputJauhNama.value.trim()}${inputJauhKode.value.trim() ? ' (dengan kode)' : ''}.${jauh.terakhir ? ' Terakhir dijawab ' + new Date(jauh.terakhir).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + '.' : ''}`,
+          `On for: ${inputJauhNama.value.trim()}${inputJauhKode.value.trim() ? ' (with code)' : ''}.${jauh.terakhir ? ' Last answered ' + new Date(jauh.terakhir).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.' : ''}`);
+  }
+  statusJauhSekarang();
+
+  // ---- Catatan kejadian di rumah (untuk menjawab "ada siapa di rumah?") ----
+  // Hanya jenis, nama dan waktu; tanpa foto. 24 jam, paling banyak 60.
+  const JEDA_CATAT = { orang: 120000, asing: 120000, kenal: 600000, sentuh: 120000, diangkat: 60000 };
+  function catatRumah(jenis, nama) {
+    const now = Date.now(), kunci = jenis + ':' + (nama || '');
+    if (now - (jauh.jeda[kunci] || 0) < (JEDA_CATAT[jenis] || 60000)) return;
+    jauh.jeda[kunci] = now;
+    catatanRumah = catatanRumah.filter(e => now - e.waktu < RUMAH_UMUR_MS).concat([{ jenis, nama: nama || '', waktu: now }]).slice(-RUMAH_MAKS);
+    simpan('kiko.catatanRumah', JSON.stringify(catatanRumah));
+  }
+  function jamPendek(ms) { return new Date(ms).toLocaleTimeString(L('id-ID', 'en-GB'), { hour: '2-digit', minute: '2-digit' }).replace(':', '.'); }
+  function laporanRumah() {
+    const now = Date.now(), hari = catatanRumah.filter(e => now - e.waktu < RUMAH_UMUR_MS);
+    const bagian = [];
+    if (fase !== 'hidup') bagian.push(L('Aku sedang tidak terpasang di dudukan, jadi kameraku tidak berjaga.', "I'm not on my mount right now, so my camera isn't watching."));
+    else if (wajah.ada) bagian.push(kenal.sekarang ? L(`Sekarang ${kenal.sekarang} ada di depanku.`, `${kenal.sekarang} is in front of me now.`) : L('Sekarang ada orang di depanku.', 'Someone is in front of me now.'));
+    else if (wajah.terakhirLihat > 0) bagian.push(L(`Sekarang tidak ada orang di depanku. Terakhir ada orang ${Math.max(1, Math.round((performance.now() - wajah.terakhirLihat) / 60000))} menit lalu.`,
+                                                 `Nobody is in front of me now. The last person was ${Math.max(1, Math.round((performance.now() - wajah.terakhirLihat) / 60000))} minutes ago.`));
+    const kenalTerakhir = {};
+    for (const e of hari) if (e.jenis === 'kenal') kenalTerakhir[e.nama] = e.waktu;
+    const nama = Object.keys(kenalTerakhir);
+    if (nama.length) bagian.push(L('Yang kulihat hari ini: ', 'Seen today: ') + nama.map(n => L(`${n} jam ${jamPendek(kenalTerakhir[n])}`, `${n} at ${jamPendek(kenalTerakhir[n])}`)).join(', ') + '.');
+    const asing = hari.filter(e => e.jenis === 'asing');
+    bagian.push(asing.length ? L(`Wajah tidak dikenal: ${asing.length} kali, terakhir jam ${jamPendek(asing[asing.length - 1].waktu)}.`, `Unknown faces: ${asing.length} times, last at ${jamPendek(asing[asing.length - 1].waktu)}.`)
+                             : L('Tidak ada wajah asing dalam 24 jam.', 'No unknown faces in 24 hours.'));
+    const sentuh = hari.filter(e => e.jenis === 'sentuh' || e.jenis === 'diangkat');
+    if (sentuh.length) bagian.push(L(`Aku disentuh atau diangkat ${sentuh.length} kali, terakhir jam ${jamPendek(sentuh[sentuh.length - 1].waktu)}.`, `I was touched or lifted ${sentuh.length} times, last at ${jamPendek(sentuh[sentuh.length - 1].waktu)}.`));
+    bagian.push(cekJaga.checked ? L(`Mode jaga nyala, ${jaga.baru} foto baru.`, `Guard mode is on, ${jaga.baru} new photos.`) : L('Mode jaga mati.', 'Guard mode is off.'));
+    if (!kenalAktif()) bagian.push(L('(Kenal wajah mati, jadi nama orang tidak kucatat.)', '(Face recognition is off, so I did not record names.)'));
+    return bagian.join(' ');
+  }
+  function teksBateraiKiko() {
+    if (!ble.terhubung) return L('Badan KiKo tidak tersambung.', "KiKo's body is not connected.");
+    if (ble.persen === null) return L('KiKo memakai kabel listrik, tanpa baterai.', 'KiKo runs on the cable, no battery.');
+    return L(`Baterai KiKo ${ble.persen}%${ble.cas ? ', sedang dicas' : ''}.`, `KiKo battery ${ble.persen}%${ble.cas ? ', charging' : ''}.`) + teksBateraiHp();
+  }
+
+  // ---- Chat dari pemilik ----
+  function dariPemilik(p) {
+    if (!cekJauh.checked || !p || p.grup || !adalahWa(p) || adalahEmail(p)) return false;
+    const d = bersihNama(p.dari).toLowerCase();
+    return namaPemilik().includes(d);
+  }
+  // true = pesan ini milik kendali jarak jauh (tidak diumumkan di rumah)
+  function tanganiPemilik(p) {
+    if (!dariPemilik(p)) return false;
+    if (jauh.dijawab.has(p.id)) return true;
+    jauh.dijawab.add(p.id);
+    let teks = String(p.isi || '').trim();
+    const kode = inputJauhKode.value.trim();
+    if (kode) {
+      if (!teks.toLowerCase().startsWith(kode.toLowerCase())) return false;   // tanpa kode: pesan biasa, tidak dijawab
+      teks = teks.slice(kode.length).replace(/^[\s,.:;-]+/, '');
+    }
+    jawabRumah(teks, namaPengirim(p)).then(balasan => kirimBalasanJauh(p, balasan))
+      .catch(e => statusJauhSekarang(L('Gagal menjawab: ', 'Could not answer: ') + (e && e.message || e)));
+    return true;
+  }
+  async function kirimBalasanJauh(p, balasan) {
+    const teks = ('KiKo: ' + balasan).slice(0, 500);
+    if (!p.bisaBalas) { statusJauhSekarang(L('Chat pemilik tidak punya tombol Balas (WhatsApp versi lama?).', 'The owner chat has no Reply button (old WhatsApp?).')); return; }
+    const r = await fetch(`${ALAMAT_NOTIF}/balas?id=${p.id}&teks=${encodeURIComponent(teks)}`, { cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    jauh.terakhir = Date.now();
+    statusJauhSekarang();
+    if (d.hasil !== 'ok') statusJauhSekarang(L('Balasan tidak terkirim: ', 'Reply not sent: ') + (d.hasil || r.status));
+    tambahLogDengar(L('chat pemilik dijawab: ', 'owner chat answered: ') + balasan.slice(0, 80));
+  }
+  async function kirimKeLora(perintah) {
+    const alamat = inputLoraAlamat.value.trim();
+    if (!alamat) return L('Alamat Lora belum diisi di ATUR KiKo.', "Lora's address is not set in KiKo's settings.");
+    try {
+      const r = await fetch(`${ALAMAT_NOTIF}/lora/kirim?alamat=${encodeURIComponent(alamat)}&kunci=${encodeURIComponent(inputLoraKode.value.trim())}&teks=${encodeURIComponent(perintah)}`, { cache: 'no-store' });
+      if (r.status === 404) return L('KiKo Notif masih versi lama, pasang v1.5 dulu.', 'KiKo Notif is too old, install v1.5 first.');
+      const d = await r.json();
+      if (d.hasil === 'ok') return 'Lora: ' + (d.teks || L('sudah dikerjakan.', 'done.'));
+      if (d.hasil === 'tidak_paham') return L('Lora belum paham perintah itu: ', "Lora didn't understand: ") + (d.teks || perintah);
+      return L('Lora: ', 'Lora: ') + (d.teks || d.hasil);
+    } catch (_) { return L('KiKo Notif tidak bisa dihubungi, jadi Lora tidak bisa diperintah.', "KiKo Notif can't be reached, so I can't reach Lora."); }
+  }
+  const POLA_LORA = /^(lora|hai lora)\b|\b(ac|a ?c|air ?con|pendingin|tv|televisi|lampu|kipas|tirai|lights?|fan|television)\b/;
+  async function jawabRumah(teks, dari) {
+    teks = String(teks || '').replace(/\s+/g, ' ').trim();
+    const t = teks.toLowerCase().replace(/[’]/g, "'");
+    const pesanRumah = t.match(/^(?:tolong |please )?(?:bilang|bilangin|sampaikan|katakan|kasih tahu|umumkan|tell|say|announce)(?: ke| kepada| sama| pada| to)?(?: (?:orang )?(?:di )?rumah| anak(?:-anak)?(?:ku)?| semua(?:nya)?| mereka| everyone| the kids| them)?[:,]?\s+(.+)$/);
+    if (pesanRumah) {
+      const isi = teks.slice(teks.length - pesanRumah[1].length).trim();
+      if (fase !== 'hidup') return L('Aku tidak sedang terpasang di dudukan, jadi pesannya tidak bisa kusampaikan.', "I'm not on my mount, so I can't pass the message on.");
+      interaksi();
+      ucapkan(L(`Pesan dari ${dari}: ${isi}`, `A message from ${dari}: ${isi}`), 'senang');
+      setTimeout(() => { if (kikoLuang()) ucapkan(L(`Sekali lagi, pesan dari ${dari}: ${isi}`, `Once more, from ${dari}: ${isi}`), 'senang'); }, 20000);
+      return L('Sudah kusampaikan dengan suara di rumah. ', 'I said it out loud at home. ')
+        + (wajah.ada ? (kenal.sekarang ? L(`${kenal.sekarang} ada di depanku.`, `${kenal.sekarang} is in front of me.`) : L('Ada orang di depanku.', 'Someone is in front of me.'))
+                     : L('Tapi saat ini tidak ada orang di depanku.', "But nobody is in front of me right now."));
+    }
+    if (POLA_LORA.test(t)) return kirimKeLora(teks.replace(/^(hai )?lora[\s,:]*/i, ''));
+    if (/\b(matikan|stop|berhenti|nonaktifkan|turn off|stop)\b.*\b(jaga|guard)\b/.test(t)) { const ada = cekJaga.checked; akhiriJaga(''); return ada ? L('Mode jaga kumatikan.', 'Guard mode is off.') : L('Mode jaga memang mati.', 'Guard mode was already off.'); }
+    if (/\b(jaga|guard)\b/.test(t)) { mulaiJaga(false); return cekJaga.checked ? L('Mode jaga nyala. Wajah tak dikenal, sentuhan, dan HP diangkat akan kufoto (fotonya tetap di HP KiKo).', 'Guard mode is on. Unknown faces, touches and lifting are photographed (photos stay on the KiKo phone).')
+                                                                        : L('Mode jaga belum bisa nyala: ', "Guard mode couldn't start: ") + document.getElementById('statusJaga').textContent; }
+    if (/\b(baterai|batre|battery)\b/.test(t)) return teksBateraiKiko();
+    if (/\b(daftar|to ?do|catatan|list)\b/.test(t)) {
+      const belum = daftarCatatan.filter(d => !d.selesai);
+      return belum.length ? L('Daftar yang belum selesai: ', 'Not done yet: ') + belum.map((d, i) => `${i + 1}. ${d.teks}`).join('; ') : L('Daftar catatan kosong atau semua sudah selesai.', 'The note list is empty or all done.');
+    }
+    if (/\b(asing|tamu|tidak dikenal|orang lain|stranger|visitor|guest)\b/.test(t)) {
+      const asing = catatanRumah.filter(e => e.jenis === 'asing' && Date.now() - e.waktu < RUMAH_UMUR_MS);
+      return asing.length ? L(`Ada ${asing.length} kali wajah tidak dikenal dalam 24 jam, terakhir jam ${jamPendek(asing[asing.length - 1].waktu)}.`, `Unknown faces ${asing.length} times in 24 hours, last at ${jamPendek(asing[asing.length - 1].waktu)}.`)
+                          + (cekJaga.checked ? L(` Mode jaga nyala, ${jaga.baru} foto.`, ` Guard mode on, ${jaga.baru} photos.`) : '')
+                          : L('Tidak ada wajah asing dalam 24 jam.', 'No unknown faces in 24 hours.');
+    }
+    if (/\b(siapa|situasi|keadaan|kondisi|rumah|aman|gimana|bagaimana|status|ada orang|who|home|house|status|situation|ok)\b/.test(t)) return laporanRumah() + ' ' + teksBateraiKiko();
+    return L('Aku bisa menjawab: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan". Perintah: "nyalakan mode jaga", "matikan mode jaga", "bilang ke rumah <pesan>", dan untuk Lora: "Lora nyalakan AC" dan sejenisnya.',
+             'I can answer: "home status", "who is home?", "any visitors?", "battery", "note list". Commands: "guard mode on/off", "tell home <message>", and for Lora: "Lora turn on the AC" and so on.');
+  }
+  document.getElementById('tombolUjiLora').addEventListener('click', async () => {
+    statusJauhSekarang(L('Menghubungi Lora…', 'Contacting Lora…'));
+    statusJauhSekarang(await kirimKeLora('halo'));
+  });
+  if (MODE_PENGEMBANG) window.kikoJauh = { jawabRumah, tanganiPemilik, catatRumah, laporanRumah, catatan: () => catatanRumah, kirimKeLora };   // uji di localhost
+
   function terimaPesanBaru(baru) {
+    baru = baru.filter(p => !tanganiPemilik(p));         // chat pemilik dari luar rumah: dijawab, tidak diumumkan
     baru = baru.filter(lolosSaring);
     if (!baru.length) return;
     notif.riwayat = notif.riwayat.concat(baru).slice(-20);
@@ -8064,23 +8319,26 @@
     mulaiLihat(tugas, t);
     return true;
   }
-  async function mulaiLihat(tugas, ucapan) {
+  async function mulaiLihat(tugas, ucapan, opsi = {}) {
     if (lihat.aktif) return;
+    if (gim.aktif) akhiriGim(true);
     if (!ai.url) { ucapkan(L('Isi dulu alamat Worker di ATUR ya.', 'Please fill in the Worker address in SETTINGS first.'), 'bingung'); return; }
     if (!wajah.aktif || !wajah.video || !wajah.stream) { ucapkan(L('Aku perlu "Ikuti wajah orang" nyala supaya bisa melihat.', 'I need "Follow faces" turned on so I can see.'), 'bingung'); return; }
     lihat.aktif = true;
     const bidik = document.getElementById('bidikKamera'), teksB = document.getElementById('teksBidik');
     const track = wajah.stream.getVideoTracks()[0], v = wajah.video;
-    const benda = { apa: L('bendanya', 'the object'), tempat: L('fotonya', 'the photo'), uang: L('uangnya', 'the money'), hitung: L('barangnya', 'the items') }[tugas] || L('kertasnya', 'the paper');
+    const benda = { apa: L('bendanya', 'the object'), tempat: L('fotonya', 'the photo'), uang: L('uangnya', 'the money'), hitung: L('barangnya', 'the items'), daftar: L('catatannya', 'the notes') }[tugas] || L('kertasnya', 'the paper');
     await tunggu(50);                                      // tanyaKiKo selesai dulu mengembalikan tahap
     aturTahap('pikir');
     try {
       try { await track.applyConstraints({ width: { ideal: 1280 }, height: { ideal: 720 } }); } catch (_) {}
       bidik.insertBefore(v, teksB);
       bidik.classList.add('tampil');
-      ucapkan(L(`Pegang ${benda} di depan kameraku ya.`, `Hold ${benda} in front of my camera.`), 'senang');
-      for (let n = LIHAT_HITUNG + 2; n > 0; n--) {
-        const saran = tugas === 'uang' || tugas === 'hitung' ? L('terhampar, tidak menumpuk', 'spread out, not stacked')
+      ucapkan(tugas === 'daftar' ? L('Pegang catatannya di depan kameraku, atau hadapkan aku ke dinding catatannya ya.', 'Hold the notes in front of my camera, or turn me to face the wall of notes.')
+                                 : L(`Pegang ${benda} di depan kameraku ya.`, `Hold ${benda} in front of my camera.`), 'senang');
+      for (let n = LIHAT_HITUNG + (tugas === 'daftar' ? 4 : 2); n > 0; n--) {
+        const saran = tugas === 'daftar' ? L('semua catatan terlihat, dekat dan terang', 'all notes in view, close, in good light')
+          : tugas === 'uang' || tugas === 'hitung' ? L('terhampar, tidak menumpuk', 'spread out, not stacked')
           : tugas === 'apa' || tugas === 'tempat' ? L('dekat, di tengah gambar', 'close, in the middle of the picture') : L('lurus dan terang', 'straight, in good light');
         teksB.textContent = L(`Pegang ${benda} ${saran}. Foto dalam ${n}`, `Hold ${benda} ${saran}. Photo in ${n}`);
         await tunggu(1000);
@@ -8098,11 +8356,21 @@
       ekspresiSingkat('curiga', 30000);
       const res = await fetch(ai.url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pesan: ucapan, tugas, gambar, riwayat: [], waktu: waktuSekarang(), nama: namaOrang(), ingatan: ingatan.fakta, bahasa }),
+        body: JSON.stringify({ pesan: ucapan, tugas, gambar, riwayat: [], waktu: waktuSekarang(), nama: namaOrang(), ingatan: ingatan.fakta, bahasa,
+                               ...(tugas === 'daftar' && opsi.tambah ? { daftar: daftarCatatan.filter(d => !d.selesai).map(d => d.teks) } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.teks) throw new Error(data.galat || ('HTTP ' + res.status));
+      if (!res.ok || (!data.teks && !Array.isArray(data.daftar))) throw new Error(data.galat || ('HTTP ' + res.status));
       if (data.tulisan) tambahLogDengar(L('terbaca: ', 'read: ') + data.tulisan.slice(0, 120));
+      if (tugas === 'daftar' && Array.isArray(data.daftar)) {
+        if (data.daftar.length) terimaDaftar(data.daftar, !!opsi.tambah);
+        else ucapkan(L('Aku belum bisa membaca catatannya. Dekatkan dan cari tempat yang terang ya.', "I can't read the notes yet. Bring them closer, in good light."), 'bingung');
+        return;
+      }
+      if (tugas === 'daftar' && !/^(Aku belum|I can'?t)/.test(data.teks)) {   // Worker lama (< v20) tidak kenal tugas daftar
+        ucapkan(L('Otak AI-ku belum bisa menyusun daftar. Tempel ulang kode Worker versi 20 dulu ya.', 'My AI brain cannot make lists yet. Please paste Worker version 20 first.'), 'bingung');
+        return;
+      }
       ai.riwayat.push({ role: 'user', content: (tugas === 'baca' || tugas === 'jawab' ? L('Soal di foto: ', 'Text in the photo: ') + (data.tulisan || '') : ucapan).slice(0, 480) }, { role: 'assistant', content: data.teks.slice(0, 480) });
       ai.riwayat = ai.riwayat.slice(-MAKS_RIWAYAT_AI);
       ucapkan(data.teks, data.ekspresi);
@@ -8119,6 +8387,384 @@
       aturTahap('diam');
     }
   }
+
+
+  // =====================================================================
+  //  DAFTAR CATATAN (2026-11-20, pengguna: "catatan postit dg tulisan tangan pada dinding ato meja yang
+  //  di buat this to do ato apapun"). KiKo memotret catatan tempel, Worker v20 membaca tiap catatan dan
+  //  merapikannya menjadi satu daftar. Bisa ditambah dari beberapa foto ("tambah lagi"). Daftar disimpan
+  //  di HP saja (kiko.daftar) dan bisa dicentang per nomor dengan suara atau di ATUR.
+  // =====================================================================
+  const DAFTAR_MAKS = 30;
+  let daftarCatatan = (() => {
+    try {
+      const a = JSON.parse(localStorage.getItem('kiko.daftar') || '[]');
+      return Array.isArray(a) ? a.filter(x => x && typeof x.teks === 'string').slice(0, DAFTAR_MAKS) : [];
+    } catch (_) { return []; }
+  })();
+  const elDaftar = document.getElementById('isiDaftarCatatan'), elStatusDaftar = document.getElementById('statusDaftarCatatan');
+  function simpanDaftar() {
+    try { localStorage.setItem('kiko.daftar', JSON.stringify(daftarCatatan)); } catch (_) {}
+    tampilkanDaftarCatatan();
+  }
+  function tampilkanDaftarCatatan() {
+    elDaftar.textContent = '';
+    daftarCatatan.forEach((d, i) => {
+      const li = document.createElement('li');
+      const lb = document.createElement('label'); lb.className = 'saklar';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!d.selesai;
+      cb.addEventListener('change', () => { d.selesai = cb.checked; simpanDaftar(); });
+      const sp = document.createElement('span'); sp.textContent = `${i + 1}. ${d.teks}`;
+      if (d.selesai) sp.style.textDecoration = 'line-through';
+      lb.append(cb, sp); li.append(lb); elDaftar.append(li);
+    });
+    const belum = daftarCatatan.filter(d => !d.selesai).length;
+    elStatusDaftar.textContent = daftarCatatan.length
+      ? L(`${daftarCatatan.length} hal, ${belum} belum selesai.`, `${daftarCatatan.length} items, ${belum} not done.`)
+      : L('Daftar masih kosong.', 'The list is empty.');
+  }
+  document.getElementById('tombolHapusSelesai').addEventListener('click', () => { daftarCatatan = daftarCatatan.filter(d => !d.selesai); simpanDaftar(); });
+  let hapusDaftarSiap = 0;
+  document.getElementById('tombolHapusDaftar').addEventListener('click', e => {
+    if (Date.now() > hapusDaftarSiap) { hapusDaftarSiap = Date.now() + 4000; e.target.textContent = L('Ketuk sekali lagi', 'Tap again'); return; }
+    daftarCatatan = []; simpanDaftar(); hapusDaftarSiap = 0;
+    e.target.textContent = L('Hapus semua', 'Delete all');
+  });
+  tampilkanDaftarCatatan();
+
+  function samaTeks(a, b) { return a.toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').trim() === b.toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').trim(); }
+  // Hasil Worker: daftar lengkap (yang belum selesai). Yang sudah dicentang dipertahankan di belakang.
+  function terimaDaftar(baris, tambah) {
+    const lama = daftarCatatan;
+    const jumlahLama = tambah ? lama.filter(d => !d.selesai).length : 0;
+    const baru = baris.map(t => {
+      const s = lama.find(d => samaTeks(d.teks, t));
+      return { teks: t, selesai: !!(tambah && s && s.selesai), dibuat: s ? s.dibuat : Date.now() };   // daftar baru: semua mulai belum selesai
+    });
+    const sisa = tambah ? lama.filter(d => d.selesai && !baru.some(b => samaTeks(b.teks, d.teks))) : [];
+    daftarCatatan = baru.concat(sisa).slice(0, DAFTAR_MAKS);
+    simpanDaftar();
+    tampilkanKartuDaftar(25000);
+    const belum = daftarCatatan.filter(d => !d.selesai);
+    const tambahN = Math.max(0, belum.length - jumlahLama);
+    const contoh = belum.slice(0, 3).map(d => d.teks.replace(/\(\?\)/g, '')).join(L('; ', '; '));
+    const awal = tambah
+      ? L(`Aku menambah ${tambahN} catatan. Sekarang ada ${belum.length} hal di daftarmu.`, `I added ${tambahN} notes. Your list now has ${belum.length} items.`)
+      : L(`Aku menemukan ${belum.length} catatan.`, `I found ${belum.length} notes.`);
+    const ragu = baris.some(t => t.includes('(?)')) ? L(' Yang bertanda tanya kurang jelas tulisannya.', ' The ones with a question mark were hard to read.') : '';
+    tanyaLanjut(`${awal} ${L('Yang pertama', 'First')}: ${contoh}${belum.length > 3 ? L(', dan lainnya ada di layar', ', and the rest are on screen') : ''}.${ragu} ${L('Ada catatan lain? Bilang "tambah lagi", atau "sudah".', 'Any more notes? Say "add more", or "done".')}`,
+      () => null, 'daftar', '', 'senang');
+  }
+  // Kartu ringkas di pita bawah (paling banyak 8 baris supaya wajah tidak terlalu mengecil).
+  function tampilkanKartuDaftar(ms) {
+    if (!daftarCatatan.length) return false;
+    elKartuBantuan.textContent = '';
+    const j = document.createElement('p'); const s = document.createElement('strong');
+    s.textContent = L('Daftarmu', 'Your list'); j.append(s); elKartuBantuan.append(j);
+    daftarCatatan.slice(0, 8).forEach((d, i) => {
+      const p = document.createElement('p'); p.textContent = `${d.selesai ? '✓' : (i + 1) + '.'} ${d.teks}`;
+      if (d.selesai) p.style.opacity = '.55';
+      elKartuBantuan.append(p);
+    });
+    if (daftarCatatan.length > 8) { const p = document.createElement('p'); p.textContent = L(`…dan ${daftarCatatan.length - 8} lagi (lihat ATUR)`, `…and ${daftarCatatan.length - 8} more (see MENU)`); elKartuBantuan.append(p); }
+    elKartuBantuan.hidden = false;
+    clearTimeout(timerBantuan);
+    timerBantuan = setTimeout(() => { elKartuBantuan.hidden = true; }, ms || 20000);
+    return true;
+  }
+  function nomorDari(t) {
+    const m = t.match(/\b(?:nomor|nomer|no|number|item)\.?\s*(\d+|[a-z]+)\b/);
+    if (!m) return 0;
+    return /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (ANGKA_NAMA[m[1]] || 0);
+  }
+  // Jawaban sesudah "Ada catatan lain?"
+  function jawabLanjutDaftar(t) {
+    if (/^(tambah|tambahkan|tambahin|ada|masih|iya|ya|yes|yup|add|more|another|ok|oke)\b/.test(t) && !/\b(tidak|nggak|gak|enggak|no|sudah|udah)\b/.test(t)) {
+      mulaiLihat('daftar', t, { tambah: true }); return true;
+    }
+    if (/^(sudah|udah|cukup|selesai|tidak|nggak|gak|enggak|ga|no|nope|done|that'?s all|finished|enough)\b/.test(t)) {
+      ucapkan(L('Oke, daftarnya kusimpan. Bilang "bacakan daftarku" kapan saja.', 'Okay, I saved the list. Say "read my list" any time.'), 'senang');
+      return true;
+    }
+    return false;
+  }
+  function bacakanDaftar(t) {
+    const belum = daftarCatatan.filter(d => !d.selesai);
+    if (!daftarCatatan.length) { ucapkan(L('Daftarmu masih kosong. Bilang "susun daftar dari catatan ini" lalu tunjukkan catatannya.', 'Your list is empty. Say "make a list from these notes" and show me the notes.'), 'normal'); return; }
+    tampilkanKartuDaftar(30000);
+    if (!belum.length) { ucapkan(L('Semua di daftarmu sudah selesai. Hebat!', 'Everything on your list is done. Great job!'), 'senang'); return; }
+    const isi = belum.map(d => `${daftarCatatan.indexOf(d) + 1}, ${d.teks.replace(/\(\?\)/g, '')}`).join('. ');
+    ucapkan(L(`Ada ${belum.length} hal yang belum selesai. ${isi}.`, `${belum.length} items are not done. ${isi}.`), 'senang');
+  }
+  function tandaiDaftar(i, selesai) {
+    const d = daftarCatatan[i];
+    d.selesai = selesai; simpanDaftar(); tampilkanKartuDaftar(12000);
+    const belum = daftarCatatan.filter(x => !x.selesai).length;
+    ucapkan(selesai
+      ? L(`Oke, "${d.teks}" sudah selesai. ${belum ? `Tinggal ${belum} lagi.` : 'Semua beres!'}`, `Okay, "${d.teks}" is done. ${belum ? `${belum} left.` : 'All done!'}`)
+      : L(`Oke, "${d.teks}" belum selesai lagi.`, `Okay, "${d.teks}" is not done again.`), selesai ? 'senang' : 'normal');
+    if (selesai && ble.terhubung) setTimeout(() => kirim('G,angguk'), 300);
+  }
+  // Perintah suara daftar. Dipanggil sebelum jawabPesan ("bacakan …") dan jawabLihat ("baca …").
+  function jawabDaftarCatatan(t, en) {
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|sekarang|now|kiko|eko|nih|deh|sih|yuk|aja|dulu|coba)$/, ''); } while (u !== lama);
+    const kataCatatan = en ? '(notes?|post-?its?|sticky notes?|to-?dos?|to-?do list|handwriting|memos?)' : '(catatan tempel|catatan|catatanku|tulisan tangan|post ?it|postit|tempelan|memo|to ?do|todo)';
+    const sasaran = en ? '( (on|from) (the |my )?(wall|desk|table|fridge|board))?( (here|there|these|this|those))?' : '( (ini|itu|di (dinding|tembok|meja|kulkas|papan|sini)))*';
+    const susun = en
+      ? new RegExp(`^(make|build|create|write) (me )?(a |my )?(to-?do )?list( from| of)?( (the|these|this|those|my))? ?${kataCatatan}?${sasaran}$|^read (all )?(the |these |this |my )?${kataCatatan}${sasaran}$|^(look at|scan) (the |these |my )?${kataCatatan}${sasaran}$`)
+      : new RegExp(`^(susun|buat|bikin|buatkan|bikinin|bikinkan|rangkum|jadikan) (aku |saya )?(daftar|to ?do|todo|list)( tugas| catatan)?( dari| pakai)?( ${kataCatatan})?${sasaran}$|^(baca|bacakan|lihat|scan|catat) (semua )?${kataCatatan}${sasaran}$`);
+    const tambah = en ? new RegExp(`^add (these |this |more |the )?${kataCatatan}?( to (my |the )?list)?$`)
+                      : new RegExp(`^(tambah|tambahkan|tambahin) (lagi |juga )?${kataCatatan}${sasaran}( ke daftar(ku)?)?$|^(tambah|tambahkan|tambahin) ke daftar(ku)?$`);
+    if (susun.test(u)) { mulaiLihat('daftar', t, { tambah: false }); return true; }
+    if (tambah.test(u)) { mulaiLihat('daftar', t, { tambah: true }); return true; }
+    const sebutDaftar = en ? /\b(my (to-?do )?list|the list|to-?do list|my notes)\b/ : /\b(daftar(ku| catatan(ku)?| tugas(ku)?)?|to ?do( list)?(ku)?)\b/;
+    if (/\b(pengingat|tarian|wajah|kontak|radio|stasiun|reminders?|dances?|faces?|contacts?)\b/.test(u) || !sebutDaftar.test(u)) {
+      // "nomor 2 selesai" tanpa kata daftar tetap ditangkap kalau daftarnya ada
+      if (!daftarCatatan.length || !nomorDari(u)) return false;
+    }
+    const n = nomorDari(u);
+    const selesai = en ? /\b(done|finished|complete|completed|tick|check|cross off|cross out)\b/ : /\b(selesai|beres|kelar|sudah|udah|coret|centang|done)\b/;
+    const batalSelesai = en ? /\b(not done|undo|untick|uncheck)\b/ : /\b(belum selesai|batal (coret|centang)|hapus centang)\b/;
+    if (n) {
+      if (n < 1 || n > daftarCatatan.length) { ucapkan(L(`Daftarmu hanya ${daftarCatatan.length} nomor.`, `Your list only has ${daftarCatatan.length} items.`), 'bingung'); return true; }
+      if (batalSelesai.test(u)) { tandaiDaftar(n - 1, false); return true; }
+      if (en ? /\b(delete|remove)\b/.test(u) : /\b(hapus|buang)\b/.test(u)) {
+        const d = daftarCatatan.splice(n - 1, 1)[0]; simpanDaftar(); tampilkanKartuDaftar(12000);
+        ucapkan(L(`"${d.teks}" kuhapus dari daftar.`, `I removed "${d.teks}" from the list.`), 'normal'); return true;
+      }
+      if (selesai.test(u)) { tandaiDaftar(n - 1, true); return true; }
+      const d = daftarCatatan[n - 1];
+      ucapkan(L(`Nomor ${n}: ${d.teks}${d.selesai ? ', sudah selesai' : ''}.`, `Number ${n}: ${d.teks}${d.selesai ? ', done' : ''}.`), 'normal'); return true;
+    }
+    if (u.split(' ').length > 6) return false;        // kalimat panjang ("aku mau daftar sekolah besok …") ke AI
+    if ((en ? /\b(delete|clear|erase|remove)\b/ : /\b(hapus|kosongkan|bersihkan|buang)\b/).test(u)) {
+      if ((en ? /\b(done|finished|completed)\b/ : /\b(selesai|beres|kelar)\b/).test(u)) {
+        const n0 = daftarCatatan.length; daftarCatatan = daftarCatatan.filter(d => !d.selesai); simpanDaftar();
+        ucapkan(L(`${n0 - daftarCatatan.length} yang sudah selesai kuhapus.`, `I removed ${n0 - daftarCatatan.length} finished items.`), 'normal'); return true;
+      }
+      if (!daftarCatatan.length) { ucapkan(L('Daftarmu sudah kosong.', 'Your list is already empty.'), 'normal'); return true; }
+      tanyaLanjut(L(`Yakin hapus semua ${daftarCatatan.length} hal di daftarmu?`, `Delete all ${daftarCatatan.length} items on your list?`), () => null, 'hapusDaftar');
+      return true;
+    }
+    const minta = en ? /^(read|show|tell|check|what'?s|what is|what are)\b|\b(what'?s on|how many)\b|^my (to-?do )?list$/
+                     : /^(bacakan|bacain|baca|sebutkan|lihat|tampilkan|cek|apa)\b|\b(apa (saja|aja)|isinya|berapa)\b|^(daftar(ku)?|to ?do( list)?(ku)?)$/;
+    if (!minta.test(u)) return false;
+    bacakanDaftar(u);
+    return true;
+  }
+  function jawabHapusDaftar(t) {
+    if (/^(ya|iya|yes|yakin|hapus|boleh|oke|ok|sure|delete)\b/.test(t)) { daftarCatatan = []; simpanDaftar(); ucapkan(L('Daftarnya sudah kuhapus.', 'The list is deleted.'), 'normal'); return true; }
+    if (/^(tidak|nggak|gak|enggak|jangan|no|don'?t|batal)\b/.test(t)) { ucapkan(L('Oke, daftarnya tetap ada.', 'Okay, I kept the list.'), 'normal'); return true; }
+    return false;
+  }
+
+  // =====================================================================
+  //  GAME TEBAK BOLA DI GELAS (2026-11-20, pengguna: "game menebak keberadaan bola dalam beberapa gelas
+  //  terbalik yang digeser"). Gelasnya digambar di layar (DOM + Web Animations), wajah KiKo mengecil ke
+  //  pojok seperti mode YouTube. KiKo menunjukkan bola, menggeser gelas, lalu pemilik menebak dengan suara
+  //  ("kiri / tengah / kanan", "nomor dua") atau mengetuk gelas. Tiap tebakan benar level naik: lebih
+  //  banyak geseran, lebih cepat, lalu 4 dan 5 gelas. Gelas sungguhan yang digeser tangan tidak diikuti
+  //  kamera: gelas yang sama persis tidak bisa dibedakan dengan andal oleh kamera HP.
+  // =====================================================================
+  const elGim = document.getElementById('gim'), elGimMeja = document.getElementById('gimMeja');
+  const elGimSkor = document.getElementById('gimSkor'), elGimPetunjuk = document.getElementById('gimPetunjuk');
+  const elGimLagi = document.getElementById('gimLagi'), tombolTutupGim = document.getElementById('tombolTutupGim');
+  const GIM_X = { 3: [25, 50, 75], 4: [20, 40, 60, 80], 5: [14, 32, 50, 68, 86] };
+  let gimRekor = (() => { try { return parseInt(localStorage.getItem('kiko.gimRekor') || '0', 10) || 0; } catch (_) { return 0; } })();
+  function jumlahGelas(level) { return level >= 6 ? 5 : level >= 3 ? 4 : 3; }
+  function namaSlot(slot, n) {
+    if (n === 3) return [L('kiri', 'left'), L('tengah', 'middle'), L('kanan', 'right')][slot];
+    return L('nomor ', 'number ') + (slot + 1);
+  }
+  function siapkanGelas(n) {
+    elGimMeja.textContent = '';
+    gim.gelas = []; gim.posisi = [];
+    for (let i = 0; i < n; i++) {
+      const g = document.createElement('button');
+      g.type = 'button'; g.className = 'gelas';
+      g.style.left = GIM_X[n][i] + '%';
+      const no = document.createElement('span'); no.className = 'noGelas'; no.textContent = n === 3 ? '' : String(i + 1);
+      g.append(no);
+      g.addEventListener('click', () => { if (gim.tahap === 'tebak') { lanjut = null; pilihGim(gim.posisi[gim.gelas.indexOf(g)]); } });
+      elGimMeja.append(g);
+      gim.gelas.push(g); gim.posisi.push(i);
+    }
+    const b = document.createElement('div'); b.className = 'bolaGim'; b.hidden = true;
+    elGimMeja.append(b); gim.elBola = b;
+  }
+  function nomorGelas(n) {          // nomor tampil mengikuti posisi (kiri ke kanan), bukan gelasnya
+    if (n === 3) return;
+    gim.gelas.forEach((g, i) => { g.firstChild.textContent = String(gim.posisi[i] + 1); });
+  }
+  function angkatGelas(i, naik) {
+    const g = gim.gelas[i];
+    g.classList.toggle('terangkat', naik);
+    if (naik) { gim.elBola.style.left = GIM_X[gim.n][gim.posisi[gim.bola]] + '%'; gim.elBola.hidden = false; }
+  }
+  function lirikGim(xPersen) {
+    pandang.tgt.x = batas((xPersen - 50) / 50 * 0.55, -0.6, 0.6); pandang.tgt.y = 0.25;
+  }
+  async function geserGelas(a, b, ms) {
+    const ia = gim.posisi.indexOf(a), ib = gim.posisi.indexOf(b);
+    const xa = GIM_X[gim.n][a], xb = GIM_X[gim.n][b];
+    const lewat = (el, dari, ke, dy, z) => {
+      el.style.zIndex = z;
+      const anim = el.animate([
+        { left: dari + '%', transform: 'translate(-50%, 0) scale(1)' },
+        { left: (dari + ke) / 2 + '%', transform: `translate(-50%, ${dy}%) scale(${dy < 0 ? 0.9 : 1.06})` },
+        { left: ke + '%', transform: 'translate(-50%, 0) scale(1)' },
+      ], { duration: ms, easing: 'ease-in-out', fill: 'forwards' });
+      const beres = () => { el.style.left = ke + '%'; anim.cancel(); el.style.zIndex = ''; };
+      // halaman tersembunyi / animasi dijeda: jangan sampai game macet menunggu "finished"
+      return Promise.race([anim.finished.catch(() => {}), tunggu(ms + 400)]).then(beres);
+    };
+    lirikGim(Math.random() < 0.5 ? xb : xa);
+    await Promise.all([lewat(gim.gelas[ia], xa, xb, -16, 1), lewat(gim.gelas[ib], xb, xa, 10, 3)]);
+    gim.posisi[ia] = b; gim.posisi[ib] = a;
+  }
+  function gimMasihJalan(token) { return gim.aktif && gim.token === token; }
+  function jawabGim(t, en) {
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|sekarang|now|kiko|eko|nih|deh|yuk|yok|aja|lagi|sama aku|with me)$/, ''); } while (u !== lama);
+    if (gim.aktif) {
+      if (en ? /^(stop|quit|end|exit|close)( (the )?(game|playing))?$|^(stop|quit) playing$|^i'?m done$/.test(u)
+             : /^(berhenti|stop|udahan|sudahan|selesai|cukup|keluar|tutup)( (main|bermain|game|permainan|mainnya))?$|^(sudah|udah) (main|mainnya)?$/.test(u)) { akhiriGim(false); return true; }
+      if (gim.tahap === 'tebak' && tebakDariUcapan(u) >= 0) { pilihGim(tebakDariUcapan(u)); return true; }
+      if (gim.tahap === 'selesaiRonde' && jawabGimLagi(u)) return true;
+      if (en ? /^(play|start|again|one more|new game)\b/.test(u) : /^(main|ayo|lagi|lanjut|mulai)\b/.test(u)) { if (gim.tahap === 'selesaiRonde') rondeGim(); return true; }
+      return false;
+    }
+    const mulai = en
+      ? /^(let'?s |can we |i want to |wanna )?(play|start)( a| the)? (cup|cups|shell|ball|find the ball|guess the ball)( and ball| and cups)?( game)?$|^(let'?s )?play (a )?game$|^(let'?s )?play$/
+      : /^(ayo |yuk |yok |mau |kita |aku mau |saya mau )?(main|bermain|mainan)( game| permainan)?( (tebak|cari|tebak[- ]tebak(an)?) (bola|gelas))?( (di|dalam|dan) gelas)?$|^(ayo |yuk )?(tebak|cari) bola( di gelas| dalam gelas)?$|^(main |permainan )?gelas( dan bola| bola)?$/;
+    if (!mulai.test(u)) return false;
+    mulaiGim();
+    return true;
+  }
+  function tebakDariUcapan(u) {
+    const n = gim.n;
+    const m = u.match(/\b(\d|satu|dua|tiga|empat|lima|one|two|three|four|five|pertama|kedua|ketiga|keempat|kelima|first|second|third|fourth|fifth)\b/);
+    if (m) {
+      const k = { pertama: 1, kedua: 2, ketiga: 3, keempat: 4, kelima: 5, first: 1, second: 2, third: 3, fourth: 4, fifth: 5 }[m[1]] || ANGKA_NAMA[m[1]] || parseInt(m[1], 10);
+      if (k >= 1 && k <= n) return k - 1;
+    }
+    if (/\b(kiri|left)\b/.test(u)) return 0;          // 4-5 gelas: "kiri" = paling kiri
+    if (/\b(kanan|right)\b/.test(u)) return n - 1;
+    if (/\b(tengah|middle|center|centre)\b/.test(u)) return n % 2 ? (n - 1) / 2 : -1;
+    return -1;
+  }
+  async function mulaiGim() {
+    if (lihat.aktif) return;
+    if (nonton.aktif) tutupYoutube();
+    if (radioMain()) hentikanRadio();
+    gim.aktif = true; gim.token++; gim.level = 1; gim.skor = 0; gim.ronde = 0; gim.n = 0;
+    document.body.classList.add('bermain');
+    elGim.hidden = false; tombolTutupGim.hidden = false;
+    interaksi();
+    ucapkan(L('Ayo main tebak bola! Perhatikan baik-baik ya.', "Let's play find the ball! Watch closely."), 'senang');
+    await tungguSelesaiBicara(5000);
+    rondeGim();
+  }
+  async function rondeGim() {
+    if (!gim.aktif) return;
+    const token = ++gim.token;
+    elGimLagi.hidden = true;
+    const n = jumlahGelas(gim.level);
+    if (n !== gim.n) { gim.n = n; siapkanGelas(n); }
+    gim.tahap = 'tunjuk';
+    nomorGelas(n);
+    elGimSkor.textContent = L(`Skor ${gim.skor} · Level ${gim.level}${gimRekor ? ' · Rekor ' + gimRekor : ''}`, `Score ${gim.skor} · Level ${gim.level}${gimRekor ? ' · Best ' + gimRekor : ''}`);
+    elGimPetunjuk.textContent = L('Perhatikan bolanya…', 'Watch the ball…');
+    gim.bola = Math.floor(Math.random() * n);
+    gim.elBola.hidden = true;
+    await tunggu(400);
+    if (!gimMasihJalan(token)) return;
+    angkatGelas(gim.bola, true);
+    lirikGim(GIM_X[n][gim.posisi[gim.bola]]);
+    ekspresiSingkat('senang', 1600);
+    await tunggu(1700);
+    if (!gimMasihJalan(token)) return;
+    angkatGelas(gim.bola, false);
+    await tunggu(450);
+    gim.elBola.hidden = true;
+    gim.tahap = 'acak';
+    elGimPetunjuk.textContent = L('Gelas digeser…', 'Shuffling…');
+    const kali = Math.min(18, 3 + gim.level * 2), ms = Math.max(230, 640 - gim.level * 55);
+    for (let k = 0; k < kali; k++) {
+      if (!gimMasihJalan(token)) return;
+      const a = Math.floor(Math.random() * n);
+      let b = Math.floor(Math.random() * (n - 1)); if (b >= a) b++;
+      await geserGelas(Math.min(a, b), Math.max(a, b), ms);
+      interaksi();
+    }
+    if (!gimMasihJalan(token)) return;
+    nomorGelas(n);
+    gim.tahap = 'tebak';
+    pandang.tgt.x = 0; pandang.tgt.y = -0.2;
+    const pilihan = n === 3 ? L('Kiri, tengah, atau kanan?', 'Left, middle, or right?') : L(`Sebut nomor satu sampai ${n}.`, `Say a number from one to ${n}.`);
+    elGimPetunjuk.textContent = L('Ketuk gelasnya atau sebut: ', 'Tap a cup or say: ') + pilihan;
+    tanyaLanjut(L('Bolanya di gelas mana? ', 'Where is the ball? ') + pilihan, () => null, 'gim', '', 'curiga');
+  }
+  async function pilihGim(slot) {
+    if (!gim.aktif || gim.tahap !== 'tebak' || slot < 0 || slot >= gim.n) return;
+    const token = gim.token;
+    gim.tahap = 'buka';
+    lanjut = null;
+    const i = gim.posisi.indexOf(slot), benar = i === gim.bola;
+    const x = GIM_X[gim.n][slot];
+    lirikGim(x);
+    angkatGelas(i, true);
+    if (!benar) gim.elBola.hidden = true;     // gelas yang salah: kosong dulu
+    await tunggu(650);
+    if (!gimMasihJalan(token)) return;
+    gim.ronde++;
+    if (benar) {
+      gim.skor++; gim.level++;
+      const rekorBaru = gim.skor > gimRekor;
+      if (rekorBaru) { gimRekor = gim.skor; try { localStorage.setItem('kiko.gimRekor', String(gimRekor)); } catch (_) {} }
+      if (ble.terhubung) kirim('G,angguk');
+      ucapkan(rekorBaru && gim.skor > 1
+        ? L(`Benar! Rekor baru, skormu ${gim.skor}!`, `Right! New record, your score is ${gim.skor}!`)
+        : L(['Benar! Matamu jeli.', 'Hebat, betul!', 'Wah, kamu tidak tertipu!'][gim.skor % 3], ['Right! Sharp eyes.', 'Great, correct!', "Wow, you didn't fall for it!"][gim.skor % 3]), 'tertawa');
+    } else {
+      angkatGelas(gim.bola, true);
+      if (ble.terhubung) kirim('G,geleng');
+      ucapkan(L(`Hehe, salah! Bolanya di gelas ${namaSlot(gim.posisi[gim.bola], gim.n)}.`, `Hehe, wrong! The ball was in the ${namaSlot(gim.posisi[gim.bola], gim.n)} cup.`), 'melet');
+      gim.level = Math.max(1, gim.level - 1);
+    }
+    elGimSkor.textContent = L(`Skor ${gim.skor} dari ${gim.ronde} · Level ${gim.level}`, `Score ${gim.skor} of ${gim.ronde} · Level ${gim.level}`);
+    await tungguSelesaiBicara(5000);
+    await tunggu(500);
+    if (!gimMasihJalan(token)) return;
+    gim.gelas.forEach((g, k) => angkatGelas(k, false));
+    gim.elBola.hidden = true;
+    gim.tahap = 'selesaiRonde';
+    elGimLagi.hidden = false;
+    elGimPetunjuk.textContent = L('Bilang "lagi" atau "sudah".', 'Say "again" or "stop".');
+    tanyaLanjut(L('Main lagi?', 'Play again?'), () => null, 'gim', '', 'senang');
+  }
+  function jawabGimLagi(u) {
+    if (/^(ya|iya|yes|yup|lagi|ayo|lanjut|mau|boleh|oke|ok|again|sure|play|one more|main)\b/.test(u) && !/\b(tidak|nggak|gak|enggak|no|sudah|udah)\b/.test(u)) { rondeGim(); return true; }
+    if (/^(tidak|nggak|gak|enggak|ga|no|nope|sudah|udah|cukup|selesai|berhenti|stop|done|enough)\b/.test(u)) { akhiriGim(false); return true; }
+    return false;
+  }
+  function akhiriGim(diam) {
+    if (!gim.aktif) return;
+    gim.aktif = false; gim.token++; gim.tahap = '';
+    if (lanjut && (lanjut.jenis === 'gim')) lanjut = null;
+    document.body.classList.remove('bermain');
+    elGim.hidden = true; tombolTutupGim.hidden = true; elGimLagi.hidden = true;
+    pandang.tgt.x = 0; pandang.tgt.y = 0;
+    if (diam) return;
+    ucapkan(gim.ronde
+      ? L(`Seru! Kamu benar ${gim.skor} dari ${gim.ronde} kali.${gimRekor ? ` Rekormu ${gimRekor}.` : ''} Main lagi kapan-kapan ya.`, `That was fun! You got ${gim.skor} out of ${gim.ronde}.${gimRekor ? ` Your best is ${gimRekor}.` : ''} Let's play again some time.`)
+      : L('Oke, kita main lain kali ya.', "Okay, let's play another time."), 'senang');
+  }
+  tombolTutupGim.addEventListener('click', () => akhiriGim(false));
+  document.getElementById('gimLagiYa').addEventListener('click', () => { lanjut = null; rondeGim(); });
+  document.getElementById('gimLagiTidak').addEventListener('click', () => { lanjut = null; akhiriGim(false); });
+  if (MODE_PENGEMBANG) window.kikoGim = { gim, jawabGim, pilihGim, akhiriGim, daftar: () => daftarCatatan, terimaDaftar, jawabDaftarCatatan };   // uji di localhost
 
   function jawabPesan(t, en) {
     // 2026-10-25 (pengguna: "beri opsi pesan suara dimatikan"): pengumuman pesan bisa dimatikan
@@ -8723,6 +9369,10 @@
   // benar-benar fitur aslinya. Uji fisik (elus, wajah, dudukan, menari) hanya petunjuk.
   // Centang disimpan per HP di localStorage kiko.uji.<kunci>.
   const DAFTAR_UJI = [
+    { k: 'daftarCatatan', n: ['Daftar catatan', 'Note list'], ucap: ['Susun daftar dari catatan ini', 'Make a list from these notes'],
+      hasil: ['Kamera terbuka, tunjukkan 3-5 catatan tempel; KiKo menyebut jumlahnya dan kartu daftar muncul. "Bacakan daftarku", "nomor 1 selesai"', 'The camera opens, show 3-5 sticky notes; KiKo says how many and a list card appears. "Read my list", "number 1 is done"'] },
+    { k: 'gimBola', n: ['Main tebak bola', 'Find the ball'], ucap: ['Ayo main tebak bola', "Let's play the cup game"],
+      hasil: ['Gelas muncul, bola ditunjukkan lalu gelas digeser; jawab "kiri/tengah/kanan" atau ketuk gelas; benar = level naik', 'Cups appear, the ball is shown, cups are shuffled; say "left/middle/right" or tap a cup; right = next level'] },
     { k: 'bangun', n: ['Bangun', 'Wake up'], cara: ['Saklar ON, buka KiKo, tempel HP ke dudukan', 'Switch ON, open KiKo, put the phone in the cradle'],
       hasil: ['Lampu depan redup tetap, wajah bangun dan menyapa', 'Front light dim and steady, the face wakes and greets you'] },
     { k: 'bantuan', n: ['Bantuan', 'Help'], ucap: ['Kamu bisa apa?', 'What can you do?'],
