@@ -10006,4 +10006,17 @@
     if (info && !(+info.bo || +info.pn || +info.wd)) {
       document.getElementById('tombolNolDiag').hidden = true;
       diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'ok', L('Dinolkan. Diagnosa berikutnya hanya menunjukkan gangguan baru.', 'Cleared. The next check only shows new faults.'));
-    } else elDiagStatus.textContent = L('Badan tidak menjawab. Coba lagi.', 'The body did not answer. Try again
+    } else elDiagStatus.textContent = L('Badan tidak menjawab. Coba lagi.', 'The body did not answer. Try again.');
+  });
+  tombolSalinDiag.addEventListener('click', async () => {
+    const t = laporanDiagTeks();
+    try { await navigator.clipboard.writeText(t); elDiagStatus.textContent = L('Laporan disalin. Tempel di WhatsApp ke ELI.', 'Report copied. Paste it into WhatsApp to ELI.'); }
+    catch (_) { elDiagStatus.textContent = t; }
+  });
+  if (MODE_PENGEMBANG) { window.kikoDiag = jalankanDiagnosa; window.kikoDiagJawab = v => diag.jawab && diag.jawab(v); }
+
+  tandaiEkspresi();
+  perbaruiChip();
+  requestAnimationFrame(bingkai);
+})();
+</script>
