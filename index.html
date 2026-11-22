@@ -4675,6 +4675,12 @@
       ai.loraBicaraSampai = performance.now() + LORA_JEDA_JAWAB_MS;
       aturTahap('diam'); return;
     }
+    // Versi 2.1: sesudah KiKo menyapa, Lora menjawab "Halo, KiKo! ..." dengan suaranya sendiri. Kalimat itu
+    // diawali "KiKo", jadi aturan di bawah tidak cukup; selama jendela ini semua ucapan diabaikan.
+    if (performance.now() < (ai.loraSapaSampai || 0) && !menungguJawaban) {
+      catatDengar(teks, L('mungkin sapaan Lora, diabaikan', 'probably Lora greeting, ignored'));
+      aturTahap('diam'); return;
+    }
     if (performance.now() < (ai.loraBicaraSampai || 0) && !menungguJawaban && !/^\W*(hai |halo |hei |hey )?(kiko|keko|eko|kikoh)\b/i.test(teks)) {
       catatDengar(teks, L('mungkin suara Lora, diabaikan', 'probably Lora speaking, ignored'));
       aturTahap('diam'); return;
@@ -8348,6 +8354,52 @@
     return true;
   }
 
+  // ---- Versi 2.1 (2026-11-22, pemilik: "saat kiko dan lora bertemu pertama ... berdua saling menyapa?" ->
+  // "ya buatkan"). Saat KiKo bangun (dipasang ke dudukan, atau bangun dari tidur) dan berhasil menghubungi Lora,
+  // KiKo mengucapkan "Halo, Lora!" sampai selesai, lalu mengirim teks=halo&asal=sapa. Lora menjawab
+  // bersuara:true (Lora menyapa balik dengan suaranya; KiKo tidak mengulang, cukup senang + angguk) atau
+  // bersuara:false (Lora diam). Batas di KiKo: sekali per 3 jam (kiko.loraSapa, dihitung saat mencoba),
+  // tidak saat mode malam, tidak sambil tidur, butuh KiKo Notif v1.7 (/status versi 7; v1.6 membuang
+  // asal=sapa, sehingga Lora akan mengira chat WA). Sapaan menunggu KiKo luang dan 6 detik sesudah bangun,
+  // supaya sapaan untuk orang di depannya lebih dulu; dicoba paling lama 3 menit sesudah bangun.
+  const LORA_SAPA_JEDA_MS = 3 * 3600000;
+  const loraSapa = { perlu: false, sejak: 0, jalan: false, fase: '', tidur: false };
+  function waktuSapaLora() { try { return Number(localStorage.getItem('kiko.loraSapa')) || 0; } catch (_) { return 0; } }
+  async function tungguSelesaiBicara(batasMs) {
+    const akhir = performance.now() + batasMs;
+    while (ai.bicara && performance.now() < akhir) await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
+  }
+  async function sapaLora() {
+    loraSapa.jalan = true;
+    try {
+      if (!loraSiap() || modeMalamAktif() || hemat.tidur || Date.now() - waktuSapaLora() < LORA_SAPA_JEDA_MS) { loraSapa.perlu = false; return; }
+      const st = await fetch(`${ALAMAT_NOTIF}/status`, { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+      if (!st || (st.versi || 0) < 7) { loraSapa.perlu = false; tambahLogDengar(L('sapa Lora dilewati: perlu KiKo Notif v1.7', 'Lora greeting skipped: needs KiKo Notif v1.7')); return; }
+      const daftar = await ambilPerangkatLora(true);
+      if (!daftar) return;                              // Lora belum terhubung: coba lagi di putaran berikutnya
+      if (!kikoLuang() || hemat.tidur) return;
+      loraSapa.perlu = false;
+      simpan('kiko.loraSapa', String(Date.now()));
+      ucapkan(L('Halo, Lora!', 'Hello, Lora!'), 'senang');
+      await tungguSelesaiBicara(6000);
+      const r = await mintaLora('kirim', '&teks=halo&asal=sapa');
+      tambahLogDengar(L('sapa Lora → ', 'Lora greeting → ') + ((r && r.hasil) || '?') + (r && r.bersuara === true ? L(', Lora menyapa balik', ', Lora greeted back') : ''));
+      if (r && r.hasil === 'ok' && r.bersuara === true) {
+        ai.loraSapaSampai = performance.now() + 9000;   // jawaban Lora "Halo, KiKo! ..." jangan dijawab KiKo
+        ekspresiSingkat('senang', 3000);
+        setTimeout(() => kirim('G,angguk'), 600);
+      }
+    } finally { loraSapa.jalan = false; }
+  }
+  setInterval(() => {
+    const tidur = !!hemat.tidur;
+    if ((fase === 'hidup' && loraSapa.fase !== 'hidup') || (fase === 'hidup' && loraSapa.tidur && !tidur)) { loraSapa.perlu = true; loraSapa.sejak = Date.now(); }
+    loraSapa.fase = fase; loraSapa.tidur = tidur;
+    if (fase !== 'hidup' || Date.now() - loraSapa.sejak > 180000) loraSapa.perlu = false;
+    if (loraSapa.perlu && !loraSapa.jalan && Date.now() - loraSapa.sejak > 6000 && kikoLuang() && !tidur) sapaLora();
+  }, 2000);
+
   document.getElementById('tombolUjiLora').addEventListener('click', async () => {
     statusJauhSekarang(L('Menghubungi Lora…', 'Contacting Lora…'));
     const halo = await kirimKeLora('halo');
@@ -8358,7 +8410,7 @@
                                       : L(' · daftar perangkat: ', ' · device list: ') + loraDaftar.galat));
   });
   if (MODE_PENGEMBANG) window.kikoJauh = { jawabRumah, tanganiPemilik, catatRumah, laporanRumah, catatan: () => catatanRumah, kirimKeLora,
-                                           untukLora, ambilPerangkatLora, jalankanRumah, loraDaftar, mintaLora };   // uji di localhost
+                                           untukLora, ambilPerangkatLora, jalankanRumah, loraDaftar, mintaLora, sapaLora, loraSapa };   // uji di localhost
 
   function terimaPesanBaru(baru) {
     baru = baru.filter(p => !tanganiPemilik(p));         // chat pemilik dari luar rumah: dijawab, tidak diumumkan
