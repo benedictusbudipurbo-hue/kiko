@@ -8224,10 +8224,11 @@
     tambahLogDengar(L('chat pemilik dijawab: ', 'owner chat answered: ') + balasan.slice(0, 80));
   }
   async function kirimKeLora(perintah) {
-    const alamat = inputLoraAlamat.value.trim();
-    if (!alamat) return L('Alamat Lora belum diisi di ATUR KiKo.', "Lora's address is not set in KiKo's settings.");
+    // 2026-11-22: alamat boleh kosong; mintaLora mencarinya sendiri. Kode pasangan tetap wajib diisi sekali.
+    if (!inputLoraAlamat.value.trim() && !inputLoraKode.value.trim()) return L('Alamat dan kode Lora belum diisi di ATUR KiKo.', "Lora's address and code are not set in KiKo's settings.");
     {
       const d = await mintaLora('kirim', `&teks=${encodeURIComponent(perintah)}`);   // tanpa asal = wa (versi 1)
+      kirimKeLora.terakhir = d;                       // ELIORA v0.84: "bersuara" = Lora sudah mengucapkan jawabannya sendiri
       if (d.notifMati) return d.teks;
       if (d.hasil === 'ok') return 'Lora: ' + (d.teks || L('sudah dikerjakan.', 'done.'));
       if (d.hasil === 'tidak_paham') return L('Lora belum paham perintah itu: ', "Lora didn't understand: ") + (d.teks || perintah);
@@ -8283,14 +8284,20 @@
   function lupakanDaftarLora() { loraDaftar.data = null; loraDaftar.okPada = 0; loraDaftar.cobaPada = 0; }
   cekLoraSuara.addEventListener('change', () => { simpan('kiko.loraSuara', cekLoraSuara.checked ? '1' : '0'); lupakanDaftarLora(); if (cekLoraSuara.checked) ambilPerangkatLora(true); });
   for (const el of [inputLoraAlamat, inputLoraKode]) el.addEventListener('change', lupakanDaftarLora);
-  function loraSiap() { return cekLoraSuara.checked && !!inputLoraAlamat.value.trim(); }
+  function loraSiap() { return cekLoraSuara.checked && !!(inputLoraAlamat.value.trim() || inputLoraKode.value.trim()); }   // alamat kosong: dicari sendiri
   function untukLora(teks) {
     const t = String(teks || '').toLowerCase().replace(/^[\s,.!?'"-]+/, '').replace(/^(hai|halo|hei|hey|hi|oke|ok|eh|tolong|wahai)[\s,]+/, '');
     return /^(lora|laura|lorra|lorah|loura)\b/.test(t);       // STT sering menulis "Laura"
   }
   // Versi 2.2: kalau Lora tidak terhubung (Wi-Fi berganti / alamat tablet berubah), KiKo mencari Lora sekali
   // (paling sering tiap 60 detik), menyimpan alamat barunya, lalu mencoba sekali lagi.
+  // 2026-11-22 (pemilik: "apakah tanpa press cari lora bisa? kalo bisa lebih baik tanpa press"): kalau alamat
+  // Lora masih kosong tapi kode sudah diisi, KiKo mencari Lora sendiri dulu (paling sering tiap 60 detik).
   async function mintaLora(jalur, tambahan) {
+    if (!inputLoraAlamat.value.trim()) {
+      if (Date.now() - loraCari.terakhir >= 60000) await temukanLora(true);
+      if (!inputLoraAlamat.value.trim()) return { hasil: 'tidak_terhubung', teks: L('Lora belum ditemukan di Wi-Fi ini.', "I haven't found Lora on this Wi-Fi yet.") };
+    }
     const d = await mintaLoraSekali(jalur, tambahan);
     if (!d || d.hasil !== 'tidak_terhubung' || d.notifMati || Date.now() - loraCari.terakhir < 60000) return d;
     const lama = inputLoraAlamat.value.trim();
@@ -8410,10 +8417,28 @@
   document.getElementById('tombolCariLora').addEventListener('click', async () => {
     statusJauhSekarang(L('Mencari Lora di Wi-Fi ini…', 'Looking for Lora on this Wi-Fi…'));
     const x = await temukanLora(false);
-    if (x) { statusJauhSekarang(L(`Ketemu: ${x.nama} (${x.alamat}). `, `Found: ${x.nama} (${x.alamat}). `) + await kirimKeLora('halo')); return; }
-    statusJauhSekarang(loraCari.daftar.length > 1 ? L(`Ada ${loraCari.daftar.length} Lora. Pilih salah satu di bawah.`, `${loraCari.daftar.length} Loras found. Pick one below.`)
+    // 2026-11-22 (pemilik: hasil "Cari Lora" hanya tertulis, "cuman tidak diucapkan" -> "Yes, add it"):
+    // hasilnya juga diucapkan singkat; tulisan lengkap tetap di baris status.
+    if (x) {
+      const halo = await kirimKeLora('halo');
+      statusJauhSekarang(L(`Ketemu: ${x.nama} (${x.alamat}). `, `Found: ${x.nama} (${x.alamat}). `) + halo);
+      const siap = /siap|ready/i.test(halo) && !/ditolak|tidak|rejected|can'?t|not/i.test(halo);
+      // ELIORA v0.84: untuk "halo" Lora mengucapkan "Lora siap." sendiri (bersuara:true). KiKo menunggu 1,5 detik
+      // supaya tidak bicara bersamaan, dan ucapan Lora yang terdengar mic KiKo tidak dijawab.
+      if (kirimKeLora.terakhir && kirimKeLora.terakhir.bersuara === true) {
+        ai.loraBicaraSampai = performance.now() + LORA_JEDA_JAWAB_MS;
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      ucapkan(siap ? L(`${x.nama} ketemu dan siap.`, `Found ${x.nama}, and it's ready.`)
+                   : L(`${x.nama} ketemu, tapi `, `Found ${x.nama}, but `) + halo.replace(/^Lora:\s*/, '').replace(/([^.!?])$/, '$1.'), siap ? 'senang' : 'bingung');
+      return;
+    }
+    const banyak = loraCari.daftar.length > 1;
+    statusJauhSekarang(banyak ? L(`Ada ${loraCari.daftar.length} Lora. Pilih salah satu di bawah.`, `${loraCari.daftar.length} Loras found. Pick one below.`)
       : L('Lora tidak ditemukan. Pastikan tablet di Wi-Fi yang sama dan saklar "Terima perintah dari KiKo" di Lora menyala.', 'Lora not found. Make sure the tablet is on the same Wi-Fi and Lora accepts KiKo commands.')
         + (loraCari.galat ? ' (' + loraCari.galat + ')' : ''));
+    ucapkan(banyak ? L(`Ada ${loraCari.daftar.length} Lora. Pilih salah satu di layar ya.`, `I found ${loraCari.daftar.length} Loras. Pick one on the screen.`)
+                   : L('Lora tidak ketemu di Wi-Fi ini.', "I can't find Lora on this Wi-Fi."), banyak ? 'bingung' : 'sedih');
   });
 
   // ---- Versi 2.1 (2026-11-22, pemilik: "saat kiko dan lora bertemu pertama ... berdua saling menyapa?" ->
@@ -9981,17 +10006,4 @@
     if (info && !(+info.bo || +info.pn || +info.wd)) {
       document.getElementById('tombolNolDiag').hidden = true;
       diagTambah('reset', L('Riwayat gangguan', 'Fault history'), 'ok', L('Dinolkan. Diagnosa berikutnya hanya menunjukkan gangguan baru.', 'Cleared. The next check only shows new faults.'));
-    } else elDiagStatus.textContent = L('Badan tidak menjawab. Coba lagi.', 'The body did not answer. Try again.');
-  });
-  tombolSalinDiag.addEventListener('click', async () => {
-    const t = laporanDiagTeks();
-    try { await navigator.clipboard.writeText(t); elDiagStatus.textContent = L('Laporan disalin. Tempel di WhatsApp ke ELI.', 'Report copied. Paste it into WhatsApp to ELI.'); }
-    catch (_) { elDiagStatus.textContent = t; }
-  });
-  if (MODE_PENGEMBANG) { window.kikoDiag = jalankanDiagnosa; window.kikoDiagJawab = v => diag.jawab && diag.jawab(v); }
-
-  tandaiEkspresi();
-  perbaruiChip();
-  requestAnimationFrame(bingkai);
-})();
-</script>
+    } else elDiagStatus.textContent = L('Badan tidak menjawab. Coba lagi.', 'The body did not answer. Try again
