@@ -597,8 +597,9 @@
       <input class="isian" id="loraKode" type="text" placeholder="Kode Lora" data-en-ph="Lora code" aria-label="Kode pasangan Lora" maxlength="20" style="width:7em" autocomplete="off">
       <button class="tombol" id="tombolUjiLora" type="button" data-en="Test Lora">Uji Lora</button>
     </div>
+    <label class="saklar"><input type="checkbox" id="cekLoraSuara" checked> <span data-en="In the room: when you ask KiKo to switch home devices, KiKo passes it to Lora and says the result (KiKo Notif v1.6)">Di ruangan: permintaan perangkat rumah ke KiKo diteruskan ke Lora, KiKo yang mengucapkan hasilnya (KiKo Notif v1.6)</span></label>
     <p class="petunjuk" id="statusJauh" role="status">Mati.</p>
-    <p class="petunjuk" data-en="The KiKo phone needs its own WhatsApp number, different from yours, and KiKo Notif v1.5 with &quot;Incoming messages&quot; on. Save your number in the KiKo phone contacts and type that contact name here exactly (several: separate with commas). Your chats are not announced at home; KiKo replies by itself from what it saw: &quot;home status&quot;, &quot;who is home?&quot;, &quot;any visitors?&quot;, &quot;battery&quot;, &quot;note list&quot;, &quot;guard mode on/off&quot;, &quot;tell home dinner is ready&quot;. Chats about the AC, TV, lights or starting with &quot;Lora&quot; go to Lora (ELIORA on the tablet) over the home Wi-Fi. With a secret code, only chats that start with it are answered. KiKo never sends photos. The page must stay open on the KiKo phone.">HP KiKo butuh nomor WhatsApp sendiri (beda dari nomormu), dan KiKo Notif v1.5 dengan "Pesan masuk" menyala. Simpan nomormu di kontak HP KiKo, lalu tulis nama kontak itu di sini persis sama (beberapa nama: pisahkan dengan koma). Chat darimu tidak diumumkan di rumah; KiKo membalas sendiri dari yang ia lihat: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan", "nyalakan/matikan mode jaga", "bilang ke rumah makan malam sudah siap". Chat soal AC, TV, lampu atau yang diawali "Lora" diteruskan ke Lora (ELIORA di tablet) lewat Wi-Fi rumah. Kalau kode rahasia diisi, hanya chat yang diawali kode itu yang dijawab. KiKo tidak pernah mengirim foto. Halaman KiKo harus tetap terbuka di HP KiKo.</p>
+    <p class="petunjuk" data-en="The KiKo phone needs its own WhatsApp number, different from yours, and KiKo Notif v1.6 with &quot;Incoming messages&quot; on. Save your number in the KiKo phone contacts and type that contact name here exactly (several: separate with commas). Your chats are not announced at home; KiKo replies by itself from what it saw: &quot;home status&quot;, &quot;who is home?&quot;, &quot;any visitors?&quot;, &quot;battery&quot;, &quot;note list&quot;, &quot;guard mode on/off&quot;, &quot;tell home dinner is ready&quot;. Chats about the AC, TV, lights or starting with &quot;Lora&quot; go to Lora (ELIORA on the tablet) over the home Wi-Fi. With a secret code, only chats that start with it are answered. KiKo never sends photos. The page must stay open on the KiKo phone. In the room you can also just tell KiKo, e.g. &quot;KiKo, it is so hot&quot;: KiKo asks Lora and says the answer. Anything starting with &quot;Lora&quot; is for Lora only; KiKo stays quiet.">HP KiKo butuh nomor WhatsApp sendiri (beda dari nomormu), dan KiKo Notif v1.6 dengan "Pesan masuk" menyala. Simpan nomormu di kontak HP KiKo, lalu tulis nama kontak itu di sini persis sama (beberapa nama: pisahkan dengan koma). Chat darimu tidak diumumkan di rumah; KiKo membalas sendiri dari yang ia lihat: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan", "nyalakan/matikan mode jaga", "bilang ke rumah makan malam sudah siap". Chat soal AC, TV, lampu atau yang diawali "Lora" diteruskan ke Lora (ELIORA di tablet) lewat Wi-Fi rumah. Kalau kode rahasia diisi, hanya chat yang diawali kode itu yang dijawab. KiKo tidak pernah mengirim foto. Halaman KiKo harus tetap terbuka di HP KiKo. Di ruangan kamu juga bisa bilang langsung ke KiKo, mis. "KiKo, kok gerah ya": KiKo meminta Lora lalu mengucapkan jawabannya. Ucapan yang diawali "Lora" hanya untuk Lora; KiKo diam.</p>
   </div>
 
   <div class="bagian">
@@ -4666,6 +4667,18 @@
     if (dipuji(teks.toLowerCase())) ai.dipuji = Date.now();
     // Jam, tanggal dan pengingat dijawab di HP (tanpa AI, tanpa kuota).
     const menungguJawaban = lanjutMenunggu();
+    // 2026-11-22, protokol KiKo-Lora versi 2: ucapan yang diawali "Lora" hanya untuk Lora (tablet). KiKo
+    // tidak menjawab dan tidak meneruskannya. Beberapa detik sesudahnya Lora biasanya menjawab dengan
+    // suaranya sendiri; itu juga tidak dijawab KiKo, kecuali kalimatnya diawali "KiKo".
+    if (untukLora(teks)) {
+      catatDengar(teks, L('untuk Lora, KiKo diam', 'for Lora, KiKo stays quiet'));
+      ai.loraBicaraSampai = performance.now() + LORA_JEDA_JAWAB_MS;
+      aturTahap('diam'); return;
+    }
+    if (performance.now() < (ai.loraBicaraSampai || 0) && !menungguJawaban && !/^\W*(hai |halo |hei |hey )?(kiko|keko|eko|kikoh)\b/i.test(teks)) {
+      catatDengar(teks, L('mungkin suara Lora, diabaikan', 'probably Lora speaking, ignored'));
+      aturTahap('diam'); return;
+    }
     if (jawabLokal(teks)) { catatDengar(teks, L('dijawab di HP', 'handled on the phone') + (menungguJawaban ? L(' (jawaban pertanyaan)', ' (answer to a question)') : '')); aturTahap('diam'); return; }
     catatDengar(teks, L('ke AI', 'to the AI') + (menungguJawaban ? L(' (jawaban tidak cocok)', ' (answer did not match)') : ''));
     aturTahap('pikir');
@@ -4674,12 +4687,14 @@
     ekspresiSingkat('curiga', 30000);
     if (!wajah.ada) { pandang.tgt.x = 0.5; pandang.tgt.y = -0.6; berikutLirik = performance.now() + 3000; }
     try {
+      const rumah = await perangkatUntukAi();       // versi 2: daftar perangkat Lora (simpanan ±10 menit)
       const res = await fetch(ai.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pesan: teks, riwayat: ai.riwayat,
           waktu: waktuSekarang(), nama: namaOrang(), ingatan: ingatan.fakta, bahasa,   // bahasa: Worker v4; nama: kenal wajah
+          ...(rumah ? { rumah } : {}),                                                 // Worker v21: aksi "rumah"
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -4692,9 +4707,10 @@
       // Kalau HP bisa menjalankannya, fitur HP yang bicara; kalau tidak, ucapkan jawaban AI.
       if (data.aksi === 'telepon' && /\b(wa|whatsapp|watsap|wasap)\b/i.test(teks)) data.aksi = 'telepon_wa';   // AI kadang lupa "lewat WA"
       if (logDengar.length) {
-        logDengar[0] += data.aksi ? ` [AI: ${data.aksi}${data.target ? ' ' + data.target : ''}]` : ' [AI: ngobrol]';
+        logDengar[0] += data.aksi ? ` [AI: ${data.aksi}${data.target ? ' ' + data.target : ''}${Array.isArray(data.perintah) ? ': ' + data.perintah.join('; ') : ''}]` : ' [AI: ngobrol]';
         const li = document.querySelector('#logDengar li'); if (li) li.textContent = logDengar[0];
       }
+      if (data.aksi === 'rumah' && await jalankanRumah(data)) return;   // versi 2: Lora yang menjalankan
       if (data.aksi && jalankanAksiAi(data)) return;
       // 2026-11-07: kalimat tentang melihat yang lolos dari jawabLihat sampai ke AI, lalu AI menyuruh
       // "kirim file/foto". KiKo punya mata sendiri, jadi kamera langsung dibuka.
@@ -8245,11 +8261,104 @@
     return L('Aku bisa menjawab: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan". Perintah: "nyalakan mode jaga", "matikan mode jaga", "bilang ke rumah <pesan>", dan untuk Lora: "Lora nyalakan AC" dan sejenisnya.',
              'I can answer: "home status", "who is home?", "any visitors?", "battery", "note list". Commands: "guard mode on/off", "tell home <message>", and for Lora: "Lora turn on the AC" and so on.');
   }
+  // =====================================================================
+  //  PROTOKOL KIKO-LORA VERSI 2 (2026-11-22, pemilik: kalau KiKo dan Lora satu ruangan, KiKo jadi
+  //  "telinga dan mulut", Lora jadi "tangan"). Ucapan bebas ke KiKo ("kok gerah ya") pergi ke Worker v21
+  //  bersama daftar perangkat Lora; Worker menjawab aksi "rumah" + perintah baku ("AC kamar 24 derajat").
+  //  Tiap perintah dikirim ke Lora lewat KiKo Notif v1.6 dengan asal=suara (Lora diam), lalu KiKo yang
+  //  mengucapkan jawaban Lora. Daftar perangkat diminta lewat /lora/perangkat dan disimpan 10 menit.
+  //  Chat WhatsApp pemilik (kirimKeLora di atas) tetap tanpa asal = wa. Lihat docs/kiko_lora/PROTOKOL_KIKO_LORA.md.
+  // =====================================================================
+  const cekLoraSuara = document.getElementById('cekLoraSuara');
+  try { cekLoraSuara.checked = localStorage.getItem('kiko.loraSuara') !== '0'; } catch (_) {}
+  const LORA_DAFTAR_MS = 10 * 60000, LORA_DAFTAR_BASI_MS = 30 * 60000, LORA_JEDA_JAWAB_MS = 8000;
+  const loraDaftar = { data: null, okPada: 0, cobaPada: 0, janji: null, galat: '' };
+  function lupakanDaftarLora() { loraDaftar.data = null; loraDaftar.okPada = 0; loraDaftar.cobaPada = 0; }
+  cekLoraSuara.addEventListener('change', () => { simpan('kiko.loraSuara', cekLoraSuara.checked ? '1' : '0'); lupakanDaftarLora(); if (cekLoraSuara.checked) ambilPerangkatLora(true); });
+  for (const el of [inputLoraAlamat, inputLoraKode]) el.addEventListener('change', lupakanDaftarLora);
+  function loraSiap() { return cekLoraSuara.checked && !!inputLoraAlamat.value.trim(); }
+  function untukLora(teks) {
+    const t = String(teks || '').toLowerCase().replace(/^[\s,.!?'"-]+/, '').replace(/^(hai|halo|hei|hey|hi|oke|ok|eh|tolong|wahai)[\s,]+/, '');
+    return /^(lora|laura|lorra|lorah|loura)\b/.test(t);       // STT sering menulis "Laura"
+  }
+  async function mintaLora(jalur, tambahan) {
+    const kendali = new AbortController(), batas = setTimeout(() => kendali.abort(), 12000);
+    try {
+      const r = await fetch(`${ALAMAT_NOTIF}/lora/${jalur}?alamat=${encodeURIComponent(inputLoraAlamat.value.trim())}&kunci=${encodeURIComponent(inputLoraKode.value.trim())}${tambahan || ''}`,
+                            { cache: 'no-store', signal: kendali.signal });
+      if (r.status === 404) return { hasil: 'galat', teks: L('KiKo Notif masih versi lama, pasang v1.6 dulu.', 'KiKo Notif is too old, install v1.6 first.') };
+      return await r.json();
+    } catch (_) {
+      return { hasil: 'tidak_terhubung', teks: L('KiKo Notif tidak bisa dihubungi, jadi Lora tidak bisa diperintah.', "KiKo Notif can't be reached, so I can't reach Lora.") };
+    } finally { clearTimeout(batas); }
+  }
+  // Daftar perangkat: diminta ulang paling cepat tiap 10 menit; gagal -> coba lagi 1 menit kemudian,
+  // daftar lama tetap dipakai sampai 30 menit.
+  function ambilPerangkatLora(paksa) {
+    if (!loraSiap()) return Promise.resolve(null);
+    const now = Date.now();
+    if (!paksa && (now - loraDaftar.okPada < LORA_DAFTAR_MS || now - loraDaftar.cobaPada < 60000)) return Promise.resolve(loraDaftar.data);
+    if (loraDaftar.janji) return loraDaftar.janji;
+    loraDaftar.cobaPada = now;
+    loraDaftar.janji = mintaLora('perangkat', '').then(d => {
+      if (d && d.hasil === 'ok' && Array.isArray(d.perangkat)) {
+        loraDaftar.data = {
+          perangkat: d.perangkat.filter(x => x && x.nama).slice(0, 40).map(x => ({ nama: String(x.nama), jenis: String(x.jenis || ''), kamar: String(x.kamar || '') })),
+          contoh: (Array.isArray(d.contoh) ? d.contoh : []).slice(0, 10).map(String),
+        };
+        loraDaftar.okPada = Date.now(); loraDaftar.galat = '';
+      } else {
+        loraDaftar.galat = (d && d.teks) || L('daftar perangkat tidak terbaca', 'device list unreadable');
+        if (Date.now() - loraDaftar.okPada > LORA_DAFTAR_BASI_MS) loraDaftar.data = null;
+      }
+      return loraDaftar.data;
+    }).finally(() => { loraDaftar.janji = null; });
+    return loraDaftar.janji;
+  }
+  // Dipanggil sebelum setiap ucapan ke Worker: daftar simpanan langsung dipakai (penyegaran jalan di
+  // belakang); kalau belum ada, tunggu paling lama 2,5 detik supaya obrolan tidak tertahan.
+  async function perangkatUntukAi() {
+    if (!loraSiap()) return null;
+    const janji = ambilPerangkatLora(false);
+    if (loraDaftar.data) return loraDaftar.data;
+    return Promise.race([janji, new Promise(r => setTimeout(() => r(null), 2500))]);
+  }
+  setInterval(() => { if (loraSiap() && fase === 'hidup' && document.visibilityState === 'visible') ambilPerangkatLora(false); }, 60000);
+  function kalimatLora(r) {
+    let t = String((r && r.teks) || '').trim();
+    if (!t) t = r && r.hasil === 'ok' ? L('Sudah dikerjakan Lora.', 'Lora did it.') : L('Lora tidak menjawab.', 'Lora did not answer.');
+    return /[.!?…]$/.test(t) ? t : t + '.';
+  }
+  async function jalankanRumah(d) {
+    const perintah = (Array.isArray(d.perintah) ? d.perintah : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6);
+    if (!perintah.length || !loraSiap()) return false;
+    tampilTeks(d.teks || L('Oke, aku minta Lora ya.', "Okay, I'll ask Lora."), 12000);
+    const kalimat = [];
+    let semuaOk = true;
+    for (const p of perintah) {
+      const r = await mintaLora('kirim', `&teks=${encodeURIComponent(p)}&asal=suara`);
+      if (!r || r.hasil !== 'ok') semuaOk = false;
+      const k = kalimatLora(r);
+      if (!kalimat.includes(k)) kalimat.push(k);
+      tambahLogDengar(`Lora «${p}» → ${(r && r.hasil) || '?'}: ${k.slice(0, 60)}`);
+      if (r && r.hasil === 'tidak_terhubung') break;        // Lora mati: perintah berikutnya pasti gagal juga
+    }
+    ucapkan(kalimat.join(' '), semuaOk ? 'senang' : 'bingung');
+    if (semuaOk) setTimeout(() => kirim('G,angguk'), 300);
+    return true;
+  }
+
   document.getElementById('tombolUjiLora').addEventListener('click', async () => {
     statusJauhSekarang(L('Menghubungi Lora…', 'Contacting Lora…'));
-    statusJauhSekarang(await kirimKeLora('halo'));
+    const halo = await kirimKeLora('halo');
+    statusJauhSekarang(halo);
+    if (!cekLoraSuara.checked) return;
+    const daftar = await ambilPerangkatLora(true);
+    statusJauhSekarang(halo + (daftar ? L(` · ${daftar.perangkat.length} perangkat: `, ` · ${daftar.perangkat.length} devices: `) + daftar.perangkat.map(x => x.nama).join(', ')
+                                      : L(' · daftar perangkat: ', ' · device list: ') + loraDaftar.galat));
   });
-  if (MODE_PENGEMBANG) window.kikoJauh = { jawabRumah, tanganiPemilik, catatRumah, laporanRumah, catatan: () => catatanRumah, kirimKeLora };   // uji di localhost
+  if (MODE_PENGEMBANG) window.kikoJauh = { jawabRumah, tanganiPemilik, catatRumah, laporanRumah, catatan: () => catatanRumah, kirimKeLora,
+                                           untukLora, ambilPerangkatLora, jalankanRumah, loraDaftar, mintaLora };   // uji di localhost
 
   function terimaPesanBaru(baru) {
     baru = baru.filter(p => !tanganiPemilik(p));         // chat pemilik dari luar rumah: dijawab, tidak diumumkan
