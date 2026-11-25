@@ -241,7 +241,7 @@
   #gim { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 70%, #1d2a2c 0%, #000 70%); }
   #gimSkor { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
     margin: 0; font-size: 15px; font-weight: 600; color: var(--teks); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  #gimMeja { position: absolute; left: 4%; right: 4%; top: 24%; height: 46%; }
+  #gimMeja { position: absolute; left: 4%; right: 4%; top: 18%; height: 44%; }
   #gimMeja::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: #3a5256; }
   .gelas { position: absolute; bottom: 3px; width: min(17vmin, 18%); height: min(22vmin, 90%); transform: translate(-50%, 0);
     border: 0; padding: 0; cursor: pointer; z-index: 2; background: linear-gradient(90deg, #a8321f, #e8834a 45%, #c24a2c);
@@ -249,12 +249,29 @@
   .gelas::before { content: ''; position: absolute; left: 14%; right: 14%; top: 0; height: 9%; background: rgba(0,0,0,.25); }
   .gelas.terangkat { bottom: 46%; }
   .gelas:focus-visible { outline: 3px solid var(--mata); }
-  .noGelas { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font: 700 clamp(16px, 5vmin, 30px)/1 system-ui, sans-serif; color: #fff; }
+  .noPosisi { position: absolute; top: calc(100% + 4px); transform: translateX(-50%); min-width: 1.9em; padding: 2px 0; border-radius: 8px; text-align: center; cursor: pointer;
+    font: 700 clamp(16px, 5.5vmin, 28px)/1.15 system-ui, sans-serif; color: #cfe0e2; border: 1px solid transparent; }
+  #gimMeja.menebak .noPosisi { color: #fff; border-color: #e8834a; background: rgba(232,131,74,.22); }
   .bolaGim { position: absolute; bottom: 3px; width: min(8vmin, 9%); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%);
     background: radial-gradient(circle at 35% 30%, #fff8c8, #f2c230 45%, #b07d10); z-index: 1; }
   #gimPetunjuk { position: absolute; left: 50%; transform: translateX(-50%); top: 74%; margin: 0; max-width: 80vw;
     text-align: center; font-size: 15px; color: var(--teks); }
   #gimLagi { position: absolute; left: 50%; transform: translateX(-50%); top: 81%; }
+  /* ---------- Gunting batu kertas (2026-11-25) ---------- */
+  #suit { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 60%, #1d2a2c 0%, #000 70%); }
+  #suitSkor { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); margin: 0;
+    font-size: 16px; font-weight: 700; color: var(--teks); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #suitMeja { position: absolute; left: 24%; right: 4%; top: 13%; height: 45%; display: flex; justify-content: center; align-items: stretch; gap: 3vw; }
+  .kotakSuit { position: relative; flex: 0 1 min(34vw, 46vh * 1.33); min-width: 0; border-radius: 14px; border: 2px solid #3a5256; overflow: hidden; background: #0b1214;
+    display: flex; align-items: center; justify-content: center; }
+  .kotakSuit .namaSuit { position: absolute; left: 10px; top: 6px; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; z-index: 2; }
+  .kotakSuit video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .kotakSuit.menang { border-color: #43c08a; } .kotakSuit.kalah { border-color: #e8834a; }
+  .ikonSuit { position: relative; z-index: 2; font-size: min(20vh, 15vw); line-height: 1; filter: drop-shadow(0 2px 6px #000); }
+  #suitHitung { flex: 0 0 auto; align-self: center; margin: 0; min-width: 4.6em; text-align: center; font-weight: 800; font-size: clamp(16px, 7vmin, 34px); color: var(--teks); }
+  #suitPetunjuk { position: absolute; left: 50%; transform: translateX(-50%); top: 60%; margin: 0; width: 88vw; text-align: center; font-size: 15px; color: var(--teks); }
+  #suitPilih, #suitLagi { position: absolute; left: 50%; transform: translateX(-50%); top: 68%; }
+  #suitPilih .tombol { font-size: 16px; white-space: nowrap; }
   #tombolTutupGim {
     pointer-events: auto; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--garis);
     background: rgba(10,17,19,.75); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
@@ -303,6 +320,24 @@
   <div id="gimLagi" class="baris" hidden>
     <button class="tombol utama" id="gimLagiYa" type="button" data-en="Play again">Main lagi</button>
     <button class="tombol" id="gimLagiTidak" type="button" data-en="Done">Selesai</button>
+  </div>
+</div>
+<div id="suit" hidden aria-label="Game gunting batu kertas">
+  <p id="suitSkor"></p>
+  <div id="suitMeja">
+    <div class="kotakSuit" id="suitKamera"><span class="namaSuit" data-en="You">Kamu</span><span class="ikonSuit" id="suitKamu"></span></div>
+    <p id="suitHitung"></p>
+    <div class="kotakSuit"><span class="namaSuit">KiKo</span><span class="ikonSuit" id="suitKiko"></span></div>
+  </div>
+  <p id="suitPetunjuk" role="status"></p>
+  <div id="suitPilih" class="baris" hidden>
+    <button class="tombol" type="button" data-suit="gunting" data-en="✌️ Scissors">✌️ Gunting</button>
+    <button class="tombol" type="button" data-suit="batu" data-en="✊ Rock">✊ Batu</button>
+    <button class="tombol" type="button" data-suit="kertas" data-en="✋ Paper">✋ Kertas</button>
+  </div>
+  <div id="suitLagi" class="baris" hidden>
+    <button class="tombol utama" id="suitLagiYa" type="button" data-en="Play again">Main lagi</button>
+    <button class="tombol" id="suitLagiTidak" type="button" data-en="Done">Selesai</button>
   </div>
 </div>
 <canvas id="wajah" aria-label="Wajah KiKo: dua mata animasi. Ketuk, ketuk dua kali, atau tahan untuk berinteraksi."></canvas>
@@ -919,6 +954,7 @@
   // Arah pandang (-1..1). Pegasnya lebih kaku = lirikan cepat seperti saccade mata.
   const pandang = { cur: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, tgt: { x: 0, y: 0 } };
   // Game tebak bola (2026-11-20): dideklarasikan di sini supaya bingkai() bisa membacanya sejak awal.
+  const suit = { aktif: false, token: 0, tahap: '', baca: false, pengenal: null, memuat: null, kamera: false, skorKamu: 0, skorKiko: 0, pilihanKiko: '', pilihanKamu: null };   // gunting batu kertas
   const gim = { aktif: false, token: 0, tahap: '', n: 0, gelas: [], posisi: [], bola: 0, level: 1, skor: 0, ronde: 0, elBola: null };
 
   // =====================================================================
@@ -3069,6 +3105,7 @@
   function keLayarPasang(pesan) {
     if (nonton.aktif) tutupYoutube();        // base terputus / HP diangkat: video ikut ditutup
     if (gim.aktif) akhiriGim(true);
+    if (suit.aktif) akhiriSuit(true);
     if (cekMenari.checked || tari.mik) akhiriSesiTari();
     menyendiri.aktif = false;
     fase = 'pasang';
@@ -3705,6 +3742,7 @@
   function deteksiWajah() {
     const v = wajah.video;
     if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
+    if (suit.baca) return;                                    // main suit: kamera sedang membaca tangan
     if (cekHemat.checked) {                                   // hemat: lebih jarang kalau tidak ada orang / tidur
       const jeda = hemat.intip ? 200 : hemat.tidur ? 1000 : wajah.ada ? 0 : 300, t0 = performance.now();
       if (t0 - (wajah.deteksiLalu || 0) < jeda) return;
@@ -3889,7 +3927,10 @@
     r.maxAlternatives = 5;      // 2026-10-20: alternatif dicoba saat menunggu jawaban (nama pendek)
     let dapat = false, sementaraTeks = '';
     const kirimTeks = teks => {
-      if (dapat || teks.length < 2) return;
+      // 2026-11-25 (pengguna: saat 4 gelas jawaban "tidak terdengar", harus disentuh): Android menulis
+      // ucapan "dua" sebagai "2", dan teks satu huruf dulu selalu dibuang. Saat KiKo menunggu jawaban,
+      // satu angka diterima.
+      if (dapat || (teks.length < 2 && !(lanjutMenunggu() && /^\d$/.test(teks)))) return;
       dapat = true;
       ai.tolakBeruntun = 0;
       ai.jedaDengar = JEDA_DENGAR_MIN;                          // ada orang bicara: siap mendengar cepat lagi
@@ -3941,7 +3982,7 @@
     r.onend = () => {
       if (ai.pengenal !== r) return;                             // sesi lama yang dibatalkan tombol
       ai.pengenal = null;
-      if (!dapat && sementaraTeks.length >= 2) { ai.alternatif = []; kirimTeks(sementaraTeks); }
+      if (!dapat && sementaraTeks) { ai.alternatif = []; kirimTeks(sementaraTeks); }
       if (dapat) return;                                        // tanyaKiKo yang melanjutkan
       ai.sunyiBeruntun = (ai.sunyiBeruntun || 0) + 1;
       aturTahap('diam');
@@ -3960,7 +4001,10 @@
       if (otomatis && lanjutMenunggu()) {
         lanjut.sunyi++;
         ai.dengarBerikut = performance.now() + 300;
-        if (lanjut.jenis !== 'ajar') tampilTeks(lanjut.sunyi >= 2 ? L('Sebut namanya dengan jelas ya, atau ketuk mic dulu.', 'Say the name clearly, or tap the mic first.') : '', 3000);
+        if ((lanjut.jenis === 'gim' || lanjut.jenis === 'suit') && lanjut.sunyi <= 15) lanjut.sampai = Math.max(lanjut.sampai, Date.now() + 20000);   // main: tetap mendengar
+        if (lanjut.jenis === 'gim') tampilTeks(lanjut.sunyi >= 2 ? L('Sebut dengan jelas, misalnya "nomor dua". Atau ketuk layarnya.', 'Say it clearly, for example "number two". Or tap the screen.') : '', 3000);
+        else if (lanjut.jenis === 'suit' || lanjut.jenis === 'main') tampilTeks(lanjut.sunyi >= 2 ? L('Sebut dengan jelas, atau ketuk layarnya.', 'Say it clearly, or tap the screen.') : '', 3000);
+        else if (lanjut.jenis !== 'ajar') tampilTeks(lanjut.sunyi >= 2 ? L('Sebut namanya dengan jelas ya, atau ketuk mic dulu.', 'Say the name clearly, or tap the mic first.') : '', 3000);
         return;
       }
       if (otomatis) {
@@ -4148,7 +4192,7 @@
   function bolehKenalan(e) {
     return e && cekTanyaNama.checked && e.kali >= ASING_KALI && !e.ditolak && (e.ditanya || 0) < 2
       && !cekJaga.checked && !hemat.tidur && fase === 'hidup' && cekSuara.checked && !menyendiri.aktif
-      && !modeMalamAktif() && !ai.bicara && ai.tahap !== 'pikir' && !lanjutMenunggu() && !tari.aktif && !roda.sibuk;
+      && !modeMalamAktif() && !ai.bicara && ai.tahap !== 'pikir' && !lanjutMenunggu() && !tari.aktif && !roda.sibuk && !gim.aktif && !suit.aktif;
   }
   function ajakKenalan(e) {
     e.ditanya = (e.ditanya || 0) + 1; simpanAsing();
@@ -5528,7 +5572,7 @@
   try { cekJagaJarak.checked = localStorage.getItem('kiko.jagaJarak') !== '0'; } catch (_) {}
   cekJagaJarak.addEventListener('change', () => simpan('kiko.jagaJarak', cekJagaJarak.checked ? '1' : '0'));
   function jarakDitunda() {
-    return lihat.aktif || kenal.sibuk || ajar.aktif || tari.aktif || menyendiri.aktif || roda.sibuk || setir.aktif
+    return lihat.aktif || suit.aktif || gim.aktif || kenal.sibuk || ajar.aktif || tari.aktif || menyendiri.aktif || roda.sibuk || setir.aktif
       || hemat.tidur || fase !== 'hidup' || (typeof ota !== 'undefined' && ota.aktif);
   }
   function periksaJarak(now) {
@@ -6516,6 +6560,10 @@
       else ai.catatGerak = L('diabaikan, mode menjauh', 'ignored, away mode');
       return true;
     }
+    if (suit.aktif) {                                   // main suit: telepon berdering tetap bisa dijawab
+      if (jawabPanggilan(t, bahasa === 'en')) return true;
+      lanjut = null; jawabSuit(t); return true;
+    }
     const tunggu = lanjut && Date.now() < lanjut.sampai ? lanjut : null;
     lanjut = null;
     if (tunggu) {
@@ -6524,9 +6572,12 @@
       if (tunggu.jenis === 'hapusDaftar' && jawabHapusDaftar(t)) return true;
       if (tunggu.jenis === 'gim' && gim.aktif) {
         if (jawabGim(t, bahasa === 'en')) return true;
-        if (gim.tahap === 'tebak') {         // tidak terdengar sebagai pilihan: tanya lagi
-          tanyaLanjut(gim.n === 3 ? L('Sebut kiri, tengah, atau kanan ya. Atau ketuk gelasnya.', 'Say left, middle, or right. Or tap a cup.')
-                                  : L(`Sebut nomor satu sampai ${gim.n} ya. Atau ketuk gelasnya.`, `Say a number from one to ${gim.n}. Or tap a cup.`), () => null, 'gim');
+        if (gim.tahap === 'tebak') {
+          for (const c of (ai.alternatif || [])) {      // "dua" bisa tertulis "doa" dengan "2" di alternatif
+            const k = tebakDariUcapan(rapikanAwal(c.toLowerCase().trim()));
+            if (k >= 0) { pilihGim(k); return true; }
+          }         // tidak terdengar sebagai pilihan: tanya lagi
+          tanyaLanjut(L('Aku belum menangkap. Nomor berapa?', "I didn't catch that. Which number?"), () => null, 'gim', pilihanGim());
           return true;
         }
       }
@@ -6650,9 +6701,9 @@
     if (ai.url) B.push({ k: 'daftar', judul: L('Daftar catatan', 'Note list'), bisa: L('menyusun daftar dari catatan tempel', 'turn sticky notes into a list'),
       contoh: L(['"Susun daftar dari catatan ini"', '"Tambah lagi" (foto berikutnya)', '"Bacakan daftarku"', '"Nomor 2 selesai" / "Hapus nomor 3"', '"Hapus daftarku"'],
                 ['"Make a list from these notes"', '"Add more" (next photo)', '"Read my list"', '"Number 2 is done" / "Delete number 3"', '"Clear my list"']) });
-    B.push({ k: 'main', judul: L('Main', 'Games'), bisa: L('main tebak bola di gelas', 'play find the ball'),
-      contoh: L(['"Ayo main tebak bola"', '"Kiri" / "Tengah" / "Kanan", atau ketuk gelasnya', '"Lagi" / "Berhenti main"'],
-                ['"Let\'s play the cup game"', '"Left" / "Middle" / "Right", or tap a cup', '"Again" / "Stop playing"']) });
+    B.push({ k: 'main', judul: L('Main', 'Games'), bisa: L('main tebak bola dan gunting batu kertas', 'play find the ball and rock paper scissors'),
+      contoh: L(['"Ayo main tebak bola"', '"Nomor dua" / "Kiri" / "Tengah" / "Kanan", atau ketuk gelasnya', '"Ayo main gunting batu kertas" (tunjukkan tanganmu ke kamera)', '"Lagi" / "Berhenti main"'],
+                ['"Let\'s play the cup game"', '"Number two" / "Left" / "Middle" / "Right", or tap a cup', '"Let\'s play rock paper scissors" (show your hand to the camera)', '"Again" / "Stop playing"']) });
     if (cekWajah.checked) B.push({ k: 'kenal', judul: L('Kenal wajah', 'Faces'), bisa: L('mengingat wajah keluarga dan menyapa dengan namanya', 'remember family faces and greet them by name'),
       contoh: L(['"Ingat wajahku, namaku Budi"', '"Siapa aku?"', '"Wajah siapa saja yang kamu kenal?"', '"Lupakan wajahku"'],
                 ['"Remember my face, my name is Budi"', '"Who am I?"', '"Whose faces do you know?"', '"Forget my face"']) });
@@ -6877,6 +6928,7 @@
     const t = teks.toLowerCase();
     if (jawabVolume(t, false)) return true;
     if (jawabPanggilan(t, false)) return true;                // telepon WA berdering: angkat / tolak
+    if (jawabPilihMain(t, false)) return true;                // "ayo main", "main gunting batu kertas"
     if (jawabGim(t, false)) return true;                      // "ayo main tebak bola", "kiri", "berhenti main"
     if (jawabDaftarCatatan(t, false)) return true;            // "susun daftar dari catatan ini", "bacakan daftarku" (sebelum pesan)
     if (jawabPesan(t, false)) return true;                    // bacakan / ada pesan apa / balas (sebelum telepon)
@@ -7406,7 +7458,7 @@
     return hewan.aktif && (gaya === 'kucing' || gaya === 'anjing' || gaya === 'kelinci') && fase === 'hidup' && !document.hidden
       && !modeMalamAktif() && moodSaatIni(now) !== 'tidur' && !ai.bicara
       && (ai.tahap === 'diam' || (ai.tahap === 'dengar' && ai.sesiOtomatis && !ai.adaSementara))
-      && !lanjutMenunggu() && !radioMain() && !videoMain() && !ota.aktif && !tari.aktif && !menyendiri.aktif;
+      && !lanjutMenunggu() && !radioMain() && !videoMain() && !ota.aktif && !tari.aktif && !menyendiri.aktif && !gim.aktif && !suit.aktif;
   }
 
   // jenis: 'kucing' | 'anjing' | 'kelinci' (default = gaya sekarang). paksa = diminta pengguna (tanpa jeda/syarat suasana).
@@ -7958,6 +8010,7 @@
   function jawabLokalEn(t) {
     if (jawabVolume(t, true)) return true;
     if (jawabPanggilan(t, true)) return true;
+    if (jawabPilihMain(t, true)) return true;
     if (jawabGim(t, true)) return true;
     if (jawabDaftarCatatan(t, true)) return true;
     if (jawabPesan(t, true)) return true;
@@ -8570,6 +8623,7 @@
   async function mulaiLihat(tugas, ucapan, opsi = {}) {
     if (lihat.aktif) return;
     if (gim.aktif) akhiriGim(true);
+    if (suit.aktif) akhiriSuit(true);
     if (!ai.url) { ucapkan(L('Isi dulu alamat Worker di ATUR ya.', 'Please fill in the Worker address in SETTINGS first.'), 'bingung'); return; }
     if (!wajah.aktif || !wajah.video || !wajah.stream) { ucapkan(L('Aku perlu "Ikuti wajah orang" nyala supaya bisa melihat.', 'I need "Follow faces" turned on so I can see.'), 'bingung'); return; }
     lihat.aktif = true;
@@ -8832,18 +8886,19 @@
       const g = document.createElement('button');
       g.type = 'button'; g.className = 'gelas';
       g.style.left = GIM_X[n][i] + '%';
-      const no = document.createElement('span'); no.className = 'noGelas'; no.textContent = n === 3 ? '' : String(i + 1);
-      g.append(no);
       g.addEventListener('click', () => { if (gim.tahap === 'tebak') { lanjut = null; pilihGim(gim.posisi[gim.gelas.indexOf(g)]); } });
       elGimMeja.append(g);
       gim.gelas.push(g); gim.posisi.push(i);
+      // 2026-11-25 (pengguna: nomor gelas jangan hanya tampil saat menebak): nomor = TEMPAT di meja, diam di
+      // bawah garis dan selalu terlihat, juga saat 3 gelas. Nomor tidak menempel di gelas, supaya bola tidak
+      // bisa diikuti lewat nomornya saat gelas digeser.
+      const no = document.createElement('span');
+      no.className = 'noPosisi'; no.textContent = String(i + 1); no.style.left = GIM_X[n][i] + '%';
+      no.addEventListener('click', () => { if (gim.tahap === 'tebak') { lanjut = null; pilihGim(i); } });
+      elGimMeja.append(no);
     }
     const b = document.createElement('div'); b.className = 'bolaGim'; b.hidden = true;
     elGimMeja.append(b); gim.elBola = b;
-  }
-  function nomorGelas(n) {          // nomor tampil mengikuti posisi (kiri ke kanan), bukan gelasnya
-    if (n === 3) return;
-    gim.gelas.forEach((g, i) => { g.firstChild.textContent = String(gim.posisi[i] + 1); });
   }
   function angkatGelas(i, naik) {
     const g = gim.gelas[i];
@@ -8890,20 +8945,37 @@
     mulaiGim();
     return true;
   }
+  function pilihanGim() {
+    return gim.n === 3 ? L('1 kiri · 2 tengah · 3 kanan', '1 left · 2 middle · 3 right') : L(`1 sampai ${gim.n}`, `1 to ${gim.n}`);
+  }
+  // Kata yang sering tertulis salah oleh pengenal suara untuk satu angka pendek. Hanya dipakai kalau
+  // seluruh ucapan tinggal kata itu, supaya obrolan biasa tidak ikut dianggap tebakan.
+  const ANGKA_MIRIP = { sato: 1, satuh: 1, batu: 1, won: 1, doa: 2, tua: 2, duwa: 2, dwa: 2, to: 2, too: 2, siga: 3, tika: 3, tree: 3,
+                        ampat: 4, tempat: 4, empad: 4, 'for': 4, rima: 5, lama: 5, line: 5 };
   function tebakDariUcapan(u) {
     const n = gim.n;
-    const m = u.match(/\b(\d|satu|dua|tiga|empat|lima|one|two|three|four|five|pertama|kedua|ketiga|keempat|kelima|first|second|third|fourth|fifth)\b/);
+    const sah = k => k >= 1 && k <= n;
+    const m = u.match(/\b(\d|satu|dua|tiga|empat|lima|one|two|three|four|five|pertama|kesatu|kedua|ketiga|keempat|kelima|first|second|third|fourth|fifth)\b/);
+    const dariKanan = /\b(dari|from)( sebelah| the)? (kanan|right)\b/.test(u);
     if (m) {
-      const k = { pertama: 1, kedua: 2, ketiga: 3, keempat: 4, kelima: 5, first: 1, second: 2, third: 3, fourth: 4, fifth: 5 }[m[1]] || ANGKA_NAMA[m[1]] || parseInt(m[1], 10);
-      if (k >= 1 && k <= n) return k - 1;
+      const k = { pertama: 1, kesatu: 1, kedua: 2, ketiga: 3, keempat: 4, kelima: 5, first: 1, second: 2, third: 3, fourth: 4, fifth: 5 }[m[1]] || ANGKA_NAMA[m[1]] || parseInt(m[1], 10);
+      if (sah(k)) return dariKanan ? n - k : k - 1;
     }
-    if (/\b(kiri|left)\b/.test(u)) return 0;          // 4-5 gelas: "kiri" = paling kiri
-    if (/\b(kanan|right)\b/.test(u)) return n - 1;
-    if (/\b(tengah|middle|center|centre)\b/.test(u)) return n % 2 ? (n - 1) / 2 : -1;
+    const kiri = /\b(kiri|left)\b/.test(u), kanan = /\b(kanan|right)\b/.test(u);
+    if (/\b(tengah|middle|center|centre)\b/.test(u)) {      // "tengah kiri" dulu dibaca "kiri" (gelas 1)
+      if (kiri) return Math.floor(n / 2) - 1;
+      if (kanan) return Math.ceil(n / 2);
+      return n % 2 ? (n - 1) / 2 : -1;
+    }
+    if (kiri) return 0;          // 4-5 gelas: "kiri" = paling kiri
+    if (kanan) return n - 1;
+    const w = u.replace(/\b(nomor|nomer|no|gelas|yang|yg|di|ke|itu|angka|number|cup|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    if (w && !w.includes(' ') && sah(ANGKA_MIRIP[w] || 0)) return ANGKA_MIRIP[w] - 1;
     return -1;
   }
   async function mulaiGim() {
     if (lihat.aktif) return;
+    if (suit.aktif) akhiriSuit(true);
     if (nonton.aktif) tutupYoutube();
     if (radioMain()) hentikanRadio();
     gim.aktif = true; gim.token++; gim.level = 1; gim.skor = 0; gim.ronde = 0; gim.n = 0;
@@ -8921,7 +8993,7 @@
     const n = jumlahGelas(gim.level);
     if (n !== gim.n) { gim.n = n; siapkanGelas(n); }
     gim.tahap = 'tunjuk';
-    nomorGelas(n);
+    elGimMeja.classList.remove('menebak');
     elGimSkor.textContent = L(`Skor ${gim.skor} · Level ${gim.level}${gimRekor ? ' · Rekor ' + gimRekor : ''}`, `Score ${gim.skor} · Level ${gim.level}${gimRekor ? ' · Best ' + gimRekor : ''}`);
     elGimPetunjuk.textContent = L('Perhatikan bolanya…', 'Watch the ball…');
     gim.bola = Math.floor(Math.random() * n);
@@ -8947,17 +9019,17 @@
       interaksi();
     }
     if (!gimMasihJalan(token)) return;
-    nomorGelas(n);
     gim.tahap = 'tebak';
     pandang.tgt.x = 0; pandang.tgt.y = -0.2;
-    const pilihan = n === 3 ? L('Kiri, tengah, atau kanan?', 'Left, middle, or right?') : L(`Sebut nomor satu sampai ${n}.`, `Say a number from one to ${n}.`);
-    elGimPetunjuk.textContent = L('Ketuk gelasnya atau sebut: ', 'Tap a cup or say: ') + pilihan;
-    tanyaLanjut(L('Bolanya di gelas mana? ', 'Where is the ball? ') + pilihan, () => null, 'gim', '', 'curiga');
+    elGimMeja.classList.add('menebak');
+    elGimPetunjuk.textContent = L('Ketuk gelasnya atau sebut nomornya: ', 'Tap a cup or say its number: ') + pilihanGim();
+    tanyaLanjut(L('Bolanya nomor berapa?', 'Which number?'), () => null, 'gim', '', 'curiga');
   }
   async function pilihGim(slot) {
     if (!gim.aktif || gim.tahap !== 'tebak' || slot < 0 || slot >= gim.n) return;
     const token = gim.token;
     gim.tahap = 'buka';
+    elGimMeja.classList.remove('menebak');
     lanjut = null;
     const i = gim.posisi.indexOf(slot), benar = i === gim.bola;
     const x = GIM_X[gim.n][slot];
@@ -9009,10 +9081,268 @@
       ? L(`Seru! Kamu benar ${gim.skor} dari ${gim.ronde} kali.${gimRekor ? ` Rekormu ${gimRekor}.` : ''} Main lagi kapan-kapan ya.`, `That was fun! You got ${gim.skor} out of ${gim.ronde}.${gimRekor ? ` Your best is ${gimRekor}.` : ''} Let's play again some time.`)
       : L('Oke, kita main lain kali ya.', "Okay, let's play another time."), 'senang');
   }
-  tombolTutupGim.addEventListener('click', () => akhiriGim(false));
+  tombolTutupGim.addEventListener('click', () => { if (suit.aktif) akhiriSuit(false); else akhiriGim(false); });
   document.getElementById('gimLagiYa').addEventListener('click', () => { lanjut = null; rondeGim(); });
   document.getElementById('gimLagiTidak').addEventListener('click', () => { lanjut = null; akhiriGim(false); });
-  if (MODE_PENGEMBANG) window.kikoGim = { gim, jawabGim, pilihGim, akhiriGim, daftar: () => daftarCatatan, terimaDaftar, jawabDaftarCatatan };   // uji di localhost
+  if (MODE_PENGEMBANG) window.kikoGim = { gim, jawabGim, pilihGim, akhiriGim, rondeGim, tebakDariUcapan, siapkanGelas, daftar: () => daftarCatatan, terimaDaftar, jawabDaftarCatatan };   // uji di localhost
+
+  // =====================================================================
+  //  GUNTING BATU KERTAS (2026-11-25, pengguna: "apakah juga bisa main gunting kertas batu?", "buatkan").
+  //  KiKo menghitung "gunting, batu, kertas!", lalu kamera depan membaca bentuk tangan pemilik di HP
+  //  (MediaPipe GestureRecognizer, tanpa AI dan tanpa kuota; model +-8 MB diunduh sekali, saat main
+  //  pertama kali). Pilihan KiKo diundi SEBELUM tangan dibaca dan tidak berubah, jadi KiKo tidak bisa
+  //  curang. Kalau tangan tidak terbaca atau kamera mati, pemilik menyebut pilihannya atau mengetuk
+  //  tombolnya. Siapa dulu mencapai 3 poin, menang. Wajah mengecil ke pojok seperti tebak bola.
+  // =====================================================================
+  const MODEL_TANGAN = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
+  const SUIT_IKON = { batu: '✊', kertas: '✋', gunting: '✌️' }, SUIT_POIN = 3, SUIT_BACA_MS = 4000;
+  const SUIT_KALAHKAN = { batu: 'gunting', gunting: 'kertas', kertas: 'batu' };
+  const elSuit = document.getElementById('suit'), elSuitSkor = document.getElementById('suitSkor'), elSuitHitung = document.getElementById('suitHitung');
+  const elSuitKamera = document.getElementById('suitKamera'), elSuitKamu = document.getElementById('suitKamu'), elSuitKiko = document.getElementById('suitKiko');
+  const elSuitPetunjuk = document.getElementById('suitPetunjuk'), elSuitPilih = document.getElementById('suitPilih'), elSuitLagi = document.getElementById('suitLagi');
+  function namaSuit(p) { return { batu: L('batu', 'rock'), kertas: L('kertas', 'paper'), gunting: L('gunting', 'scissors') }[p]; }
+  function suitJalan(token) { return suit.aktif && suit.token === token; }
+
+  // ---- membaca tangan ----
+  // Jari dianggap lurus kalau ujungnya jelas lebih jauh dari pergelangan daripada ruas tengahnya.
+  // Memakai koordinat 3D (worldLandmarks), jadi tangan boleh miring atau terbalik.
+  function bentukTangan(lm) {
+    if (!lm || lm.length < 21) return null;
+    const j = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y, (lm[a].z || 0) - (lm[b].z || 0));
+    const lurus = (ujung, ruas) => j(ujung, 0) > j(ruas, 0) * 1.12;
+    const t = lurus(8, 6), m = lurus(12, 10), a = lurus(16, 14), k = lurus(20, 18);
+    const n = t + m + a + k;
+    if (t && m && !a && !k) return 'gunting';
+    if (n >= 3 && t && m && a) return 'kertas';
+    if (n === 0) return 'batu';
+    return null;                                   // menunjuk, jempol, dll: bukan pilihan
+  }
+  const SUIT_GESTUR = { Closed_Fist: 'batu', Open_Palm: 'kertas', Victory: 'gunting' };
+  function bacaTangan(hasil) {
+    if (!hasil || !hasil.landmarks || !hasil.landmarks.length) return null;
+    const g = hasil.gestures && hasil.gestures[0] && hasil.gestures[0][0];
+    const bentuk = bentukTangan((hasil.worldLandmarks && hasil.worldLandmarks[0]) || hasil.landmarks[0]);
+    if (g && SUIT_GESTUR[g.categoryName] && g.score >= 0.55) return SUIT_GESTUR[g.categoryName];
+    return bentuk;
+  }
+  async function siapkanTangan() {
+    if (suit.pengenal) return suit.pengenal;
+    if (!suit.memuat) {
+      suit.memuat = (async () => {
+        const { GestureRecognizer, FilesetResolver } = await import(`${MP_URL}/vision_bundle.mjs`);
+        const fileset = await FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
+        const opsi = delegate => ({ baseOptions: { modelAssetPath: MODEL_TANGAN, delegate }, runningMode: 'VIDEO', numHands: 1,
+                                    minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
+        try { suit.pengenal = await GestureRecognizer.createFromOptions(fileset, opsi('GPU')); }
+        catch (_) { suit.pengenal = await GestureRecognizer.createFromOptions(fileset, opsi('CPU')); }
+        return suit.pengenal;
+      })().finally(() => { suit.memuat = null; });
+    }
+    return suit.memuat;
+  }
+  function kameraSuitSiap() {
+    return wajah.aktif && wajah.video && wajah.video.readyState >= 2 && !!suit.pengenal;
+  }
+  // Membaca sampai bentuk yang sama terlihat 4 kali berturut-turut, atau waktunya habis.
+  async function bacaPilihanTangan(token) {
+    let sama = 0, lalu = null;
+    const akhir = performance.now() + SUIT_BACA_MS;
+    suit.baca = true;                              // deteksi wajah berhenti sebentar: HP tidak dibebani dua model
+    try {
+      while (suitJalan(token) && suit.tahap === 'baca' && performance.now() < akhir) {
+        let p = null;
+        try { p = bacaTangan(suit.pengenal.recognizeForVideo(wajah.video, performance.now())); } catch (_) {}
+        elSuitKamu.textContent = p ? SUIT_IKON[p] : '';
+        sama = p && p === lalu ? sama + 1 : (p ? 1 : 0);
+        lalu = p;
+        if (sama >= 4) return p;
+        await tunggu(90);
+      }
+    } finally { suit.baca = false; wajah.majuTerakhir = performance.now(); }
+    return null;
+  }
+
+  // ---- permainan ----
+  function tampilSkorSuit() {
+    elSuitSkor.textContent = L(`Kamu ${suit.skorKamu} : ${suit.skorKiko} KiKo · sampai ${SUIT_POIN}`, `You ${suit.skorKamu} : ${suit.skorKiko} KiKo · first to ${SUIT_POIN}`);
+  }
+  async function mulaiSuit() {
+    if (lihat.aktif || suit.aktif) return;
+    if (gim.aktif) akhiriGim(true);
+    if (nonton.aktif) tutupYoutube();
+    if (radioMain()) hentikanRadio();
+    if (tari.mik) akhiriSesiTari();
+    suit.aktif = true; suit.tahap = 'siap';
+    const token = ++suit.token;
+    document.body.classList.add('bermain');
+    elSuit.hidden = false; tombolTutupGim.hidden = false; elSuitLagi.hidden = true; elSuitPilih.hidden = true;
+    suit.skorKamu = suit.skorKiko = 0;
+    tampilSkorSuit();
+    elSuitKamu.textContent = ''; elSuitKiko.textContent = '❔'; elSuitHitung.textContent = '';
+    interaksi();
+    const pakaiKamera = wajah.aktif && wajah.video;
+    elSuitKamera.classList.toggle('kosong', !pakaiKamera);
+    if (pakaiKamera) elSuitKamera.prepend(wajah.video);
+    if (pakaiKamera && !suit.pengenal) {
+      elSuitPetunjuk.textContent = L('Menyiapkan mata untuk membaca tangan… (sekali saja, ±8 MB)', 'Getting my eyes ready to read hands… (once, about 8 MB)');
+      ucapkan(L('Sebentar, aku siapkan mataku dulu.', 'One moment, let me get my eyes ready.'), 'curiga');
+      try { await Promise.race([siapkanTangan(), new Promise((_, g) => setTimeout(() => g(new Error('lama')), 45000))]); }
+      catch (err) { console.warn('[KiKo] model tangan gagal dimuat', err); }
+      await tungguSelesaiBicara(5000);
+      if (!suitJalan(token)) return;
+    }
+    suit.kamera = !!(pakaiKamera && suit.pengenal);
+    elSuitPetunjuk.textContent = suit.kamera ? L('Tunjukkan tanganmu ke kamera, di dalam kotak.', 'Show your hand to the camera, inside the box.')
+                                             : L('Sebut atau ketuk pilihanmu.', 'Say or tap your choice.');
+    ucapkan(suit.kamera ? L('Ayo main gunting batu kertas! Tunjukkan tanganmu ke kameraku setelah aku bilang kertas.', "Let's play rock paper scissors! Show your hand to my camera after I say scissors.")
+                        : L('Ayo main gunting batu kertas! Kameraku belum siap, jadi sebut atau ketuk pilihanmu ya.', "Let's play rock paper scissors! My camera isn't ready, so say or tap your choice."), 'senang');
+    await tungguSelesaiBicara(9000);
+    if (suitJalan(token)) rondeSuit();
+  }
+  async function rondeSuit() {
+    if (!suit.aktif) return;
+    const token = ++suit.token;
+    suit.tahap = 'hitung';
+    interaksi();
+    elSuitLagi.hidden = true; elSuitPilih.hidden = true;
+    elSuitKamu.textContent = ''; elSuitKiko.textContent = '❔';
+    elSuitKamera.classList.remove('menang', 'kalah');
+    suit.pilihanKiko = ['batu', 'gunting', 'kertas'][Math.floor(Math.random() * 3)];   // diundi sebelum tangan dibaca
+    suit.pilihanKamu = null;
+    elSuitPetunjuk.textContent = L('Siap-siap…', 'Get ready…');
+    await tunggu(500);
+    if (!suitJalan(token)) return;
+    ucapkan(L('Gunting, batu, kertas!', 'Rock, paper, scissors!'), 'senang');
+    for (const k of [L('Gunting', 'Rock'), L('Batu', 'Paper'), L('Kertas!', 'Scissors!')]) {
+      elSuitHitung.textContent = k;
+      await tunggu(650);
+      if (!suitJalan(token)) return;
+    }
+    await tungguSelesaiBicara(3500);
+    if (!suitJalan(token)) return;
+    elSuitPilih.hidden = false;
+    let p = null;
+    if (suit.kamera && kameraSuitSiap()) {
+      suit.tahap = 'baca';
+      elSuitHitung.textContent = L('Tunjukkan!', 'Show!');
+      elSuitPetunjuk.textContent = L('Tahan tanganmu di depan kamera, atau ketuk pilihanmu.', 'Hold your hand in front of the camera, or tap your choice.');
+      p = await bacaPilihanTangan(token);
+      if (!suitJalan(token) || suit.pilihanKamu) return;      // sudah dipilih dengan ketukan
+    }
+    if (p) { pilihSuit(p); return; }
+    suit.tahap = 'jawab';
+    elSuitKamu.textContent = '';
+    elSuitHitung.textContent = '?';
+    elSuitPetunjuk.textContent = L('Sebut atau ketuk: gunting, batu, atau kertas.', 'Say or tap: rock, paper, or scissors.');
+    tanyaLanjut(suit.kamera ? L('Tanganmu belum terbaca. Kamu pilih apa?', "I couldn't read your hand. What's your choice?") : L('Kamu pilih apa?', "What's your choice?"), () => null, 'suit', '', 'curiga');
+  }
+  async function pilihSuit(p) {
+    if (!suit.aktif || suit.pilihanKamu || !(suit.tahap === 'baca' || suit.tahap === 'jawab')) return;
+    const token = suit.token;
+    suit.pilihanKamu = p;
+    suit.tahap = 'hasil';
+    lanjut = null;
+    elSuitPilih.hidden = true; elSuitHitung.textContent = '';
+    elSuitKamu.textContent = SUIT_IKON[p];
+    const k = suit.pilihanKiko;
+    elSuitKiko.textContent = SUIT_IKON[k];
+    const depan = L(`Kamu ${namaSuit(p)}, aku ${namaSuit(k)}. `, `You ${namaSuit(p)}, me ${namaSuit(k)}. `);
+    if (p === k) {
+      elSuitPetunjuk.textContent = L('Seri!', 'Draw!');
+      if (ble.terhubung) kirim('G,bingung');
+      ucapkan(depan + L('Seri!', "It's a draw!"), 'kaget');
+    } else if (SUIT_KALAHKAN[p] === k) {
+      suit.skorKamu++;
+      elSuitKamera.classList.add('menang');
+      elSuitPetunjuk.textContent = L('Kamu menang!', 'You win!');
+      if (ble.terhubung) kirim('G,geleng');
+      ucapkan(depan + L(['Kamu menang!', 'Yah, aku kalah!', 'Aduh, kamu hebat!'][suit.skorKamu % 3], ['You win!', 'Oh no, I lost!', 'Wow, well played!'][suit.skorKamu % 3]), 'sedih');
+    } else {
+      suit.skorKiko++;
+      elSuitKamera.classList.add('kalah');
+      elSuitPetunjuk.textContent = L('KiKo menang!', 'KiKo wins!');
+      if (ble.terhubung) kirim('G,tawa');
+      ucapkan(depan + L(['Aku menang!', 'Hehe, aku menang!', 'Yes, aku dapat poin!'][suit.skorKiko % 3], ['I win!', 'Hehe, I win!', 'Yes, a point for me!'][suit.skorKiko % 3]), suit.skorKiko % 2 ? 'melet' : 'tertawa');
+    }
+    tampilSkorSuit();
+    await tungguSelesaiBicara(8000);
+    await tunggu(900);
+    if (!suitJalan(token)) return;
+    if (suit.skorKamu < SUIT_POIN && suit.skorKiko < SUIT_POIN) { rondeSuit(); return; }
+    suit.tahap = 'selesai';
+    const kamu = suit.skorKamu >= SUIT_POIN;
+    elSuitHitung.textContent = kamu ? '🏆' : '😝';
+    elSuitLagi.hidden = false;
+    elSuitPetunjuk.textContent = L('Bilang "lagi" atau "sudah".', 'Say "again" or "stop".');
+    tanyaLanjut((kamu ? L(`Kamu juara, ${suit.skorKamu} lawan ${suit.skorKiko}! `, `You are the champion, ${suit.skorKamu} to ${suit.skorKiko}! `)
+                      : L(`Aku juara, ${suit.skorKiko} lawan ${suit.skorKamu}! `, `I am the champion, ${suit.skorKiko} to ${suit.skorKamu}! `)) + L('Main lagi?', 'Play again?'), () => null, 'suit', '', kamu ? 'senang' : 'tertawa');
+  }
+  function suitDariUcapan(u) {
+    const ada = { gunting: /\b(gunting|guntingan|scissors?)\b/.test(u), batu: /\b(batu|batuk|batunya|rock|stone)\b/.test(u), kertas: /\b(kertas|keras|kertasnya|paper)\b/.test(u) };
+    const k = Object.keys(ada).filter(x => ada[x]);
+    return k.length === 1 ? k[0] : null;           // dua kata sekaligus: tidak jelas
+  }
+  function mauMainSuit(t, en) {
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|sekarang|now|kiko|eko|nih|deh|yuk|yok|aja|lagi|sama aku|with me|game)$/, ''); } while (u !== lama);
+    u = u.replace(/^(let'?s |can we |wanna |yuk |yok |mau |kita )+/, '').replace(/^(main|bermain|mainan|play|start)\s+(game |permainan |a game of )?/, '').trim();
+    if (en) return /^(rock|paper|scissors?)[ ,]+(rock|paper|scissors?)[ ,]+(and )?(rock|paper|scissors?)$/.test(u) || /^(roshambo|rps)$/.test(u);
+    if (/^(suit|suwit|suten|sut|sweet|switch|jan ?ken|jankenpon)( jepang)?$/.test(u)) return true;
+    return /\bgunting\b/.test(u) && /\bbatu\b/.test(u) && /\bkertas\b/.test(u) && u.split(/\s+/).length <= 5;
+  }
+  // Selama main, semua ucapan milik permainan; obrolan di sekitar tidak diteruskan ke AI.
+  function jawabSuit(t) {
+    const daftar = [t, ...(ai.alternatif || []).map(x => x.toLowerCase().trim())].map(rapikanAwal);
+    const u = daftar[0];
+    if (/^(berhenti|stop|udahan|sudahan|keluar|tutup|quit|exit|end)( (main|bermain|game|permainan|mainnya|the game|playing))?$/.test(u)) { akhiriSuit(false); return; }
+    if (suit.tahap === 'jawab') {
+      for (const c of daftar) { const p = suitDariUcapan(c); if (p) { pilihSuit(p); return; } }
+      tanyaLanjut(L('Aku belum menangkap. Gunting, batu, atau kertas?', "I didn't catch that. Rock, paper, or scissors?"), () => null, 'suit');
+      return;
+    }
+    if (suit.tahap === 'selesai') {
+      if (/^(ya|iya|yes|yup|lagi|ayo|lanjut|mau|boleh|oke|ok|again|sure|play|main|one more)\b/.test(u) && !/\b(tidak|nggak|gak|enggak|no|sudah|udah)\b/.test(u)) { suit.skorKamu = suit.skorKiko = 0; tampilSkorSuit(); rondeSuit(); return; }
+      if (/^(tidak|nggak|gak|enggak|ga|no|nope|sudah|udah|cukup|selesai|done|enough)\b/.test(u)) { akhiriSuit(false); return; }
+      tanyaLanjut(L('Main lagi?', 'Play again?'), () => null, 'suit');
+      return;
+    }
+    ai.catatGerak = L('diabaikan, sedang main suit', 'ignored, game in progress');
+  }
+  function akhiriSuit(diam) {
+    if (!suit.aktif) return;
+    suit.aktif = false; suit.token++; suit.tahap = ''; suit.baca = false;
+    if (lanjut && lanjut.jenis === 'suit') lanjut = null;
+    document.body.classList.remove('bermain');
+    elSuit.hidden = true; tombolTutupGim.hidden = true;
+    // Video dikembalikan ke kotak bidik (dipindah, bukan dilepas): video yang dilepas dari halaman akan berhenti.
+    if (wajah.video && wajah.video.parentNode === elSuitKamera) {
+      document.getElementById('bidikKamera').insertBefore(wajah.video, document.getElementById('teksBidik'));
+      wajah.video.play().catch(() => {});
+    }
+    if (diam) return;
+    ucapkan(suit.skorKamu + suit.skorKiko ? L('Seru! Lain kali kita main lagi ya.', "That was fun! Let's play again some time.") : L('Oke, kita main lain kali ya.', "Okay, let's play another time."), 'senang');
+  }
+  elSuitPilih.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { lanjut = null; pilihSuit(b.dataset.suit); }));
+  document.getElementById('suitLagiYa').addEventListener('click', () => { lanjut = null; suit.skorKamu = suit.skorKiko = 0; tampilSkorSuit(); rondeSuit(); });
+  document.getElementById('suitLagiTidak').addEventListener('click', () => { lanjut = null; akhiriSuit(false); });
+
+  // "Ayo main" saja: sejak ada dua permainan, KiKo bertanya mau main apa.
+  function jawabPilihMain(t, en) {
+    if (gim.aktif || suit.aktif) return false;
+    if (mauMainSuit(t, en)) { mulaiSuit(); return true; }
+    let u = rapikanAwal(t), lama;
+    do { lama = u; u = u.replace(/\s+(dong|ya|yah|please|sekarang|now|kiko|eko|nih|deh|yuk|yok|aja|lagi|sama aku|with me)$/, ''); } while (u !== lama);
+    const umum = en ? /^(let'?s |can we |wanna )?(play|play (a )?game)$/ : /^(ayo |yuk |yok |mau |kita )?(main|bermain|mainan)( game| permainan)?$/;
+    if (!umum.test(u)) return false;
+    tanyaLanjut(L('Mau main apa? Tebak bola, atau gunting batu kertas?', 'What shall we play? Find the ball, or rock paper scissors?'), c => {
+      if (/\b(bola|gelas|tebak|ball|cups?)\b/.test(c)) return L('main tebak bola', 'play find the ball');
+      if (/\b(gunting|batu|kertas|suit|suten|rock|paper|scissors?)\b/.test(c)) return L('main gunting batu kertas', 'play rock paper scissors');
+      if (/\b(terserah|bebas|apa aja|apa saja|anything|you choose|up to you)\b/.test(c)) return Math.random() < 0.5 ? L('main tebak bola', 'play find the ball') : L('main gunting batu kertas', 'play rock paper scissors');
+      return null;
+    }, 'main', '', 'senang');
+    return true;
+  }
+  if (MODE_PENGEMBANG) window.kikoSuit = { suit, bentukTangan, bacaTangan, siapkanTangan, suitDariUcapan, mauMainSuit, mulaiSuit, akhiriSuit, pilihSuit, wajah };   // uji di localhost
 
   function jawabPesan(t, en) {
     // 2026-10-25 (pengguna: "beri opsi pesan suara dimatikan"): pengumuman pesan bisa dimatikan
@@ -9620,7 +9950,9 @@
     { k: 'daftarCatatan', n: ['Daftar catatan', 'Note list'], ucap: ['Susun daftar dari catatan ini', 'Make a list from these notes'],
       hasil: ['Kamera terbuka, tunjukkan 3-5 catatan tempel; KiKo menyebut jumlahnya dan kartu daftar muncul. "Bacakan daftarku", "nomor 1 selesai"', 'The camera opens, show 3-5 sticky notes; KiKo says how many and a list card appears. "Read my list", "number 1 is done"'] },
     { k: 'gimBola', n: ['Main tebak bola', 'Find the ball'], ucap: ['Ayo main tebak bola', "Let's play the cup game"],
-      hasil: ['Gelas muncul, bola ditunjukkan lalu gelas digeser; jawab "kiri/tengah/kanan" atau ketuk gelas; benar = level naik', 'Cups appear, the ball is shown, cups are shuffled; say "left/middle/right" or tap a cup; right = next level'] },
+      hasil: ['Gelas muncul, bola ditunjukkan lalu gelas digeser; sebut nomornya (atau kiri/tengah/kanan) atau ketuk gelas; benar = level naik', 'Cups appear, the ball is shown, cups are shuffled; say its number (or left/middle/right) or tap a cup; right = next level'] },
+    { k: 'suit', n: ['Gunting batu kertas', 'Rock paper scissors'], ucap: ['Ayo main gunting batu kertas', "Let's play rock paper scissors"],
+      hasil: ['KiKo menghitung, tunjukkan tangan ke kamera (sekitar 40 cm, terang); KiKo membaca tanganmu dan menyebut pemenangnya. Sampai 3 poin. Pertama kali mengunduh ±8 MB', 'KiKo counts, show your hand to the camera (about 40 cm, good light); KiKo reads it and names the winner. First to 3. Downloads about 8 MB the first time'] },
     { k: 'bangun', n: ['Bangun', 'Wake up'], cara: ['Saklar ON, buka KiKo, tempel HP ke dudukan', 'Switch ON, open KiKo, put the phone in the cradle'],
       hasil: ['Lampu depan redup tetap, wajah bangun dan menyapa', 'Front light dim and steady, the face wakes and greets you'] },
     { k: 'bantuan', n: ['Bantuan', 'Help'], ucap: ['Kamu bisa apa?', 'What can you do?'],
