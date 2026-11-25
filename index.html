@@ -2147,10 +2147,21 @@
     clearTimeout(hemat.timerBingkai); hemat.timerBingkai = 0; hemat.frameLalu = 0;
     requestAnimationFrame(bingkai);
   }
+  // 2026-11-25 (HP panas saat tersambung; diukur di Xiaomi 12 Lite: +-0,95 A walau orang di depannya diam, GPU
+  // Chrome 50 % -> 30 % saat gambar dikurangi): kalau orang di depan KiKo diam dan tidak ada yang bergerak,
+  // gambar 20x/dtk dan deteksi wajah 5x/dtk. Begitu wajah bergeser, ada suara, sentuhan, tarian, game, roda
+  // atau joystick, langsung kembali 30x/dtk. Kedipan dan napas tetap mulus karena dihitung dari waktu.
+  if (MODE_PENGEMBANG) window.kikoTenang = () => ({ tenang: tenang(performance.now()), wajah, hemat });
+  function tenang(now) {
+    return cekHemat.checked && fase === 'hidup' && wajah.ada && !hemat.tidur
+      && now - (wajah.gerakTerakhir || 0) > 1500      // terakhirInteraksi tidak dipakai: wajah terlihat selalu memperbaruinya
+      && !ai.bicara && ai.tahap !== 'pikir' && !tari.aktif && !gim.aktif && !suit.aktif && !roda.sibuk && !setir.aktif
+      && !sentuh.aktif && !nonton.aktif && !panelTerbuka && !(sementara && now < sementara.sampai + 400);
+  }
   function bingkaiInti(now) {
-    // hemat: 30 gambar/dtk, 15 saat sepi, 8 saat mulai tidur, 1 saat tidur dalam (layar sudah hitam)
+    // hemat: 30 gambar/dtk (20 saat orang di depan diam), 15 saat sepi, 8 saat mulai tidur, 1 saat tidur dalam (layar sudah hitam)
     const tidurPenuh = hemat.tidur && hemat.redup > 0.98;
-    const selang = !cekHemat.checked ? 0 : tidurPenuh ? 1000 : hemat.tidur ? 125 : hemat.sepi ? 66 : 32;
+    const selang = !cekHemat.checked ? 0 : tidurPenuh ? 1000 : hemat.tidur ? 125 : hemat.sepi ? 66 : tenang(now) ? 50 : 32;
     if (selang && now - hemat.frameLalu < selang - 2) { lanjutBingkai(selang); return; }
     hemat.frameLalu = now;
     const dt = Math.min(0.15, (now - waktuLalu) / 1000);
@@ -2188,8 +2199,9 @@
     // selain itu melirik acak.
     if (wajah.ada && !sentuh.aktif && !setir.aktif && !tari.aktif && !menyendiri.aktif && !gim.aktif) {
       // Dihaluskan per frame supaya mata tidak ikut "bergetar" oleh derau deteksi.
-      pandang.tgt.x += (wajah.x - pandang.tgt.x) * 0.25;
-      pandang.tgt.y += (wajah.y - pandang.tgt.y) * 0.25;
+      const laju = 1 - Math.pow(0.75, Math.min(3, dt * 31));     // sama cepatnya di 20 maupun 30 gambar/dtk
+      pandang.tgt.x += (wajah.x - pandang.tgt.x) * laju;
+      pandang.tgt.y += (wajah.y - pandang.tgt.y) * laju;
       berikutLirik = now + 800;   // setelah wajah hilang, tunggu sebentar sebelum melirik acak lagi
     } else if (!sentuh.aktif && !setir.aktif && !gim.aktif && now > berikutLirik) {
       if (mood === 'tidur') { pandang.tgt.x = 0; pandang.tgt.y = 0.2; }
@@ -3744,7 +3756,7 @@
     if (!wajah.aktif || !v || v.readyState < 2 || document.hidden) return;
     if (suit.baca) return;                                    // main suit: kamera sedang membaca tangan
     if (cekHemat.checked) {                                   // hemat: lebih jarang kalau tidak ada orang / tidur
-      const jeda = hemat.intip ? 200 : hemat.tidur ? 1000 : wajah.ada ? 0 : 300, t0 = performance.now();
+      const t0 = performance.now(), jeda = hemat.intip ? 200 : hemat.tidur ? 1000 : wajah.ada ? (tenang(t0) ? 190 : 0) : 300;
       if (t0 - (wajah.deteksiLalu || 0) < jeda) return;
       wajah.deteksiLalu = t0;
     }
@@ -3769,6 +3781,7 @@
       // dari depan HP) muncul di sisi kiri gambar. Mata harus melirik ke kanan layar.
       wajah.x = batas((0.5 - cx) * 2 * PENGUAT_X, -1, 1);
       wajah.y = batas((cy - 0.5) * 2 * PENGUAT_Y, -1, 1);
+      if (!wajah.ada || Math.hypot(wajah.x - (wajah.acuX ?? 9), wajah.y - (wajah.acuY ?? 9)) > 0.07) { wajah.gerakTerakhir = now; wajah.acuX = wajah.x; wajah.acuY = wajah.y; }   // untuk tenang()
       wajah.lebar = b.width / vw;
       wajah.bearing = roda.th - arahWajah() * Math.PI / 180;   // arah di ruangan, untuk mencari lagi saat hilang
 
