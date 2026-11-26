@@ -2495,8 +2495,12 @@
 
   function saatDiangkat() {
     if (!cekTempel.checked || fase === 'pasang') return;
-    jagaSentuh(L('HP diangkat', 'phone lifted'));             // mode jaga: foto sebelum layar kembali ke "pasang"
     catatRumah('diangkat');
+    if (jagaAktif()) {                                        // mode jaga: wajah tetap hidup supaya kamera terus memotret
+      jagaSentuh(L('HP diangkat', 'phone lifted'));
+      ekspresiSingkat('kaget', 1500); kirim('G,geleng');
+      return;
+    }
     // Diangkat saat animasi memuat: langsung kembali tidur.
     if (fase === 'memuat') { keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.')); return; }
     ekspresiSingkat('sedih', 900);
@@ -2515,6 +2519,7 @@
     const w = e.rotationRate;
     if (!w || w.alpha == null) return;
     gyro.ada = true;
+    if (cekJaga.checked && Math.hypot(w.alpha, w.beta || 0, w.gamma || 0) > 120) jagaGerak(performance.now());   // mode jaga: HP diputar
     if (!gyro.ukur) return;
     const t = performance.now(), dt = gyro.lalu ? Math.min(t - gyro.lalu, 100) / 1000 : 0;
     gyro.lalu = t;
@@ -2530,6 +2535,7 @@
     gerak.halus = gerak.halus * 0.85 + simpang * 0.15;   // rata-rata guncangan
     gerak.tegak = Math.abs(a.x) > 7 && Math.abs(a.y) < 3.5;
     if (simpang > 4.5) gerak.puncakT = now;              // hentakan "klik" magnet
+    if (simpang > 2.5 && cekJaga.checked) jagaGerak(now);
     if (!cekTempel.checked) return;
 
     if (!gerak.tempel) {
@@ -2537,6 +2543,8 @@
       const sejakKlik = now - gerak.puncakT;
       if (fase === 'pasang' && gerak.tegak && gerak.halus < 0.6 && sejakKlik > 250 && sejakKlik < 1500) {
         saatDitempel('gerak');
+      } else if (fase === 'hidup' && gerak.tegak && gerak.halus < 0.3 && cekJaga.checked) {
+        gerak.tempel = true;                                // mode jaga: HP yang tadi diangkat sudah dipasang lagi
       }
     } else if (!gerak.tegak) {
       // 2026-10-21 (pengguna: ditinggal 5 menit, KiKo kembali ke layar pasang dengan latar
@@ -2545,7 +2553,7 @@
       // Selama tidur, hanya hitung "diangkat" kalau ada hentakan (HP dicabut) dalam 3 dtk terakhir.
       // Juga 5 dtk sesudah bangun: leher masih bergerak kembali ke pose tengah.
       const tidurAtauBaruBangun = hemat.zTerkirim || moodSaatIni(now) === 'tidur' || now - (hemat.bangunPada || -1e9) < 5000;
-      if (tidurAtauBaruBangun && now - gerak.puncakT > 3000) { gerak.lepasSejak = 0; return; }
+      if (tidurAtauBaruBangun && now - gerak.puncakT > 3000 && !jagaAktif()) { gerak.lepasSejak = 0; return; }
       if (!gerak.lepasSejak) gerak.lepasSejak = now;
       else if (now - gerak.lepasSejak > 1200) { gerak.tempel = false; gerak.lepasSejak = 0; saatDiangkat(); }
     } else {
@@ -4527,7 +4535,11 @@
       kotak.append(cap); g.append(kotak);
     }
   }
-  function jagaAktif() { return cekJaga.checked && wajah.aktif && fase === 'hidup'; }
+  // 2026-11-26 (uji pengguna: KiKo baru bangun dari tidur, HP diangkat orang bermasker, tidak difoto):
+  // dulu butuh wajah.aktif, padahal saat tidur hemat kamera SENGAJA dimatikan dan hanya mengintip, jadi
+  // sentuhan dan HP diangkat selama tidur diabaikan. Sekarang cukup "Ikuti wajah orang" menyala; fotoJaga
+  // menyalakan kamera sendiri kalau sedang mati.
+  function jagaAktif() { return cekJaga.checked && cekWajah.checked && fase === 'hidup'; }
   // Baterai HP (2026-11-07, pengguna: "harus dipikirkan bagaimana menjaga baterai HP juga"): Battery
   // Status API Chrome. Saat berjaga tanpa cas: diingatkan di awal, mengintip lebih jarang di bawah 30 %,
   // dicatat saat hampir habis, dan charger yang dicabut ikut difoto (bisa jadi HP diambil).
@@ -4558,9 +4570,16 @@
   async function fotoJaga(alasan) {
     const now = Date.now();
     if (!jagaAktif() || now - jaga.terakhir < JAGA_JEDA_MS) return false;
-    const v = wajah.video;
-    if (!v || v.readyState < 2) return false;
     jaga.terakhir = now;
+    let v = wajah.video;
+    if (!wajah.aktif || !v || v.readyState < 2) {             // tidur hemat: kamera mati -> bangunkan dulu
+      interaksi();                                            // mood keluar dari tidur, kamera dinyalakan lagi
+      if (!wajah.aktif) mulaiWajah();
+      for (let i = 0; i < 30 && !(wajah.aktif && wajah.video && wajah.video.readyState >= 2); i++) await tunggu(200);
+      await tunggu(500);                                      // beri waktu kamera menyesuaikan terang
+      v = wajah.video;
+      if (!v || v.readyState < 2) { jaga.terakhir = 0; return false; }
+    }
     const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
     c.getContext('2d').drawImage(v, 0, 0);
     const gambar = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
@@ -4586,6 +4605,13 @@
         ucapkan(L('Halo, aku belum kenal kamu. Wajahmu sudah kufoto untuk pemilikku ya.', "Hello, I don't know you yet. I've taken a photo of your face for my owner."), 'curiga');
       }
     });
+  }
+  // HP digerakkan saat mode jaga (2026-11-26): guncangan > 2,5 m/s2 atau putaran > 120 derajat/dtk.
+  // Leher servo jauh lebih pelan dari itu; saat roda jalan atau menari tidak dihitung.
+  function jagaGerak(now) {
+    if (now - (jaga.gerakT || 0) < 1000 || !jagaAktif() || roda.sibuk || tari.aktif) return;
+    jaga.gerakT = now;
+    jagaSentuh(L('HP digerakkan/diangkat', 'phone moved/lifted'));
   }
   function jagaSentuh(alasan) {
     if (!jagaAktif() || (wajah.ada && kenal.sekarang)) return;   // pemilik yang dikenal menyentuh: bukan kejadian
