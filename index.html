@@ -2184,7 +2184,9 @@
     }
 
     const mood = moodSaatIni(now);
-    if (mood !== moodTerkirim) {
+    // 2026-11-26 (pengguna: HP diangkat lalu base langsung terputus): saat HP diangkat beban leher berubah
+    // mendadak; jangan tambah gerak servo (pose ekspresi) beberapa detik, curiga lonjakan arus memutus BMS.
+    if (mood !== moodTerkirim && now >= (gerak.angkatSampai || 0)) {
       moodTerkirim = mood;
       kirim('E,' + mood);          // base bisa ikut bereaksi (mis. servo mengangguk saat senang)
       tandaiEkspresi();
@@ -2496,10 +2498,11 @@
   function saatDiangkat() {
     if (!cekTempel.checked || fase === 'pasang') return;
     catatRumah('diangkat');
+    gerak.angkatSampai = performance.now() + 5000;           // leher diam, kalimat tidak diputus layar pasang
     if (jagaAktif()) {                                        // mode jaga: wajah tetap hidup supaya kamera terus memotret
-      ekspresiSingkat('kaget', 1500); kirim('G,geleng');
       if (wajah.ada && kenal.sekarang) { ucapkan(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.'), 'sedih'); return; }
-      fotoJaga(L('HP diangkat', 'phone lifted')).then(ok => peringatanAngkat(ok));
+      peringatanAngkat();                                     // bicara DULU, foto menyusul (kamera bisa perlu waktu menyala)
+      fotoJaga(L('HP diangkat', 'phone lifted'));
       return;
     }
     // Diangkat saat animasi memuat: langsung kembali tidur.
@@ -2508,7 +2511,6 @@
     // KiKo bicara dulu, layar "pasang" menyusul setelah kalimat selesai (keLayarPasang memutus suara).
     const kalimat = L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.');
     ucapkan(kalimat, 'sedih');
-    kirim('G,geleng');
     setTimeout(() => {
       if (fase === 'hidup' && !gerak.tempel) keLayarPasang(kalimat);
     }, cekSuara.checked ? 3200 : 900);
@@ -3137,8 +3139,8 @@
     tutupPanel();
     tombolAtur.hidden = true;
     perbaruiTombolBicara();
-    tampilTeks('');
-    if (window.speechSynthesis) speechSynthesis.cancel();
+    if (performance.now() < (gerak.angkatSampai || 0)) tampilTeks(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.'), 4000);
+    else { tampilTeks(''); if (window.speechSynthesis) speechSynthesis.cancel(); }   // HP baru diangkat: kalimatnya dibiarkan selesai
     lepasSetir();
     elSetir.hidden = true;
     document.getElementById('tombolSetir').textContent = L('Tampilkan setir', 'Show joystick');
@@ -4616,16 +4618,17 @@
     if (now - (jaga.gerakT || 0) < 1000 || !jagaAktif() || roda.sibuk || tari.aktif) return;
     jaga.gerakT = now;
     if (wajah.ada && kenal.sekarang) return;                  // pemilik yang dikenal memegang HP
-    fotoJaga(L('HP digerakkan/diangkat', 'phone moved/lifted')).then(ok => { if (ok) peringatanAngkat(true); });
+    if (jaga.terakhir && Date.now() - jaga.terakhir < JAGA_JEDA_MS) return;   // baru saja difoto
+    gerak.angkatSampai = performance.now() + 5000;
+    peringatanAngkat();
+    fotoJaga(L('HP digerakkan/diangkat', 'phone moved/lifted'));
   }
   // Peringatan suara saat HP diangkat dalam mode jaga (2026-11-26, pengguna). Paling sering sekali per 8 dtk.
-  function peringatanAngkat(difoto) {
+  function peringatanAngkat() {
     const now = performance.now();
     if (!cekJagaSuara.checked || now - (jaga.peringatanT || -1e9) < 8000) return;
     jaga.peringatanT = now;
-    difoto = difoto || Date.now() - jaga.terakhir < JAGA_JEDA_MS;
-    ucapkan(difoto ? L('Hei, letakkan aku kembali ke dudukan ya. Kamu sudah kufoto.', "Hey, put me back on the mount. I've taken your photo.")
-                   : L('Hei, letakkan aku kembali ke dudukan ya.', 'Hey, put me back on the mount.'), 'curiga');
+    ucapkan(L('Hei, letakkan aku kembali ke dudukan ya. Wajahmu kufoto.', "Hey, put me back on the mount. I'm taking your photo."), 'curiga');
   }
   function jagaSentuh(alasan) {
     if (!jagaAktif() || (wajah.ada && kenal.sekarang)) return;   // pemilik yang dikenal menyentuh: bukan kejadian
