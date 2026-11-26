@@ -2497,17 +2497,21 @@
     if (!cekTempel.checked || fase === 'pasang') return;
     catatRumah('diangkat');
     if (jagaAktif()) {                                        // mode jaga: wajah tetap hidup supaya kamera terus memotret
-      jagaSentuh(L('HP diangkat', 'phone lifted'));
       ekspresiSingkat('kaget', 1500); kirim('G,geleng');
+      if (wajah.ada && kenal.sekarang) { ucapkan(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.'), 'sedih'); return; }
+      fotoJaga(L('HP diangkat', 'phone lifted')).then(ok => peringatanAngkat(ok));
       return;
     }
     // Diangkat saat animasi memuat: langsung kembali tidur.
-    if (fase === 'memuat') { keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.')); return; }
-    ekspresiSingkat('sedih', 900);
+    if (fase === 'memuat') { keLayarPasang(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.')); return; }
+    // 2026-11-26 (pengguna: saat normal HP diangkat, KiKo juga harus bilang "letakkan aku kembali"):
+    // KiKo bicara dulu, layar "pasang" menyusul setelah kalimat selesai (keLayarPasang memutus suara).
+    const kalimat = L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.');
+    ucapkan(kalimat, 'sedih');
     kirim('G,geleng');
     setTimeout(() => {
-      if (fase === 'hidup' && !gerak.tempel) keLayarPasang(L('Tempelkan aku lagi ke dudukan ya.', 'Put me back on the mount, please.'));
-    }, 900);
+      if (fase === 'hidup' && !gerak.tempel) keLayarPasang(kalimat);
+    }, cekSuara.checked ? 3200 : 900);
   }
 
   // 2026-11-05 (pengguna: roda berputar tapi selip di marmer): encoder hanya menghitung putaran roda, jadi
@@ -4611,7 +4615,17 @@
   function jagaGerak(now) {
     if (now - (jaga.gerakT || 0) < 1000 || !jagaAktif() || roda.sibuk || tari.aktif) return;
     jaga.gerakT = now;
-    jagaSentuh(L('HP digerakkan/diangkat', 'phone moved/lifted'));
+    if (wajah.ada && kenal.sekarang) return;                  // pemilik yang dikenal memegang HP
+    fotoJaga(L('HP digerakkan/diangkat', 'phone moved/lifted')).then(ok => { if (ok) peringatanAngkat(true); });
+  }
+  // Peringatan suara saat HP diangkat dalam mode jaga (2026-11-26, pengguna). Paling sering sekali per 8 dtk.
+  function peringatanAngkat(difoto) {
+    const now = performance.now();
+    if (!cekJagaSuara.checked || now - (jaga.peringatanT || -1e9) < 8000) return;
+    jaga.peringatanT = now;
+    difoto = difoto || Date.now() - jaga.terakhir < JAGA_JEDA_MS;
+    ucapkan(difoto ? L('Hei, letakkan aku kembali ke dudukan ya. Kamu sudah kufoto.', "Hey, put me back on the mount. I've taken your photo.")
+                   : L('Hei, letakkan aku kembali ke dudukan ya.', 'Hey, put me back on the mount.'), 'curiga');
   }
   function jagaSentuh(alasan) {
     if (!jagaAktif() || (wajah.ada && kenal.sekarang)) return;   // pemilik yang dikenal menyentuh: bukan kejadian
