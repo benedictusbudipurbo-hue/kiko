@@ -93,6 +93,15 @@
   .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--garis); color: var(--redup); font-variant-numeric: tabular-nums; }
   .chip.aktif { color: #001114; background: var(--mata); border-color: var(--mata); }
   .bagian { display: grid; gap: 8px; }
+  /* Tab ATUR (2026-11-27): satu kelompok tampil, sisanya disembunyikan; "Lainnya" untuk yang jarang dipakai */
+  #tabAtur { position: sticky; top: -16px; z-index: 3; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    margin: 0 -16px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--garis); }
+  #tabAtur::-webkit-scrollbar { display: none; }
+  #tabAtur button { flex: 0 0 auto; font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--garis); background: transparent; color: var(--teks); white-space: nowrap; }
+  #tabAtur button[aria-selected="true"] { background: var(--mata); border-color: var(--mata); color: #001114; font-weight: 600; }
+  #atur .bagian.luarTab, #atur:not(.lanjut) .bagian[data-lanjut] { display: none !important; }
+  #tombolLainnya { justify-self: start; }
   .grid-ekspresi { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
   .pilih {
     font: inherit; font-size: 13px; padding: 9px 6px; border-radius: 10px; cursor: pointer;
@@ -394,9 +403,19 @@
   <div class="kepala">
     <span class="nama">KIKO</span>
     <span class="chip" id="chipBase">Base: tidak terhubung</span>
+    <button class="tombol" id="tombolBasePanel" type="button">Hubungkan base</button>
   </div>
 
-  <div class="bagian">
+  <nav id="tabAtur" role="tablist" aria-label="Kelompok pengaturan">
+    <button type="button" role="tab" data-tabatur="wajah" data-en="😺 Face">😺 Wajah</button>
+    <button type="button" role="tab" data-tabatur="ngobrol" data-en="💬 Chat">💬 Ngobrol</button>
+    <button type="button" role="tab" data-tabatur="asisten" data-en="🧰 Assistant">🧰 Asisten</button>
+    <button type="button" role="tab" data-tabatur="mata" data-en="👀 Eyes &amp; guard">👀 Mata &amp; jaga</button>
+    <button type="button" role="tab" data-tabatur="badan" data-en="🤖 Body">🤖 Badan</button>
+    <button type="button" role="tab" data-tabatur="rawat" data-en="⚙️ Care">⚙️ Perawatan</button>
+  </nav>
+
+  <div class="bagian" data-tab="ngobrol">
     <h2>Bahasa / Language</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihBahasa">
       <button class="pilih" type="button" data-bahasa="id" aria-pressed="true">Indonesia</button>
@@ -404,7 +423,7 @@
     </div>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="rawat">
     <h2 data-en="Get to know KiKo (try it yourself)">Kenali KiKo (coba sendiri)</h2>
     <p class="petunjuk" data-en="Say the example sentence to KiKo, or tap ▶ and KiKo shows it by itself. Tick the box when it works.">Ucapkan contoh kalimatnya ke KiKo, atau ketuk ▶ supaya KiKo memperagakannya sendiri. Centang kalau berhasil.</p>
     <p class="petunjuk" id="statusUji" role="status"></p>
@@ -414,12 +433,7 @@
     </div>
   </div>
 
-  <div class="bagian">
-    <h2 data-en="Expressions">Ekspresi</h2>
-    <div class="grid-ekspresi" id="gridEkspresi"></div>
-  </div>
-
-  <div class="bagian">
+  <div class="bagian" data-tab="badan" data-lanjut>
     <h2 data-en="Steering joystick">Joystick setir</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihSetir">
       <button class="pilih" type="button" id="setir-roda" data-mode="roda" aria-pressed="true" data-en="Wheels">Roda</button>
@@ -427,7 +441,7 @@
     </div>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="badan">
     <h2 data-en="Moving on wheels (wheeled version)">Gerak roda (versi beroda)</h2>
     <label class="saklar"><input type="checkbox" id="cekRoda"> <span data-en="Allow KiKo to move on its wheels (only with table-edge protection on)">Boleh bergerak dengan roda (hanya kalau proteksi jatuh dari meja nyala)</span></label>
     <label class="saklar"><input type="checkbox" id="cekRodaHadap" checked> <span data-en="Body turns to face people when the neck reaches its limit">Badan ikut menghadap orang saat leher sudah mentok</span></label>
@@ -443,7 +457,7 @@
     <p class="petunjuk" data-en="Voice: &quot;forward&quot;, &quot;back up a little&quot;, &quot;turn left&quot;, &quot;turn around&quot;, &quot;spin&quot;, &quot;dance&quot;, &quot;look at me&quot;, &quot;come here&quot;, &quot;follow me&quot;, &quot;this is your home&quot;, &quot;go home&quot;, &quot;stop&quot;. Left/right = yours, facing KiKo.">Suara: "maju", "mundur sedikit", "putar ke kiri", "putar balik", "berputar", "joget", "lihat aku", "ke sini", "ikuti aku", "ini rumahmu", "pulang ke tempatmu", "berhenti". Kiri/kanan = kiri/kanan kamu yang menghadap KiKo.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="badan">
     <h2 data-en="Behaviour">Perilaku</h2>
     <label class="saklar"><input type="checkbox" id="cekOtomatis" checked> <span data-en="Spontaneous expressions; falls asleep when left alone">Ekspresi spontan dan tidur sendiri saat didiamkan</span></label>
     <label class="saklar"><input type="checkbox" id="cekHemat" checked> <span data-en="Energy saving (battery): falls asleep sooner, screen dims when nobody is there, neck rests and camera slows down while asleep">Hemat energi (baterai): cepat tidur, layar redup saat tidak ada orang, leher istirahat &amp; kamera pelan saat tidur</span></label>
@@ -461,7 +475,7 @@
     <p class="petunjuk" id="statusMalam"></p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="badan" data-lanjut>
     <h2 data-en="Attach to the mount">Tempel ke dudukan</h2>
     <label class="saklar"><input type="checkbox" id="cekTempel" checked> <span data-en="Face wakes when the phone is attached to the mount, sleeps when lifted (NFC + motion sensor)">Wajah bangun saat HP ditempel ke dudukan, tidur saat diangkat (NFC + sensor gerak)</span></label>
     <div class="baris" style="justify-content:flex-start">
@@ -470,7 +484,7 @@
     <p class="petunjuk" id="statusNfc" role="status">NFC belum aktif. Sensor gerak tetap bekerja.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="rawat">
     <h2 data-en="Update KiKo">Perbarui KiKo</h2>
     <p class="petunjuk" id="statusOta" role="status">Hubungkan base untuk mengecek versi firmware.</p>
     <progress id="majuOta" max="100" value="0" hidden style="width:100%"></progress>
@@ -481,7 +495,7 @@
     <p class="petunjuk" data-en="Keep the phone in the cradle and the battery above 50 % (or the charger plugged in). It takes about 1–2 minutes. If anything goes wrong, KiKo goes back to the old version by itself.">Biarkan HP di dudukan dan baterai di atas 50 % (atau charger tercolok). Lama +-1–2 menit. Kalau ada yang gagal, KiKo kembali ke versi lama sendiri.</p>
   </div>
 
-  <div class="bagian" id="bagianDiagnosa">
+  <div class="bagian" id="bagianDiagnosa" data-tab="rawat">
     <h2 data-en="Diagnostics">Diagnosa</h2>
     <p class="petunjuk" data-en="Checks the body, the phone and the connections one by one. Some steps ask you to look or touch. Takes about 1 minute.">Memeriksa badan, HP dan sambungan satu per satu. Beberapa langkah meminta Anda melihat atau menyentuh. Lama +-1 menit.</p>
     <div class="baris" style="justify-content:flex-start">
@@ -501,7 +515,7 @@
     <p class="petunjuk" id="diagStatus" role="status"></p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="rawat" data-lanjut>
     <h2 data-en="App">Aplikasi</h2>
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol utama" id="tombolPasangApp" type="button" hidden data-en="Install the KiKo app">Pasang aplikasi KiKo</button>
@@ -509,7 +523,7 @@
     <p class="petunjuk" id="statusApp" role="status">Buka dari GitHub Pages di Chrome untuk memasang KiKo sebagai aplikasi (atau menu ⋮ → Instal aplikasi).</p>
   </div>
 
-  <div class="bagian" id="bagianCadangan">
+  <div class="bagian" id="bagianCadangan" data-tab="rawat">
     <h2 data-en="Backup">Cadangan data</h2>
     <p class="petunjuk" data-en="Saves dances, memory, contacts, reminders and settings to one file, so they can move to another phone. The file holds your contacts and memory: keep it private.">Menyimpan tarian, ingatan, kontak, pengingat dan setelan ke satu file, supaya bisa dipindah ke HP lain. File ini berisi kontak dan ingatan: simpan di tempat pribadi.</p>
     <div class="baris" style="justify-content:flex-start">
@@ -528,7 +542,7 @@
     <p class="petunjuk" id="statusCadangan" role="status"></p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="mata">
     <h2 data-en="Face tracking">Pelacakan wajah</h2>
     <label class="saklar"><input type="checkbox" id="cekWajah"> <span data-en="Follow people&#x27;s faces (front camera)">Ikuti wajah orang (kamera depan)</span></label>
     <label class="saklar"><input type="checkbox" id="cekKamera"> <span data-en="Show the camera image (for testing)">Tampilkan gambar kamera (untuk uji)</span></label>
@@ -536,7 +550,7 @@
     <p class="petunjuk" data-en="Camera images are processed on the phone only and never sent anywhere. Works only in the GitHub Pages version, not the artifact link.">Gambar kamera diproses di HP saja dan tidak dikirim ke mana pun. Hanya jalan di versi GitHub Pages, tidak di link artifact.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="ngobrol">
     <h2 data-en="Chat (AI)">Ngobrol (AI)</h2>
     <label for="inputWorker" class="petunjuk" data-en="KiKo Cloudflare Worker address">Alamat Cloudflare Worker KiKo</label>
     <input class="isian" id="inputWorker" type="url" inputmode="url" placeholder="https://kiko.akun-anda.workers.dev" autocomplete="off" spellcheck="false">
@@ -549,7 +563,7 @@
     <p class="petunjuk" data-en="Tap the microphone button and speak. Chrome&#x27;s speech recognition sends the audio to Google to turn it into text; the text goes to your Worker and then to Cloudflare&#x27;s AI model (free).">Ketuk tombol mikrofon lalu bicara. Pengenal suara Chrome mengirim suara ke Google untuk diubah jadi teks; teksnya dikirim ke Worker Anda lalu ke model AI Cloudflare (gratis).</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="badan">
     <h2 data-en="Dance to music">Menari ikut musik</h2>
     <label class="saklar"><input type="checkbox" id="cekMenari"> <span data-en="Listen for music and dance (microphone)">Dengarkan musik lalu menari (mikrofon)</span></label>
     <label class="petunjuk" for="kepekaanTari" data-en="Sensitivity (raise it if quiet music isn&#x27;t detected)">Kepekaan (naikkan kalau musik pelan tidak terdeteksi)</label>
@@ -560,7 +574,7 @@
     <p class="petunjuk" data-en="Sound is processed on the phone only, never recorded or sent. It stays on only briefly: it stops by itself after 3 minutes, or after 25 seconds without music. You can also say &quot;let&#x27;s dance&quot;; tap the face to stop. Automatic listening (chat) pauses meanwhile. No dancing during night mode.">Suara diolah di HP saja, tidak direkam dan tidak dikirim. Nyala hanya sebentar: berhenti sendiri setelah 3 menit, atau 25 detik kalau tidak ada musik. Bisa juga bilang "ayo menari"; ketuk wajah untuk berhenti. Selama ini dengar otomatis (ngobrol) istirahat. Tidak menari di jam mode malam.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2 data-en="Clock &amp; reminders">Jam &amp; pengingat</h2>
     <label class="saklar"><input type="checkbox" id="cekJam"> <span data-en="Show the clock on screen">Tampilkan jam di layar</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
@@ -577,7 +591,7 @@
     <p class="petunjuk" data-en="You can also say: &quot;remind me at 7 pm to take my medicine&quot;, &quot;remind me in 10 minutes to bring in the laundry&quot;, &quot;remind me every day at 6 am to exercise&quot;, &quot;what time is it?&quot;. Stored on this phone only. Reminders only ring while KiKo is open on screen.">Bisa juga lewat suara: "ingatkan aku jam 7 malam minum obat", "ingatkan aku 10 menit lagi angkat jemuran", "ingatkan aku setiap hari jam 6 pagi olahraga", "jam berapa sekarang?". Disimpan di HP ini saja. Pengingat hanya berbunyi selama KiKo terbuka di layar.</p>
   </div>
 
-  <div class="bagian" id="bagianDaftarCatatan">
+  <div class="bagian" id="bagianDaftarCatatan" data-tab="asisten">
     <h2 data-en="Note list">Daftar catatan</h2>
     <ul class="daftar" id="isiDaftarCatatan"></ul>
     <p class="petunjuk" id="statusDaftarCatatan" role="status">Daftar masih kosong.</p>
@@ -588,7 +602,7 @@
     <p class="petunjuk" data-en="Say &quot;make a list from these notes&quot;, then hold the sticky notes or the to-do paper in front of my camera (or turn me to face the wall). Then &quot;add more&quot; for the next photo, &quot;read my list&quot;, &quot;number 2 is done&quot;, &quot;delete number 3&quot;, &quot;clear my list&quot;. Handwriting is read by the AI (needs the Worker address, Worker v20); unclear words get a question mark. The list is kept on this phone only.">Bilang "susun daftar dari catatan ini", lalu pegang catatan tempel atau kertas to-do di depan kameraku (atau hadapkan aku ke dinding). Lalu "tambah lagi" untuk foto berikutnya, "bacakan daftarku", "nomor 2 selesai", "hapus nomor 3", "hapus daftarku". Tulisan tangan dibaca AI (butuh alamat Worker, Worker v20); kata yang kurang jelas diberi tanda tanya. Daftar disimpan di HP ini saja.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2 data-en="Phone &amp; WhatsApp">Telepon &amp; WhatsApp</h2>
     <label class="saklar"><input type="checkbox" id="cekTelepon" checked> <span data-en="Enable phone / WhatsApp commands">Aktifkan perintah telepon / WhatsApp</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
@@ -600,7 +614,7 @@
     <p class="petunjuk" data-en="Say: &quot;call Mama&quot;, &quot;WhatsApp Mama&quot;, &quot;message Mama I&#x27;ll be late&quot;. KiKo always shows a green button first; the call or message only goes ahead after you tap it. Numbers are stored on this phone only, never sent to the AI.">Bilang: "telepon Mama", "WA Mama", "kirim pesan ke Mama aku pulang telat". KiKo selalu menampilkan tombol hijau dulu; telepon atau pesan baru jalan setelah Anda mengetuknya. Nomor hanya disimpan di HP ini, tidak dikirim ke AI.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2 data-en="Incoming messages">Pesan masuk</h2>
     <label class="saklar"><input type="checkbox" id="cekPesan"> <span data-en="Show incoming messages briefly (needs the KiKo Notif app)">Tampilkan pesan masuk sekejap (butuh aplikasi KiKo Notif)</span></label>
     <label class="saklar"><input type="checkbox" id="cekPesanIsi" checked> <span data-en="Also show the message text (off = sender only)">Tampilkan juga isi pesan (mati = hanya pengirim)</span></label>
@@ -622,7 +636,7 @@
     <p class="petunjuk" data-en="KiKo Notif (Android app) reads message notifications from any app (WhatsApp, SMS, Telegram, …) and hands them to KiKo inside the phone only (127.0.0.1); nothing goes to the internet. The bubble appears for a few seconds at the bottom without covering the face.">KiKo Notif (aplikasi Android) membaca notifikasi pesan dari aplikasi apa pun (WhatsApp, SMS, Telegram, …) dan memberikannya ke KiKo hanya di dalam HP (127.0.0.1); tidak ada yang dikirim ke internet. Gelembung muncul beberapa detik di bawah tanpa menutupi wajah.</p>
   </div>
 
-  <div class="bagian" id="bagianJauh">
+  <div class="bagian" id="bagianJauh" data-tab="asisten" data-lanjut>
     <h2 data-en="Remote control by WhatsApp">Kendali jarak jauh (WhatsApp)</h2>
     <label class="saklar"><input type="checkbox" id="cekJauh"> <span data-en="Answer the owner's WhatsApp chats about home automatically">Jawab otomatis chat WhatsApp pemilik tentang rumah</span></label>
     <input class="isian" id="jauhNama" type="text" placeholder="Nama pemilik di kontak HP KiKo, mis. Papa" data-en-ph="Owner name in the KiKo phone contacts, e.g. Dad" aria-label="Nama pemilik" maxlength="80">
@@ -639,7 +653,7 @@
     <p class="petunjuk" data-en="The KiKo phone needs its own WhatsApp number, different from yours, and KiKo Notif v1.6 with &quot;Incoming messages&quot; on. Save your number in the KiKo phone contacts and type that contact name here exactly (several: separate with commas). Your chats are not announced at home; KiKo replies by itself from what it saw: &quot;home status&quot;, &quot;who is home?&quot;, &quot;any visitors?&quot;, &quot;battery&quot;, &quot;note list&quot;, &quot;guard mode on/off&quot;, &quot;tell home dinner is ready&quot;. Chats about the AC, TV, lights or starting with &quot;Lora&quot; go to Lora (ELIORA on the tablet) over the home Wi-Fi. With a secret code, only chats that start with it are answered. KiKo never sends photos. The page must stay open on the KiKo phone. In the room you can also just tell KiKo, e.g. &quot;KiKo, it is so hot&quot;: KiKo asks Lora and says the answer. Anything starting with &quot;Lora&quot; is for Lora only; KiKo stays quiet.">HP KiKo butuh nomor WhatsApp sendiri (beda dari nomormu), dan KiKo Notif v1.6 dengan "Pesan masuk" menyala. Simpan nomormu di kontak HP KiKo, lalu tulis nama kontak itu di sini persis sama (beberapa nama: pisahkan dengan koma). Chat darimu tidak diumumkan di rumah; KiKo membalas sendiri dari yang ia lihat: "situasi rumah", "ada siapa?", "ada tamu?", "baterai", "daftar catatan", "nyalakan/matikan mode jaga", "bilang ke rumah makan malam sudah siap". Chat soal AC, TV, lampu atau yang diawali "Lora" diteruskan ke Lora (ELIORA di tablet) lewat Wi-Fi rumah. Kalau kode rahasia diisi, hanya chat yang diawali kode itu yang dijawab. KiKo tidak pernah mengirim foto. Halaman KiKo harus tetap terbuka di HP KiKo. Di ruangan kamu juga bisa bilang langsung ke KiKo, mis. "KiKo, kok gerah ya": KiKo meminta Lora lalu mengucapkan jawabannya. Ucapan yang diawali "Lora" hanya untuk Lora; KiKo diam.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2>Timer</h2>
     <label class="saklar"><input type="checkbox" id="cekTimer" checked> <span data-en="Enable timer">Aktifkan timer</span></label>
     <div class="baris" style="justify-content:flex-start" id="tombolTimerCepat">
@@ -653,7 +667,7 @@
     <p class="petunjuk" data-en="Say: &quot;set a timer for 5 minutes&quot;, &quot;countdown 30 seconds&quot;, &quot;how much time is left on the timer&quot;, &quot;cancel the timer&quot;.">Bilang: "timer 5 menit", "hitung mundur 30 detik", "sisa timer berapa", "batalkan timer".</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2>Radio</h2>
     <label class="saklar"><input type="checkbox" id="cekRadio" checked> <span data-en="Enable radio">Aktifkan radio</span></label>
     <ul class="daftar" id="daftarRadio"></ul>
@@ -668,7 +682,7 @@
     <p class="petunjuk" data-en="Say: &quot;play the radio&quot;, &quot;play radio Suara Surabaya&quot;, &quot;play the news&quot;, &quot;play some music&quot;, &quot;stop the radio&quot;, &quot;turn it down&quot;, &quot;turn it up&quot;. Streams must be https. While the radio plays, automatic listening pauses and the radio is turned down while KiKo listens or speaks. With dance mode on, KiKo dances along.">Bilang: "putar radio", "putar radio Suara Surabaya", "putar berita", "putar musik", "matikan radio", "kecilkan suara", "besarkan suara". Stream harus https. Selama radio menyala, dengar otomatis istirahat dan suara radio dikecilkan saat KiKo mendengar/bicara. Kalau mode menari nyala, KiKo ikut menari.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2 data-en="Watch YouTube">Nonton YouTube</h2>
     <div class="baris" style="justify-content:flex-start;align-items:center">
       <input class="isian" id="ytLink" type="url" inputmode="url" placeholder="Link YouTube (youtu.be/…)" data-en-ph="YouTube link (youtu.be/…)" aria-label="Link video YouTube" autocomplete="off" spellcheck="false" style="flex:1;min-width:12em;width:auto">
@@ -681,7 +695,7 @@
     <p class="petunjuk" data-en="Easiest: in the YouTube app tap Share → KiKo (KiKo must be installed as an app). Or copy the link, then tap Paste. Say: &quot;watch YouTube&quot; (last video), &quot;pause&quot;, &quot;continue&quot;, &quot;close YouTube&quot;. KiKo watches with you from the corner and turns its head toward you. Viu/WeTV/Netflix can't be shown inside KiKo; use split screen.">Paling mudah: di aplikasi YouTube ketuk Bagikan → KiKo (KiKo harus terpasang sebagai aplikasi). Atau salin link, lalu ketuk Tempel. Bilang: "nonton youtube" (video terakhir), "jeda", "lanjut", "tutup youtube". KiKo ikut menonton dari pojok dan menoleh ke arah Anda. Viu/WeTV/Netflix tidak bisa diputar di dalam KiKo; pakai layar terpisah (split screen).</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="asisten">
     <h2 data-en="Weather">Cuaca</h2>
     <label class="saklar"><input type="checkbox" id="cekCuaca" checked> <span data-en="Enable weather">Aktifkan cuaca</span></label>
     <div class="baris" style="justify-content:flex-start;align-items:center">
@@ -693,7 +707,7 @@
     <p class="petunjuk" data-en="Say: &quot;what&#x27;s the weather today&quot;, &quot;will it rain tomorrow?&quot;, &quot;is it hot right now?&quot;. Data from Open-Meteo (free, no account); only the city&#x27;s coordinates are sent.">Bilang: "cuaca hari ini", "besok hujan nggak?", "panas nggak sekarang?". Data dari Open-Meteo (gratis, tanpa akun); yang dikirim hanya koordinat kota.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="ngobrol">
     <h2 data-en="KiKo&#x27;s memory">Ingatan KiKo</h2>
     <p class="petunjuk" id="isiIngatan">Belum ada.</p>
     <div class="baris" style="justify-content:flex-start">
@@ -702,7 +716,7 @@
     <p class="petunjuk" data-en="Stored on this phone only. KiKo remembers your name and the things you tell it, and uses them when chatting.">Disimpan di HP ini saja. KiKo mengingat nama dan hal yang Anda ceritakan, lalu memakainya saat ngobrol.</p>
   </div>
 
-  <div class="bagian" id="bagianKenalWajah">
+  <div class="bagian" id="bagianKenalWajah" data-tab="mata">
     <h2 data-en="Known faces">Wajah yang dikenal</h2>
     <label class="saklar"><input type="checkbox" id="cekKenalWajah"> <span data-en="Recognise family faces and greet them by name">Kenali wajah keluarga dan sapa dengan namanya</span></label>
     <label class="saklar"><input type="checkbox" id="cekTanyaNama" checked> <span data-en="Ask the name of someone seen 3 times (asks permission first)">Tanya nama orang yang sudah 3 kali terlihat (minta izin dulu)</span></label>
@@ -716,7 +730,7 @@
     <p class="petunjuk" data-en="Say: &quot;remember my face, my name is Budi&quot;, &quot;who am I?&quot;, &quot;whose faces do you know?&quot;, &quot;forget my face&quot;. A face is turned into a list of numbers and kept on this phone only; nothing is sent to the internet. Ask each person first before saving their face. The first time, the phone downloads a ±8 MB model once. Needs &quot;Follow faces&quot; on.">Bilang: "ingat wajahku, namaku Budi", "siapa aku?", "wajah siapa saja yang kamu kenal?", "lupakan wajahku". Wajah diubah menjadi deretan angka dan disimpan di HP ini saja, tidak dikirim ke internet. Minta izin orangnya dulu sebelum menyimpan wajahnya. Pertama kali dipakai, HP mengunduh model ±8 MB sekali. Butuh "Ikuti wajah orang" menyala.</p>
   </div>
 
-  <div class="bagian" id="bagianJaga">
+  <div class="bagian" id="bagianJaga" data-tab="mata">
     <h2 data-en="Guard mode">Mode jaga</h2>
     <label class="saklar"><input type="checkbox" id="cekJaga"> <span data-en="Photograph strangers, touches and lifting while I'm alone">Foto orang tak dikenal, sentuhan, dan HP diangkat saat KiKo ditinggal</span></label>
     <label class="saklar"><input type="checkbox" id="cekJagaSuara" checked> <span data-en="Tell the stranger they were photographed">Beri tahu orang itu bahwa ia difoto</span></label>
@@ -728,7 +742,7 @@
     <p class="petunjuk" data-en="Say &quot;guard mode&quot; before you leave, &quot;stop guard mode&quot; or just come back: when KiKo recognises your face, guard mode ends and it tells you how many photos there are. Needs at least one known face and &quot;Follow faces&quot; on. Photos stay on this phone only, at most 30, deleted after 7 days, and are not in the data backup. KiKo cannot see objects being taken; only faces in front of the phone camera are recorded. While asleep KiKo peeks every 10 seconds (every 30 when the phone is below 30 % and not charging), so a very quick visit can be missed. Charge the phone in the cradle with a right-angle USB-C cable while guarding: if it is not charging, KiKo says how many hours it can last, and unplugging the phone charger is photographed too. Not a replacement for CCTV.">Bilang "mode jaga" sebelum pergi, lalu "matikan mode jaga" atau cukup kembali: saat KiKo mengenali wajah Anda, mode jaga selesai dan KiKo menyebut jumlah fotonya. Butuh minimal satu wajah yang dikenal dan "Ikuti wajah orang" menyala. Foto disimpan di HP ini saja, paling banyak 30, terhapus sendiri setelah 7 hari, dan tidak ikut cadangan data. KiKo tidak bisa melihat barang diambil; yang terekam hanya wajah di depan kamera HP. Saat tidur KiKo mengintip tiap 10 detik (tiap 30 detik kalau baterai HP di bawah 30 % dan tidak dicas), jadi orang yang lewat sangat cepat bisa terlewat. Selama berjaga, cas HP di dudukan dengan kabel USB-C siku: kalau tidak dicas, KiKo menyebut berapa jam ia kuat, dan charger HP yang dicabut ikut difoto. Bukan pengganti CCTV.</p>
   </div>
 
-  <div class="bagian">
+  <div class="bagian" data-tab="wajah">
     <h2 data-en="Eye style">Gaya mata</h2>
     <div class="baris" style="justify-content:flex-start" id="pilihGaya">
       <button class="pilih" type="button" id="gaya-realistis" data-gaya="realistis" data-en="Realistic">Realistis</button>
@@ -739,22 +753,22 @@
     </div>
   </div>
 
-  <div class="bagian khusus-kelinci">
+  <div class="bagian khusus-kelinci" data-tab="wajah">
     <h2 data-en="Rabbit breed">Jenis kelinci</h2>
     <div class="grid-ekspresi" id="gridJenisKelinci"></div>
   </div>
 
-  <div class="bagian khusus-kucing">
+  <div class="bagian khusus-kucing" data-tab="wajah">
     <h2 data-en="Cat breed">Jenis kucing</h2>
     <div class="grid-ekspresi" id="gridJenis"></div>
   </div>
 
-  <div class="bagian khusus-anjing">
+  <div class="bagian khusus-anjing" data-tab="wajah">
     <h2 data-en="Dog breed">Jenis anjing</h2>
     <div class="grid-ekspresi" id="gridJenisAnjing"></div>
   </div>
 
-  <div class="bagian khusus-hewan">
+  <div class="bagian khusus-hewan" data-tab="wajah">
     <h2 data-en="Animal sounds">Suara hewan</h2>
     <label class="saklar"><input type="checkbox" id="cekSuaraHewan" checked> <span data-en="Now and then meow (cat), bark (dog) or thump (rabbit)">Sesekali mengeong (kucing), menggonggong (anjing) atau menghentak kaki (kelinci)</span></label>
     <div class="baris" style="justify-content:flex-start">
@@ -764,27 +778,34 @@
     <p class="petunjuk" data-en="Recordings from Wikimedia Commons: cat meow by Heismark (public domain); dog barks by Amada44, CC BY-SA 3.0.">Rekaman dari Wikimedia Commons: meong kucing oleh Heismark (domain publik); gonggongan anjing oleh Amada44, CC BY-SA 3.0.</p>
   </div>
 
-  <div class="bagian khusus-realistis">
+  <div class="bagian khusus-realistis" data-tab="wajah">
     <h2 data-en="Iris colour">Warna iris</h2>
     <div class="grid-warna" id="gridIris"></div>
   </div>
 
-  <div class="bagian khusus-realistis">
+  <div class="bagian khusus-realistis" data-tab="wajah">
     <h2 data-en="Face colour">Warna wajah</h2>
     <div class="grid-warna" id="gridKulit"></div>
     <label class="saklar"><input type="checkbox" id="cekAlis" checked> <span data-en="Show eyebrows">Tampilkan alis</span></label>
     <label class="saklar khusus-hewan"><input type="checkbox" id="cekBelang" checked> <span data-en="Show fur markings (stripes / patches / spots / mask)">Tampilkan corak bulu (belang / bercak / totol / topeng)</span></label>
   </div>
 
-  <div class="bagian khusus-robot">
+  <div class="bagian khusus-robot" data-tab="wajah">
     <h2 data-en="Glow colour">Warna cahaya</h2>
     <div class="grid-warna" id="gridWarna"></div>
   </div>
 
+  <div class="bagian" data-tab="wajah">
+    <h2 data-en="Expressions">Ekspresi</h2>
+    <div class="grid-ekspresi" id="gridEkspresi"></div>
+  </div>
+
+
+  <button class="tombol" id="tombolLainnya" type="button" hidden></button>
+
   <div class="baris" style="justify-content:flex-start">
     <button class="tombol" id="tombolSetir" type="button">Tampilkan setir</button>
     <button class="tombol" id="tombolLayarPenuh" type="button" data-en="Fullscreen">Layar penuh</button>
-    <button class="tombol" id="tombolBasePanel" type="button">Hubungkan base</button>
     <button class="tombol utama" id="tutupAtur" type="button" data-en="Close">Tutup</button>
   </div>
 
@@ -3158,6 +3179,38 @@
   const panel = document.getElementById('atur');
   const tombolAtur = document.getElementById('bukaAtur');
   let panelTerbuka = false, timerSamar = 0;
+
+  // ---------- Tab ATUR (2026-11-27, pengguna: "sederhanakan menu kiko agar tidak terlalu panjang") ----------
+  // 36 bagian dikelompokkan jadi 6 tab lewat atribut data-tab; data-lanjut = jarang dipakai, di balik "Lainnya".
+  // Isi bagian, id dan saklar tidak berubah, jadi setelan tersimpan tetap terbaca.
+  const TAB_ATUR = ['wajah', 'ngobrol', 'asisten', 'mata', 'badan', 'rawat'];
+  const tombolLainnya = document.getElementById('tombolLainnya');
+  let tabAtur = (() => { try { return localStorage.getItem('kiko.tabAtur'); } catch (_) { return null; } })();
+  if (!TAB_ATUR.includes(tabAtur)) tabAtur = 'wajah';
+  function pilihTabAtur(k, gulir) {
+    tabAtur = k; try { localStorage.setItem('kiko.tabAtur', k); } catch (_) {}
+    panel.classList.remove('lanjut');
+    document.querySelectorAll('#tabAtur [data-tabatur]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tabatur === k)));
+    let n = 0;
+    panel.querySelectorAll('.bagian[data-tab]').forEach(el => {
+      el.classList.toggle('luarTab', el.dataset.tab !== k);
+      if (el.dataset.tab === k && el.hasAttribute('data-lanjut')) n++;
+    });
+    tombolLainnya.hidden = !n;
+    tombolLainnya.dataset.jumlah = n;
+    labelLainnya();
+    if (gulir) panel.scrollTop = 0;
+  }
+  function labelLainnya() {
+    const buka = panel.classList.contains('lanjut');
+    tombolLainnya.textContent = (buka ? '▾ ' : '▸ ') + L('Lainnya', 'More') + ' (' + (tombolLainnya.dataset.jumlah || 0) + ')';
+  }
+  tombolLainnya.addEventListener('click', () => { panel.classList.toggle('lanjut'); labelLainnya(); });
+  document.getElementById('tabAtur').addEventListener('click', e => {
+    const b = e.target.closest('[data-tabatur]'); if (b) pilihTabAtur(b.dataset.tabatur, true);
+  });
+  pilihTabAtur(tabAtur, false);
+  if (MODE_PENGEMBANG) window.kikoTab = pilihTabAtur;
 
   function bukaPanel() {
     panelTerbuka = true; panel.classList.add('terbuka'); panel.setAttribute('aria-hidden', 'false');
@@ -10128,6 +10181,7 @@
   const JENIS_EN = { oranye: 'Orange tabby', abu: 'Grey tabby', hitam: 'Black', calico: 'Calico', siam: 'Siamese', ganjil: 'Odd-eyed white' };
   function terapkanBahasa() {
     document.documentElement.lang = bahasa;
+    try { labelLainnya(); } catch (_) {}
     document.querySelectorAll('[data-en]').forEach(el => {
       if (el.dataset.id === undefined) el.dataset.id = el.textContent;
       el.textContent = bahasa === 'en' ? el.dataset.en : el.dataset.id;
