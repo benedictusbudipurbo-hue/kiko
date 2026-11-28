@@ -2570,8 +2570,16 @@
       const sejakKlik = now - gerak.puncakT;
       if (fase === 'pasang' && gerak.tegak && gerak.halus < 0.6 && sejakKlik > 250 && sejakKlik < 1500) {
         saatDitempel('gerak');
-      } else if (fase === 'hidup' && gerak.tegak && gerak.halus < 0.3 && cekJaga.checked) {
-        gerak.tempel = true;                                // mode jaga: HP yang tadi diangkat sudah dipasang lagi
+      } else if (fase === 'hidup' && gerak.tegak && gerak.halus < 0.3) {
+        // 2026-11-28 (uji KiKo Lite: HP ditarik dari dudukan, tidak ada "letakkan aku kembali"):
+        // "menempel" dulu hanya dipasang saat wajah mulai hidup SAMBIL tegak, atau lewat hentakan magnet.
+        // Dudukan U tanpa magnet tidak memberi hentakan, dan kalau base disambung saat HP masih di tangan,
+        // deteksi angkat tidak pernah aktif. Sekarang: hidup + tegak + tenang 1,5 dtk = menempel.
+        if (cekJaga.checked) gerak.tempel = true;           // mode jaga: HP yang tadi diangkat sudah dipasang lagi
+        else if (!gerak.tegakSejak) gerak.tegakSejak = now;
+        else if (now - gerak.tegakSejak > 1500) { gerak.tempel = true; gerak.tegakSejak = 0; }
+      } else {
+        gerak.tegakSejak = 0;
       }
     } else if (!gerak.tegak) {
       // 2026-10-21 (pengguna: ditinggal 5 menit, KiKo kembali ke layar pasang dengan latar
