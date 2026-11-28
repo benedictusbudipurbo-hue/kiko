@@ -1,10 +1,10 @@
 {
-  "versi": 32,
-  "file": "kiko_base_Ver_32.bin",
-  "ukuran": 687360,
-  "sha256": "2853f70666e77b3e961269795fcd6143a684c8981c1448f86ebd3920c0296802",
-  "tanggal": "2026-11-05",
-  "catatan": "KiKo langsung menjauh sendiri dari tepi meja, dan mulai bergerak lebih lembut supaya roda tidak mudah selip.",
-  "catatan_en": "KiKo now backs away from table edges by itself right away, and starts moving more gently so the wheels slip less.",
+  "versi": 35,
+  "file": "kiko_base_Ver_35.bin",
+  "ukuran": 687840,
+  "sha256": "d5d3834162c59a8ba439f37e5d4db5f68c769fd65e95d6c52908d26eb518bb41",
+  "tanggal": "2026-11-28",
+  "catatan": "Gelengan kepala KiKo kini lebih pelan dan halus; anggukan tetap tegas.",
+  "catatan_en": "KiKo's head shakes are now slower and smoother; nods stay crisp.",
   "partisi": "min_spiffs"
 }
