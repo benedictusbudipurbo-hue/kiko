@@ -3197,7 +3197,32 @@
       sambungSetelahPembaruan();
     }
     else if (fase === 'hidup' || (fase === 'memuat' && !MODE_PENGEMBANG)) keLayarPasang(ble.kritis ? L('Baterai KiKo hampir habis. Matikan saklar lalu cas ya.', "KiKo's battery is almost empty. Switch it off and charge it.") : L('Base terputus.', 'Base disconnected.'));
-    ble.kritis = false;
+    if (!ota.mulaiUlang && !ble.kritis && !ble.putusManual) sambungUlangSendiri();
+    ble.kritis = false; ble.putusManual = false;
+  }
+
+  // 2026-11-28 (uji KiKo Lite: adaptor dicabut lalu dicolok lagi, HP tetap di dudukan, harus ketuk
+  // "Hubungkan base"): dulu sambung ulang otomatis hanya saat HP DITEMPEL (NFC / hentakan), padahal
+  // HP tidak bergerak sama sekali. Sekarang setelah putus yang tidak disengaja KiKo terus mencari base
+  // yang sama: tiap 3 dtk selama 2 menit pertama, lalu tiap 15 dtk sampai 30 menit. Tidak dijalankan
+  // setelah "Putuskan base" diketuk, saat baterai kritis (base tidur), atau saat pembaruan (punya loop sendiri).
+  let sambungSendiriJalan = false;
+  async function sambungUlangSendiri() {
+    if (sambungSendiriJalan) return;
+    sambungSendiriJalan = true;
+    const mulai = performance.now();
+    try {
+      while (!ble.terhubung && !ble.putusManual) {
+        const lama = performance.now() - mulai;
+        if (lama > 30 * 60000) break;
+        await new Promise(r => setTimeout(r, lama < 120000 ? 3000 : 15000));
+        if (ble.terhubung || ble.putusManual) break;
+        if (fase === 'pasang') statusPasang.textContent = L('Base terputus. Mencari base lagi…', 'Base disconnected. Looking for it again…');
+        try { if (await sambungUlangOtomatis()) break; } catch (_) {}
+      }
+      if (!ble.terhubung && !ble.putusManual && fase === 'pasang')
+        statusPasang.textContent = L('Base belum ditemukan. Ketuk "Hubungkan base".', 'Base not found. Tap "Connect base".');
+    } finally { sambungSendiriJalan = false; }
   }
 
   // Kembali ke layar "PASANG HP KE KIKO" dengan mata tertidur (seperti Looi).
@@ -3223,6 +3248,7 @@
   }
 
   function putuskanBle() {
+    ble.putusManual = true;                  // putus disengaja: jangan sambung ulang sendiri
     if (ble.device && ble.device.gatt.connected) ble.device.gatt.disconnect();
   }
 
