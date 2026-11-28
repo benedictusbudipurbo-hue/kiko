@@ -2570,11 +2570,13 @@
       const sejakKlik = now - gerak.puncakT;
       if (fase === 'pasang' && gerak.tegak && gerak.halus < 0.6 && sejakKlik > 250 && sejakKlik < 1500) {
         saatDitempel('gerak');
-      } else if (fase === 'hidup' && gerak.tegak && gerak.halus < 0.3) {
+      } else if (fase === 'hidup' && gerak.tegak && gerak.halus < (cekJaga.checked ? 0.3 : 0.6)) {
         // 2026-11-28 (uji KiKo Lite: HP ditarik dari dudukan, tidak ada "letakkan aku kembali"):
         // "menempel" dulu hanya dipasang saat wajah mulai hidup SAMBIL tegak, atau lewat hentakan magnet.
         // Dudukan U tanpa magnet tidak memberi hentakan, dan kalau base disambung saat HP masih di tangan,
         // deteksi angkat tidak pernah aktif. Sekarang: hidup + tegak + tenang 1,5 dtk = menempel.
+        // Batas tenang 0,6 (sama dengan deteksi tempel): sebagian HP membaca besar gravitasi meleset
+        // 0,2-0,4 m/s2, jadi 0,3 bisa tidak pernah tercapai (uji pengguna: tetap tanpa jawaban).
         if (cekJaga.checked) gerak.tempel = true;           // mode jaga: HP yang tadi diangkat sudah dipasang lagi
         else if (!gerak.tegakSejak) gerak.tegakSejak = now;
         else if (now - gerak.tegakSejak > 1500) { gerak.tempel = true; gerak.tegakSejak = 0; }
@@ -3213,7 +3215,20 @@
     const buka = panel.classList.contains('lanjut');
     tombolLainnya.textContent = (buka ? '▾ ' : '▸ ') + L('Lainnya', 'More') + ' (' + (tombolLainnya.dataset.jumlah || 0) + ')';
   }
-  tombolLainnya.addEventListener('click', () => { panel.classList.toggle('lanjut'); labelLainnya(); });
+  // 2026-11-28 (pengguna: "Lainnya tidak ada respon saat diketuk"): bagian tambahan muncul di posisi
+  // aslinya, JAUH di atas tombol, jadi terlihat seperti tidak terjadi apa-apa. Pindahkan semuanya ke
+  // tepat di bawah tombol (filter tab tetap lewat data-tab), lalu gulir ke bagian pertama yang terbuka.
+  {
+    let sisip = tombolLainnya;
+    panel.querySelectorAll('.bagian[data-lanjut]').forEach(el => { sisip.after(el); sisip = el; });
+  }
+  tombolLainnya.addEventListener('click', () => {
+    panel.classList.toggle('lanjut'); labelLainnya();
+    if (panel.classList.contains('lanjut')) {
+      const el = [...panel.querySelectorAll('.bagian[data-lanjut]')].find(e => !e.classList.contains('luarTab'));
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
   document.getElementById('tabAtur').addEventListener('click', e => {
     const b = e.target.closest('[data-tabatur]'); if (b) pilihTabAtur(b.dataset.tabatur, true);
   });
