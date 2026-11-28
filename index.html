@@ -477,7 +477,7 @@
 
   <div class="bagian" data-tab="badan" data-lanjut>
     <h2 data-en="Attach to the mount">Tempel ke dudukan</h2>
-    <label class="saklar"><input type="checkbox" id="cekTempel" checked> <span data-en="Face wakes when the phone is attached to the mount, sleeps when lifted (NFC + motion sensor)">Wajah bangun saat HP ditempel ke dudukan, tidur saat diangkat (NFC + sensor gerak)</span></label>
+    <label class="saklar"><input type="checkbox" id="cekTempel" checked> <span data-en="Face wakes when the phone is attached to the mount and asks to be put back when lifted (NFC + motion sensor)">Wajah bangun saat HP ditempel ke dudukan, minta dikembalikan saat diangkat (NFC + sensor gerak)</span></label>
     <div class="baris" style="justify-content:flex-start">
       <button class="tombol" id="tombolNfc" type="button" data-en="Enable NFC">Aktifkan NFC</button>
     </div>
@@ -10191,7 +10191,7 @@
     { k: 'menjauh', n: ['Menjauh', 'Go away'], cara: ['Bilang "menjauh", lalu elus badannya atau bilang "sini lagi"', 'Say "go away", then pet it or say "come back"'],
       hasil: ['KiKo mundur dan diam, lalu kembali saat dipanggil', 'KiKo backs off and stays quiet, then returns when called'] },
     { k: 'dudukan', n: ['Dudukan HP', 'Phone cradle'], cara: ['Angkat HP, lalu pasang lagi', 'Lift the phone out, then put it back'],
-      hasil: ['Wajah tidur saat diangkat, bangun lagi saat dipasang', 'The face sleeps when lifted, wakes again when put back'] },
+      hasil: ['Diangkat: wajah sedih, "Letakkan aku kembali ke dudukan ya". Dipasang lagi: "Hore, aku kembali!"', 'Lifted: sad face, "Please put me back on the mount". Put back: "Yay, I am back!"'] },
     // 2026-10-24: uji 20-22 manual (tempel otomatis lewat NFC, pesan WA, wajah & suara hewan).
     { k: 'tempel', n: ['Tempel otomatis', 'Auto dock'], cara: ['Tutup KiKo di HP, lalu tempel HP ke dudukan tanpa menyentuh layar', 'Close KiKo on the phone, then dock the phone without touching the screen'],
       hasil: ['KiKo terbuka sendiri lewat stiker NFC dan tersambung ke base dalam beberapa detik', 'KiKo opens by itself via the NFC sticker and connects to the base within seconds'] },
@@ -10447,6 +10447,23 @@
         else if (st.state === 'prompt' && SR) ketMic += L(' Izin mikrofon akan ditanya saat pertama bicara.', ' The microphone permission is asked the first time you talk.');
       } catch (_) {}
       diagTambah('mic', L('Mikrofon', 'Microphone'), mic, ketMic);
+      // 2026-11-28 (uji KiKo Lite: "letakkan aku kembali" tidak pernah muncul): izin Chrome "Sensor gerak"
+      // diblokir untuk situs KiKo, devicemotion hanya memberi nilai null. Tanpa sensor ini KiKo tidak tahu
+      // HP ditempel, diangkat atau diguncang.
+      {
+        let st = '';
+        try { st = (await navigator.permissions.query({ name: 'accelerometer' })).state; } catch (_) {}
+        const segar = gerak.adaData && performance.now() - (gerak.dataT || 0) < 3000;
+        if (st === 'denied' || (!segar && st !== 'granted'))
+          diagTambah('sensor', L('Sensor gerak', 'Motion sensors'), 'periksa',
+            L('Diblokir. Buka Chrome > Setelan > Setelan situs > Sensor gerak, izinkan situs KiKo, lalu buka ulang KiKo. Tanpa ini KiKo tidak tahu HP ditempel atau diangkat.',
+              'Blocked. Open Chrome > Settings > Site settings > Motion sensors, allow the KiKo site, then reopen KiKo. Without it KiKo cannot tell when the phone is docked or lifted.'));
+        else if (!segar)
+          diagTambah('sensor', L('Sensor gerak', 'Motion sensors'), 'periksa', L('Diizinkan, tapi belum ada data. Tutup lalu buka ulang KiKo.', 'Allowed, but no data yet. Close and reopen KiKo.'));
+        else
+          diagTambah('sensor', L('Sensor gerak', 'Motion sensors'), 'ok',
+            L('Terbaca', 'Working') + (gerak.tempel ? L(' · HP di dudukan', ' · phone on the mount') : L(' · HP belum terbaca di dudukan', ' · phone not detected on the mount')));
+      }
       if (!navigator.onLine) diagTambah('net', L('Internet', 'Internet'), 'periksa', L('HP sedang offline. Ngobrol, suara dan cuaca butuh internet.', 'The phone is offline. Chat, voice and weather need the internet.'));
       else diagTambah('net', L('Internet', 'Internet'), 'ok', L('Tersambung', 'Connected'));
       if (!ai.url) diagTambah('ai', L('Otak AI (ngobrol)', 'AI brain (chat)'), 'periksa', L('Alamat Worker belum diisi (ATUR > Ngobrol).', 'The Worker address is empty (Settings > Chat).'));
