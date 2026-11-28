@@ -482,6 +482,7 @@
       <button class="tombol" id="tombolNfc" type="button" data-en="Enable NFC">Aktifkan NFC</button>
     </div>
     <p class="petunjuk" id="statusNfc" role="status">NFC belum aktif. Sensor gerak tetap bekerja.</p>
+    <p class="petunjuk" id="statusSensorTempel" style="font-family:monospace;font-size:12px"></p>
   </div>
 
   <div class="bagian" data-tab="rawat">
@@ -2558,7 +2559,7 @@
     if (!a || a.x == null) return;
     const now = performance.now();
     const simpang = Math.abs(Math.hypot(a.x, a.y, a.z) - 9.81);
-    gerak.adaData = true;
+    gerak.adaData = true; gerak.ax = a.x; gerak.ay = a.y; gerak.az = a.z; gerak.dataT = now;
     gerak.halus = gerak.halus * 0.85 + simpang * 0.15;   // rata-rata guncangan
     gerak.tegak = Math.abs(a.x) > 7 && Math.abs(a.y) < 3.5;
     if (simpang > 4.5) gerak.puncakT = now;              // hentakan "klik" magnet
@@ -2597,6 +2598,28 @@
       gerak.lepasSejak = 0;
     }
   });
+
+  // 2026-11-28 (uji KiKo Lite: HP diangkat tetap tanpa "letakkan aku kembali", sebab belum diketahui):
+  // pembacaan sensor langsung di ATUR -> Badan -> Lainnya -> Tempel ke dudukan, supaya pemilik bisa
+  // melihat kenapa angkat tidak terdeteksi (tidak tegak? tidak tenang? belum dianggap menempel? tidur?).
+  const statusSensorTempel = document.getElementById('statusSensorTempel');
+  setInterval(() => {
+    if (!panelTerbuka || !statusSensorTempel) return;
+    const now = performance.now();
+    if (!gerak.adaData || now - (gerak.dataT || 0) > 2000) {
+      statusSensorTempel.textContent = L('Sensor gerak: tidak ada data dari HP.', 'Motion sensor: no data from the phone.');
+      return;
+    }
+    const f = v => (v >= 0 ? ' ' : '') + v.toFixed(1);
+    const tidur = hemat.zTerkirim || moodSaatIni(now) === 'tidur';
+    statusSensorTempel.textContent =
+      'x' + f(gerak.ax) + ' y' + f(gerak.ay) + ' z' + f(gerak.az) +
+      ' |a| ' + Math.hypot(gerak.ax, gerak.ay, gerak.az).toFixed(2) + ' · ' + L('guncang', 'shake') + ' ' + gerak.halus.toFixed(2) +
+      ' · ' + L('tegak', 'upright') + ' ' + (gerak.tegak ? L('ya', 'yes') : L('tidak', 'no')) +
+      ' · ' + L('menempel', 'attached') + ' ' + (gerak.tempel ? L('ya', 'yes') : L('tidak', 'no')) +
+      ' · ' + L('fase', 'phase') + ' ' + fase + (tidur ? ' · ' + L('tidur', 'asleep') : '') +
+      (cekTempel.checked ? '' : ' · ' + L('SAKLAR MATI', 'SWITCH OFF'));
+  }, 300);
 
   // ---------- Web NFC ----------
   function pesanKiko(pesan) {   // apakah stiker yang terbaca adalah stiker KiKo?
@@ -3226,7 +3249,14 @@
     panel.classList.toggle('lanjut'); labelLainnya();
     if (panel.classList.contains('lanjut')) {
       const el = [...panel.querySelectorAll('.bagian[data-lanjut]')].find(e => !e.classList.contains('luarTab'));
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // scrollIntoView tidak bergulir di HP pengguna (panel = wadah gulir, ada bar tab lengket):
+      // hitung sendiri setelah tata letak diperbarui, dan sisakan tempat untuk bar tab.
+      if (el) setTimeout(() => {
+        const bar = document.getElementById('tabAtur');
+        const atas = el.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop
+                     - (bar ? bar.offsetHeight : 0) - 8;
+        panel.scrollTo({ top: Math.max(0, atas), behavior: 'smooth' });
+      }, 60);
     }
   });
   document.getElementById('tabAtur').addEventListener('click', e => {
