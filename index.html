@@ -2531,11 +2531,30 @@
     if (fase === 'memuat') { keLayarPasang(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.')); return; }
     // 2026-11-26 (pengguna: saat normal HP diangkat, KiKo juga harus bilang "letakkan aku kembali"):
     // KiKo bicara dulu, layar "pasang" menyusul setelah kalimat selesai (keLayarPasang memutus suara).
+    // 2026-11-28 (pengguna, uji KiKo Lite: layar pasang terasa seperti "putus"; pilih "ubah"):
+    // wajah TETAP HIDUP saat HP diangkat. KiKo sedih, mengingatkan paling banyak 3x lagi tiap 20 dtk,
+    // lalu diam. Leher tidak diberi pose (angkatSampai) sampai HP dipasang lagi; kembaliKeDudukan()
+    // dipanggil begitu HP tegak dan tenang lagi. Base tetap tersambung.
     const kalimat = L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.');
+    gerak.diangkat = true;
+    gerak.angkatSampai = Infinity;
     ucapkan(kalimat, 'sedih');
-    setTimeout(() => {
-      if (fase === 'hidup' && !gerak.tempel) keLayarPasang(kalimat);
-    }, cekSuara.checked ? 3200 : 900);
+    clearInterval(gerak.timerIngat);
+    let ulang = 0;
+    gerak.timerIngat = setInterval(() => {
+      if (!gerak.diangkat || fase !== 'hidup' || ++ulang > 3) { clearInterval(gerak.timerIngat); return; }
+      if (!ai.bicara && ai.tahap === 'diam') ucapkan(L('Aku masih di luar dudukan. Letakkan aku kembali ya.', "I'm still off the mount. Please put me back."), 'sedih');
+    }, 20000);
+  }
+  function kembaliKeDudukan() {
+    if (!gerak.diangkat) return;
+    gerak.diangkat = false;
+    gerak.angkatSampai = 0;
+    clearInterval(gerak.timerIngat);
+    if (fase !== 'hidup') return;
+    interaksi();
+    ucapkan(L('Hore, aku kembali!', "Yay, I'm back!"), 'senang');
+    kirim('G,angguk');
   }
 
   // 2026-11-05 (pengguna: roda berputar tapi selip di marmer): encoder hanya menghitung putaran roda, jadi
@@ -2578,9 +2597,9 @@
         // deteksi angkat tidak pernah aktif. Sekarang: hidup + tegak + tenang 1,5 dtk = menempel.
         // Batas tenang 0,6 (sama dengan deteksi tempel): sebagian HP membaca besar gravitasi meleset
         // 0,2-0,4 m/s2, jadi 0,3 bisa tidak pernah tercapai (uji pengguna: tetap tanpa jawaban).
-        if (cekJaga.checked) gerak.tempel = true;           // mode jaga: HP yang tadi diangkat sudah dipasang lagi
+        if (cekJaga.checked) { gerak.tempel = true; kembaliKeDudukan(); }   // mode jaga: HP yang tadi diangkat sudah dipasang lagi
         else if (!gerak.tegakSejak) gerak.tegakSejak = now;
-        else if (now - gerak.tegakSejak > 1500) { gerak.tempel = true; gerak.tegakSejak = 0; }
+        else if (now - gerak.tegakSejak > 1500) { gerak.tempel = true; gerak.tegakSejak = 0; kembaliKeDudukan(); }
       } else {
         gerak.tegakSejak = 0;
       }
@@ -3193,6 +3212,7 @@
     tutupPanel();
     tombolAtur.hidden = true;
     perbaruiTombolBicara();
+    if (gerak.diangkat) { gerak.diangkat = false; clearInterval(gerak.timerIngat); gerak.angkatSampai = performance.now() + 5000; }
     if (performance.now() < (gerak.angkatSampai || 0)) tampilTeks(L('Letakkan aku kembali ke dudukan ya.', 'Please put me back on the mount.'), 4000);
     else { tampilTeks(''); if (window.speechSynthesis) speechSynthesis.cancel(); }   // HP baru diangkat: kalimatnya dibiarkan selesai
     lepasSetir();
@@ -3639,7 +3659,10 @@
   }
   function aturTidurHemat(now, mood) {
     hemat.tidur = cekHemat.checked && fase === 'hidup' && mood === 'tidur' && !nonton.aktif;
-    const kirimZ = hemat.tidur && ble.terhubung && (ble.versiBase || 0) >= 26 && !ota.aktif;
+    // 2026-11-28 (pengguna: "servo hangat" saat uji angkat HP): tanpa HP dudukan hampir seimbang dan servo
+    // tilt terus mengoreksi (hunting) sehingga hangat. Selama HP diangkat base juga diberi Z,1: leher ke
+    // pose diam lalu servo dilemaskan; Z,0 lagi begitu HP dipasang kembali.
+    const kirimZ = (hemat.tidur || (gerak.diangkat && fase === 'hidup')) && ble.terhubung && (ble.versiBase || 0) >= 26 && !ota.aktif;
     if (kirimZ && !hemat.zTerkirim) { hemat.zTerkirim = true; kirim('Z,1'); }
     else if (!kirimZ && hemat.zTerkirim) { hemat.zTerkirim = false; hemat.bangunPada = now; if (ble.terhubung) kirim('Z,0'); }
     // B/D: sepi = bangun, ada pelacakan wajah, tapi tidak ada wajah >= 30 dtk dan tidak ada interaksi.
